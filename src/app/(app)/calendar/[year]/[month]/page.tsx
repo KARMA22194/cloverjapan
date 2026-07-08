@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
 import { getMonthReport } from "@/lib/services/reports";
+import { getMonthNotes } from "@/lib/services/notes";
+import { noteCategoryMeta } from "@/lib/notes";
 import { MONTHS_DE, formatMinutes, minutesToHours, todayParam } from "@/lib/time";
 
 // Montag-zuerst (getUTCDay: 0=So … 6=Sa → (d+6)%7: 0=Mo … 6=So).
@@ -25,7 +27,20 @@ export default async function CalendarPage({
     redirect(`/calendar/${ty}/${Number(tm)}`);
   }
 
-  const report = await getMonthReport(session.user.id, year, month);
+  const [report, monthNotes] = await Promise.all([
+    getMonthReport(session.user.id, year, month),
+    getMonthNotes(session.user.id, year, month),
+  ]);
+
+  // Notizen pro Tag gruppieren (Tag = UTC-Tag des @db.Date).
+  const notesByDay = new Map<number, { content: string; category: string }[]>();
+  for (const n of monthNotes) {
+    const day = n.date.getUTCDate();
+    const list = notesByDay.get(day) ?? [];
+    list.push({ content: n.content, category: n.category });
+    notesByDay.set(day, list);
+  }
+
   const daysInMonth = report.days.length;
   const firstDow = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
   const today = todayParam();
@@ -80,38 +95,67 @@ export default async function CalendarPage({
             const isWeekend = dow >= 5;
             const isToday = dateStr === today;
 
-            // Heatmap: Tagessumme → Brand-Deckkraft (funktioniert in Light & Dark);
-            // Wochenenden ohne Buchung bekommen einen dezenten Slate-Ton.
+            const dayNotes = notesByDay.get(d) ?? [];
+            const hasNotes = dayNotes.length > 0;
+            // Tage mit Notizen nehmen die Kategorie-Farbe an (alle Notizen eines
+            // Tages haben dieselbe, weil die Kategorie am Wochentag hängt).
+            const noteColor = hasNotes ? noteCategoryMeta(dayNotes[0].category).color : null;
+
+            // Hintergrund-Priorität: Notiz-Farbe > Stunden-Heatmap > Wochenend-Ton.
             const alpha = minutes > 0 ? Math.min(0.14 + (minutes / 480) * 0.5, 0.7) : 0;
-            const bg =
-              minutes > 0
+            const bg = noteColor
+              ? noteColor
+              : minutes > 0
                 ? `rgba(0, 155, 201, ${alpha})`
                 : isWeekend
                   ? "rgba(100, 116, 139, 0.08)"
                   : undefined;
+
+            // Auf einer hellen Notiz-Kachel immer dunkler Text (Pastellfarbe).
+            const dayNumClass = isToday
+              ? "font-bold text-brand-dark"
+              : hasNotes
+                ? "font-medium text-slate-800"
+                : "font-medium text-slate-700 dark:text-slate-200";
+            const hoursClass = hasNotes
+              ? "text-slate-700"
+              : "text-slate-700 dark:text-slate-100";
 
             return (
               <Link
                 key={dateStr}
                 href={`/day/${dateStr}`}
                 style={bg ? { backgroundColor: bg } : undefined}
-                className={`flex min-h-24 flex-col justify-between border-b border-r border-slate-100 dark:border-slate-800 p-2 transition hover:ring-2 hover:ring-inset hover:ring-brand ${
+                className={`flex min-h-28 flex-col gap-1 border-b border-r border-slate-100 dark:border-slate-800 p-2 transition hover:ring-2 hover:ring-inset hover:ring-brand ${
                   isToday ? "ring-2 ring-inset ring-brand" : ""
                 }`}
               >
-                <span
-                  className={`text-sm ${
-                    isToday
-                      ? "font-bold text-brand-dark dark:text-brand"
-                      : "font-medium text-slate-700 dark:text-slate-200"
-                  }`}
-                >
-                  {d}
-                </span>
-                {minutes > 0 && (
-                  <span className="text-right text-xs font-medium tabular-nums text-slate-700 dark:text-slate-100">
-                    {minutesToHours(minutes)} h
-                  </span>
+                <div className="flex items-start justify-between gap-1">
+                  <span className={`text-sm ${dayNumClass}`}>{d}</span>
+                  {minutes > 0 && (
+                    <span className={`text-xs font-medium tabular-nums ${hoursClass}`}>
+                      {minutesToHours(minutes)} h
+                    </span>
+                  )}
+                </div>
+
+                {hasNotes && (
+                  <div className="space-y-0.5 overflow-hidden">
+                    {dayNotes.slice(0, 2).map((n, idx) => (
+                      <p
+                        key={idx}
+                        className="truncate rounded bg-black/5 px-1 py-0.5 text-[11px] leading-tight text-slate-700"
+                        title={n.content}
+                      >
+                        {n.content}
+                      </p>
+                    ))}
+                    {dayNotes.length > 2 && (
+                      <p className="text-[10px] text-slate-600">
+                        +{dayNotes.length - 2} weitere
+                      </p>
+                    )}
+                  </div>
                 )}
               </Link>
             );

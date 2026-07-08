@@ -1,13 +1,22 @@
 import type { NoteCategory } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { parseDateParam } from "@/lib/time";
+import { monthRange, parseDateParam } from "@/lib/time";
 
 /** Alle Notizen eines Users an einem Tag, chronologisch. */
 export function getDayNotes(userId: string, dateParam: string) {
   const date = parseDateParam(dateParam);
   return db.note.findMany({
     where: { userId, date },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/** Alle Notizen eines Users in einem Monat (für die Kalenderansicht). */
+export function getMonthNotes(userId: string, year: number, month: number) {
+  const { start, end } = monthRange(year, month);
+  return db.note.findMany({
+    where: { userId, date: { gte: start, lt: end } },
     orderBy: { createdAt: "asc" },
   });
 }
