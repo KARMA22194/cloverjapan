@@ -26,6 +26,22 @@ interface RouteInfo {
   order: number[];
 }
 
+interface TransitConn {
+  durationMin: number;
+  transfers: number;
+  lines: string[];
+  departure: string | null;
+  arrival: string | null;
+  fare: { text: string } | null;
+}
+
+interface TransitLeg {
+  from: Stop;
+  to: Stop;
+  conn: TransitConn | null;
+  error: string | null;
+}
+
 const STORAGE_KEY = "reiseplaner-japan-stops";
 const JAPAN_CENTER: [number, number] = [36.2, 138.25];
 
@@ -57,6 +73,11 @@ export function TripPlanner() {
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
+
+  const [transitDirect, setTransitDirect] = useState(false);
+  const [transitLegs, setTransitLegs] = useState<TransitLeg[]>([]);
+  const [transitLoading, setTransitLoading] = useState(false);
+  const [transitError, setTransitError] = useState<string | null>(null);
 
   // localStorage laden (v1-Persistenz)
   useEffect(() => {
@@ -183,6 +204,8 @@ export function TripPlanner() {
     if (stops.length < 2) return;
     setRouting(true);
     setError(null);
+    setTransitLegs([]);
+    setTransitError(null);
     try {
       const points = stops.map((s) => `${s.lat},${s.lng}`).join(";");
       const data = await api.get<RouteInfo>(
@@ -196,6 +219,45 @@ export function TripPlanner() {
       setError(err instanceof Error ? err.message : "Route nicht berechenbar.");
     } finally {
       setRouting(false);
+    }
+  }
+
+  async function loadTransit() {
+    if (stops.length < 2) return;
+    setTransitLoading(true);
+    setTransitError(null);
+    try {
+      const pairs: { from: Stop; to: Stop }[] = [];
+      for (let i = 0; i < stops.length - 1; i++) {
+        pairs.push({ from: stops[i], to: stops[i + 1] });
+      }
+      const results = await Promise.all(
+        pairs.map(async (p): Promise<TransitLeg> => {
+          try {
+            const data = await api.get<{ best: TransitConn }>(
+              `/api/v1/geo/transit?from=${p.from.lat},${p.from.lng}` +
+                `&to=${p.to.lat},${p.to.lng}&mode=${transitDirect ? "direct" : "any"}`,
+            );
+            return { from: p.from, to: p.to, conn: data.best, error: null };
+          } catch (e) {
+            return {
+              from: p.from,
+              to: p.to,
+              conn: null,
+              error: e instanceof Error ? e.message : "Fehler",
+            };
+          }
+        }),
+      );
+      // Gleicher Fehler auf allen Etappen (z. B. Key fehlt) → einmal zentral zeigen.
+      if (results.length > 0 && results.every((r) => r.error && r.error === results[0].error)) {
+        setTransitError(results[0].error);
+        setTransitLegs([]);
+      } else {
+        setTransitLegs(results);
+      }
+    } finally {
+      setTransitLoading(false);
     }
   }
 
@@ -287,11 +349,70 @@ export function TripPlanner() {
 
         {route && (
           <div className="rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
-            <span className="font-semibold">Beste Route:</span> {route.distanceKm} km ·{" "}
+            <span className="font-semibold">Beste Route (Auto):</span> {route.distanceKm} km ·{" "}
             {Math.floor(route.durationMin / 60)} h {route.durationMin % 60} min Fahrt
             <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
               Reihenfolge optimiert (ab dem ersten Ort).
             </span>
+          </div>
+        )}
+
+        {/* Zugverbindungen je Etappe (Google Directions, Transit) */}
+        {route && (
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                🚆 Zugverbindungen
+              </span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={transitDirect}
+                  onChange={(e) => setTransitDirect(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-[#009bc9]"
+                />
+                nur direkt (ohne Umstieg)
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={loadTransit}
+              disabled={transitLoading}
+              className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+            >
+              {transitLoading ? "Lade Zugverbindungen…" : "Zugverbindungen anzeigen"}
+            </button>
+            {transitError && (
+              <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{transitError}</p>
+            )}
+            {transitLegs.length > 0 && (
+              <ul className="mt-2 space-y-2">
+                {transitLegs.map((leg, i) => (
+                  <li
+                    key={i}
+                    className="rounded-md border border-slate-100 dark:border-slate-800 p-2 text-sm"
+                  >
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {i + 1}. {shortLabel(leg.from.label)} → {shortLabel(leg.to.label)}
+                    </div>
+                    {leg.conn ? (
+                      <div className="text-slate-700 dark:text-slate-200">
+                        {Math.floor(leg.conn.durationMin / 60)} h {leg.conn.durationMin % 60} min ·{" "}
+                        {leg.conn.transfers === 0
+                          ? "direkt"
+                          : `${leg.conn.transfers} Umstieg${leg.conn.transfers > 1 ? "e" : ""}`}
+                        {leg.conn.lines.length > 0 && <> · {leg.conn.lines.join(", ")}</>}
+                        <span className="ml-1 font-medium">
+                          · {leg.conn.fare ? leg.conn.fare.text : "kein Preis vom Anbieter"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-amber-600 dark:text-amber-400">{leg.error}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

@@ -152,6 +152,10 @@ lädt der Browser:
 - Karte: `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`).
   Tiles **Wikimedia „osm-intl"** (internationale/lateinische Beschriftung).
 - Stopps aktuell in **localStorage** (v1) — noch nicht in der DB.
+- **Zugverbindungen** (optional): `GET /api/v1/geo/transit?from=&to=&mode=direct|any`
+  via **Google Directions** (Transit). Braucht `GOOGLE_MAPS_API_KEY` in `.env` —
+  ohne Key **503** mit klarer Meldung (Feature bleibt inaktiv, kein Crash). UI
+  zeigt je Etappe Dauer/Umstiege/Linien/Preis (Preis für JP oft nicht verfügbar).
 
 **Ausgabenrechner** (`/ausgaben`, `ExpenseCalculator.tsx`): Yen→Euro live via
 `GET /api/v1/fx/rate` (open.er-api.com, keyfrei, server-seitig; Fallback-Rate).
