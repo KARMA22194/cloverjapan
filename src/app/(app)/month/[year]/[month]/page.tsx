@@ -43,17 +43,17 @@ export default async function MonthPage({
       />
 
       {report.projects.length === 0 ? (
-        <p className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+        <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
           Keine Zeiten in diesem Monat erfasst.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                <th className="px-3 py-2 font-medium text-slate-600">Tag</th>
+              <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-left">
+                <th className="px-3 py-2 font-medium text-slate-600 dark:text-slate-300">Tag</th>
                 {report.projects.map((p) => (
-                  <th key={p.id} className="px-3 py-2 text-right font-medium text-slate-600">
+                  <th key={p.id} className="px-3 py-2 text-right font-medium text-slate-600 dark:text-slate-300">
                     <span className="inline-flex items-center gap-1.5">
                       <span
                         className="inline-block h-2.5 w-2.5 rounded-full"
@@ -63,7 +63,7 @@ export default async function MonthPage({
                     </span>
                   </th>
                 ))}
-                <th className="px-3 py-2 text-right font-semibold text-slate-700">Summe</th>
+                <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-200">Summe</th>
               </tr>
             </thead>
             <tbody>
@@ -74,14 +74,14 @@ export default async function MonthPage({
                 return (
                   <tr
                     key={day}
-                    className={`border-b border-slate-100 last:border-b-0 ${
-                      isWeekend ? "bg-slate-50/60" : ""
-                    } ${dayTotal === 0 ? "text-slate-300" : ""}`}
+                    className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${
+                      isWeekend ? "bg-slate-50/60 dark:bg-slate-800/40" : ""
+                    } ${dayTotal === 0 ? "text-slate-300 dark:text-slate-600" : ""}`}
                   >
                     <td className="whitespace-nowrap px-3 py-1.5">
                       <Link
                         href={`/day/${dayParam(day)}`}
-                        className="text-slate-600 hover:text-brand hover:underline"
+                        className="text-slate-600 dark:text-slate-300 hover:text-brand hover:underline"
                       >
                         {WEEKDAYS_DE[weekday]} {pad(day)}.
                       </Link>
@@ -91,7 +91,7 @@ export default async function MonthPage({
                         {formatMinutes(report.cell[day]?.[p.id] ?? 0)}
                       </td>
                     ))}
-                    <td className="px-3 py-1.5 text-right font-medium tabular-nums text-slate-800">
+                    <td className="px-3 py-1.5 text-right font-medium tabular-nums text-slate-800 dark:text-slate-100">
                       {formatMinutes(dayTotal)}
                     </td>
                   </tr>
@@ -99,7 +99,7 @@ export default async function MonthPage({
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
+              <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-semibold text-slate-800 dark:text-slate-100">
                 <td className="px-3 py-2">Gesamt</td>
                 {report.projects.map((p) => (
                   <td key={p.id} className="px-3 py-2 text-right tabular-nums">

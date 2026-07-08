@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
 
 const buttonClass =
-  "rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100 disabled:opacity-50";
+  "rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50";
 
 /** Projekt archivieren/reaktivieren (PATCH /api/v1/projects/{id}). */
 export function ProjectArchiveButton({ id, archived }: { id: string; archived: boolean }) {

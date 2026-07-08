@@ -80,9 +80,9 @@ export default async function DayPage({
         <NewEntryForm dateParam={dateParam} projects={projectOptions} />
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
         {rows.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">
+          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
             Noch keine Zeiten für diesen Tag erfasst.
           </p>
         ) : (

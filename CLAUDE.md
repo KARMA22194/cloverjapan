@@ -137,6 +137,11 @@ UI übernimmt das Corporate Design von **https://etikett.de/** — alle Assets
   `accent` (`#F87805`), `danger` (`#E2001A`). Primär-Akzent statt Tailwind-`blue-*`.
 - **Logo:** `public/brand/logo-etikett.png` (Komponente `src/components/Logo.tsx`).
 - **Favicon:** `src/app/icon.png` (Next App-Router-Konvention).
+- **Dark-Mode:** klassenbasiert via Tailwind-v4 `@custom-variant dark (&:where(.dark,
+  .dark *))` in `globals.css`. Umschalter `src/components/ThemeToggle.tsx` (Persistenz
+  in `localStorage`, in TopNav + Login). Ein **Inline-Script** im Root-Layout setzt
+  `.dark` am `<html>` **vor** dem ersten Paint (kein FOUC); `<html suppressHydrationWarning>`.
+  Neue farbige UI daher immer mit `dark:`-Variante gestalten.
 
 ## Demo-Daten & Zugänge
 

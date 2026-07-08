@@ -24,7 +24,7 @@ export function NewEntryForm({
 
   if (projects.length === 0) {
     return (
-      <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+      <p className="rounded-md bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
         Keine buchbaren Projekte vorhanden. Bitte einen Admin um die Anlage bitten.
       </p>
     );
@@ -55,15 +55,15 @@ export function NewEntryForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
     >
       <div className="flex-1 min-w-[180px]">
-        <label className="mb-1 block text-xs font-medium text-slate-600">Projekt</label>
+        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Projekt</label>
         <select
           name="projectId"
           required
           defaultValue=""
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
+          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand"
         >
           <option value="" disabled>
             Projekt wählen…
@@ -77,22 +77,22 @@ export function NewEntryForm({
       </div>
 
       <div className="w-24">
-        <label className="mb-1 block text-xs font-medium text-slate-600">Stunden</label>
+        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Stunden</label>
         <input
           name="hours"
           inputMode="decimal"
           placeholder="z. B. 1,5"
           required
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
+          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand"
         />
       </div>
 
       <div className="flex-1 min-w-[160px]">
-        <label className="mb-1 block text-xs font-medium text-slate-600">Notiz (optional)</label>
+        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Notiz (optional)</label>
         <input
           name="note"
           maxLength={500}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
+          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand"
         />
       </div>
 
@@ -104,7 +104,7 @@ export function NewEntryForm({
         {pending ? "Speichern…" : "Hinzufügen"}
       </button>
 
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
     </form>
   );
 }

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Klassenbasierter Dark-Mode: `dark:`-Utilities reagieren auf `.dark` am <html>
+   (statt auf prefers-color-scheme), damit der manuelle Umschalter greift. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ------------------------------------------------------------------ *
  *  Design-Tokens im etikett.de-Branding
  *  (Farben & Schriften der Website https://etikett.de/)
@@ -48,6 +52,9 @@
 :root {
   color-scheme: light;
 }
+:root:where(.dark) {
+  color-scheme: dark;
+}
 
 html,
 body {
@@ -55,7 +62,7 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
   font-family: var(--font-sans);
 }
 

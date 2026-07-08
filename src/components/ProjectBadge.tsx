@@ -14,8 +14,8 @@ export function ProjectBadge({
         style={{ backgroundColor: color }}
         aria-hidden
       />
-      <span className="font-medium text-slate-800">{name}</span>
-      <span className="text-xs text-slate-400">{code}</span>
+      <span className="font-medium text-slate-800 dark:text-slate-100">{name}</span>
+      <span className="text-xs text-slate-400 dark:text-slate-500">{code}</span>
     </span>
   );
 }
