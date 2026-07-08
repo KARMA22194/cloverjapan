@@ -36,10 +36,10 @@ export default async function StartPage() {
       ],
     },
     {
-      title: "Reiseplaner",
-      hint: "Japan-Trip planen und Ausgaben tracken",
+      title: "Japan",
+      hint: "Reiseplaner & Ausgaben für den Japan-Trip",
       tiles: [
-        { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte & beste Route auf der Karte", emoji: "🗾" },
+        { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
       ],
     },
@@ -67,11 +67,18 @@ export default async function StartPage() {
       </div>
 
       {groups.map((group) => (
-        <section key={group.title}>
-          <div className="mb-3">
-            <h2 className="text-lg text-slate-900 dark:text-slate-100">{group.title}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{group.hint}</p>
-          </div>
+        <details key={group.title} open className="group">
+          <summary className="mb-3 flex cursor-pointer list-none items-center gap-2 rounded-md py-1 transition hover:opacity-90">
+            <span className="text-brand transition-transform duration-200 group-open:rotate-90" aria-hidden>
+              ▸
+            </span>
+            <span>
+              <span className="block text-lg leading-tight text-slate-900 dark:text-slate-100">
+                {group.title}
+              </span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">{group.hint}</span>
+            </span>
+          </summary>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {group.tiles.map((tile) => (
               <Link
@@ -93,7 +100,7 @@ export default async function StartPage() {
               </Link>
             ))}
           </div>
-        </section>
+        </details>
       ))}
     </div>
   );
