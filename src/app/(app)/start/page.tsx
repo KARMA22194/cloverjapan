@@ -44,6 +44,14 @@ export default async function StartPage() {
       ],
     },
     {
+      title: "Planer",
+      hint: "Tagesplanung & Checklisten",
+      tiles: [
+        { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
+        { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },
+      ],
+    },
+    {
       title: "Mehr",
       hint: "Verwaltung & Schnittstellen",
       tiles: [

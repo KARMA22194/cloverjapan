@@ -132,6 +132,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
 - `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
 - `/ausgaben` — **Ausgabenrechner** Yen→Euro mit Kategorien (Reiseplaner-Bereich)
+- `/tagesplaner` · `/checkliste` — **Planer**-Bereich (datumsbasierte Tagesaufgaben
+  bzw. freie Checkliste, localStorage)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
 - `/start` — **kategorisierte Übersicht** (Kacheln je Bereich); Logo verlinkt hierhin
 - `/` → Redirect auf `/start`

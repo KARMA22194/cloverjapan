@@ -33,6 +33,13 @@ export default async function AppLayout({
         { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
       ],
     },
+    {
+      label: "Planer",
+      items: [
+        { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
+        { href: "/checkliste", label: "Checkliste", match: "/checkliste" },
+      ],
+    },
   ];
 
   return (
