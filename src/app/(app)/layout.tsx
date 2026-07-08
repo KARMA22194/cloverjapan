@@ -23,6 +23,7 @@ export default async function AppLayout({
   // Bereich „Reiseplaner"
   const secondaryLinks = [
     { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
+    { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
   ];
 
   return (

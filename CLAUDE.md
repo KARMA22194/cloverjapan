@@ -131,6 +131,7 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/year/[year]` — Matrix Monat × Projekt mit Summen
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
 - `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
+- `/ausgaben` — **Ausgabenrechner** Yen→Euro mit Kategorien (Reiseplaner-Bereich)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
 - `/` → Redirect auf heutige Tagesansicht
 
@@ -150,6 +151,11 @@ lädt der Browser:
 - Karte: `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`).
   Tiles **Wikimedia „osm-intl"** (internationale/lateinische Beschriftung).
 - Stopps aktuell in **localStorage** (v1) — noch nicht in der DB.
+
+**Ausgabenrechner** (`/ausgaben`, `ExpenseCalculator.tsx`): Yen→Euro live via
+`GET /api/v1/fx/rate` (open.er-api.com, keyfrei, server-seitig; Fallback-Rate).
+Kategorien (Essen/Figuren/Kleidung/Sightseeing/Sonstiges) mit Summen; Schalter
+„Rechnung speichern" steuert die localStorage-Persistenz.
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 
