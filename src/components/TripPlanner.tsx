@@ -5,6 +5,7 @@ import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { api } from "@/lib/api/client";
+import { addExpenseItem } from "@/lib/expenses";
 
 interface Stop {
   id: string;
@@ -33,6 +34,7 @@ interface TransitConn {
   departure: string | null;
   arrival: string | null;
   fare: { text: string } | null;
+  fareYen?: number | null;
   estimated?: boolean;
 }
 
@@ -79,6 +81,7 @@ export function TripPlanner() {
   const [transitLegs, setTransitLegs] = useState<TransitLeg[]>([]);
   const [transitLoading, setTransitLoading] = useState(false);
   const [transitError, setTransitError] = useState<string | null>(null);
+  const [addedLegs, setAddedLegs] = useState<Record<number, boolean>>({});
 
   // localStorage laden (v1-Persistenz)
   useEffect(() => {
@@ -230,10 +233,27 @@ export function TripPlanner() {
     }
   }
 
+  function addLegToCalculator(leg: TransitLeg, index: number) {
+    if (!leg.conn?.fareYen) return;
+    const ok = addExpenseItem({
+      category: "TRANSPORT",
+      label: `Zug: ${shortLabel(leg.from.label)} → ${shortLabel(leg.to.label)}`,
+      yen: leg.conn.fareYen,
+    });
+    if (ok) setAddedLegs((prev) => ({ ...prev, [index]: true }));
+  }
+
+  function addAllLegsToCalculator() {
+    transitLegs.forEach((leg, i) => {
+      if (leg.conn?.fareYen && !addedLegs[i]) addLegToCalculator(leg, i);
+    });
+  }
+
   async function loadTransit() {
     if (stops.length < 2) return;
     setTransitLoading(true);
     setTransitError(null);
+    setAddedLegs({});
     try {
       const pairs: { from: Stop; to: Stop }[] = [];
       for (let i = 0; i < stops.length - 1; i++) {
@@ -410,22 +430,48 @@ export function TripPlanner() {
                       {i + 1}. {shortLabel(leg.from.label)} → {shortLabel(leg.to.label)}
                     </div>
                     {leg.conn ? (
-                      <div className="text-slate-700 dark:text-slate-200">
-                        {Math.floor(leg.conn.durationMin / 60)} h {leg.conn.durationMin % 60} min ·{" "}
-                        {leg.conn.transfers === 0
-                          ? "direkt"
-                          : `${leg.conn.transfers} Umstieg${leg.conn.transfers > 1 ? "e" : ""}`}
-                        {leg.conn.lines.length > 0 && <> · {leg.conn.lines.join(", ")}</>}
-                        <span className="ml-1 font-medium">
-                          · {leg.conn.fare ? leg.conn.fare.text : "kein Preis vom Anbieter"}
-                        </span>
-                      </div>
+                      <>
+                        <div className="text-slate-700 dark:text-slate-200">
+                          {Math.floor(leg.conn.durationMin / 60)} h {leg.conn.durationMin % 60} min ·{" "}
+                          {leg.conn.transfers === 0
+                            ? "direkt"
+                            : `${leg.conn.transfers} Umstieg${leg.conn.transfers > 1 ? "e" : ""}`}
+                          {leg.conn.lines.length > 0 && <> · {leg.conn.lines.join(", ")}</>}
+                          <span className="ml-1 font-medium">
+                            · {leg.conn.fare ? leg.conn.fare.text : "kein Preis vom Anbieter"}
+                          </span>
+                        </div>
+                        {leg.conn.fareYen != null && (
+                          <button
+                            type="button"
+                            onClick={() => addLegToCalculator(leg, i)}
+                            disabled={addedLegs[i]}
+                            className="mt-1.5 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            {addedLegs[i] ? "✓ im Rechner" : "+ In Rechner übernehmen"}
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <div className="text-amber-600 dark:text-amber-400">{leg.error}</div>
                     )}
                   </li>
                 ))}
               </ul>
+            )}
+            {transitLegs.some((l) => l.conn?.fareYen != null) && (
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={addAllLegsToCalculator}
+                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
+                >
+                  Alle Fahrten in den Rechner
+                </button>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  landet unter Japan · Ausgaben
+                </span>
+              </div>
             )}
           </div>
         )}

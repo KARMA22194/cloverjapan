@@ -52,7 +52,7 @@ interface GoogleDirections {
   routes?: GoogleRoute[];
 }
 interface GoogleRoute {
-  fare?: { text: string };
+  fare?: { currency: string; value: number; text: string };
   legs: {
     duration: { value: number };
     departure_time?: { text: string };
@@ -94,6 +94,8 @@ async function googleTransit(from: Point, to: Point, preferDirect: boolean, key:
       departure: leg.departure_time?.text ?? null,
       arrival: leg.arrival_time?.text ?? null,
       fare: route.fare ? { text: route.fare.text } : null,
+      fareYen:
+        route.fare && route.fare.currency === "JPY" ? Math.round(route.fare.value) : null,
       estimated: false as const,
     };
   });
@@ -136,6 +138,7 @@ function estimateTransit(from: Point, to: Point, preferDirect: boolean) {
     departure: null,
     arrival: null,
     fare: { text: `≈ ${yenFmt.format(fareYen)} ¥` },
+    fareYen,
     estimated: true as const,
     alternatives: 1,
   };

@@ -5,18 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api/client";
 import {
   EXPENSE_CATEGORIES,
+  EXPENSES_STORAGE_KEY,
   expenseCategoryMeta,
   type ExpenseCategoryValue,
+  type ExpenseItem as Item,
 } from "@/lib/expenses";
 
-interface Item {
-  id: string;
-  category: ExpenseCategoryValue;
-  label: string;
-  yen: number;
-}
-
-const STORAGE_KEY = "japan-ausgaben";
+const STORAGE_KEY = EXPENSES_STORAGE_KEY;
 const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst ausfällt
 
 const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
