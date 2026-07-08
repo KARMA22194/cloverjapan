@@ -37,16 +37,10 @@ export default async function StartPage() {
     },
     {
       title: "Japan",
-      hint: "Reiseplaner & Ausgaben für den Japan-Trip",
+      hint: "Alles für den Japan-Trip",
       tiles: [
         { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
-      ],
-    },
-    {
-      title: "Planer",
-      hint: "Tagesplanung & Checklisten",
-      tiles: [
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },
       ],
