@@ -12,6 +12,7 @@ export default async function AppLayout({
 
   const today = todayParam();
   const [year, month] = today.split("-");
+  // Bereich „Zeiterfassung"
   const links = [
     { href: `/day/${today}`, label: "Tag", match: "/day" },
     { href: `/month/${year}/${Number(month)}`, label: "Monat", match: "/month" },
@@ -19,10 +20,16 @@ export default async function AppLayout({
     { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
   ];
 
+  // Bereich „Reiseplaner"
+  const secondaryLinks = [
+    { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
+  ];
+
   return (
     <div className="min-h-full">
       <TopNav
         links={links}
+        secondaryLinks={secondaryLinks}
         userName={session.user.name ?? session.user.email ?? "Nutzer"}
         isAdmin={session.user.role === "ADMIN"}
       />

@@ -18,6 +18,8 @@ Auswertung als **Tages-, Monats- und Jahresansicht**. Rollen: `EMPLOYEE`,
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
 - **OpenAPI/Swagger:** `@asteasolutions/zod-to-openapi` (Spec aus Zod) +
   `swagger-ui-dist` (self-hosted UI unter `/api-docs`)
+- **Karten (Reiseplaner):** `leaflet` + OSM/Wikimedia-Tiles; Geocoding
+  **Nominatim**, Routing **OSRM** (server-seitig, keyfrei)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
 
 Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-66478**),
@@ -128,8 +130,26 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/month/[year]/[month]` — Matrix Tag × Projekt mit Summen
 - `/year/[year]` — Matrix Monat × Projekt mit Summen
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
+- `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
 - `/` → Redirect auf heutige Tagesansicht
+
+Die Nav ist in zwei Bereiche getrennt (`TopNav`: `links` = **Zeiterfassung**,
+`secondaryLinks` = **Reiseplaner**).
+
+### Reiseplaner (`/reiseplaner`)
+
+Notiz-artige Oberfläche: Ort eingeben → Marker auf **Leaflet/OSM-Karte**, beste
+Route zwischen allen Orten. Externe Dienste laufen **server-seitig** über die API
+(Container hat Proxy-CA + kann sauberen User-Agent setzen), nur die Karten-Tiles
+lädt der Browser:
+- `GET /api/v1/geo/search?q=` — Geocoding via **Nominatim** (auf Japan begrenzt,
+  romanisierte Labels via `accept-language`).
+- `GET /api/v1/geo/route?points=` — beste Route via **OSRM-Trip** (optimiert die
+  Besuchsreihenfolge).
+- Karte: `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`).
+  Tiles **Wikimedia „osm-intl"** (internationale/lateinische Beschriftung).
+- Stopps aktuell in **localStorage** (v1) — noch nicht in der DB.
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 
