@@ -1,4 +1,4 @@
-import type { Project, Role } from "@prisma/client";
+import type { NoteCategory, Project, Role } from "@prisma/client";
 
 import { minutesToHours, toDateParam } from "@/lib/time";
 
@@ -63,3 +63,23 @@ export function toUserDto(u: UserInput) {
     timeEntryCount: u._count?.timeEntries ?? 0,
   };
 }
+
+interface NoteInput {
+  id: string;
+  date: Date;
+  content: string;
+  category: NoteCategory;
+  createdAt: Date;
+}
+
+export function toNoteDto(n: NoteInput) {
+  return {
+    id: n.id,
+    date: toDateParam(n.date),
+    content: n.content,
+    category: n.category,
+    createdAt: n.createdAt.toISOString(),
+  };
+}
+
+export type NoteDto = ReturnType<typeof toNoteDto>;

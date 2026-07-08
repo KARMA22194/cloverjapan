@@ -16,6 +16,13 @@ enum Role {
   ADMIN
 }
 
+enum NoteCategory {
+  ARBEIT
+  SCHULE
+  URLAUB
+  WOCHENENDE
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -27,6 +34,7 @@ model User {
 
   timeEntries TimeEntry[]
   assignments Assignment[]
+  notes       Note[]
 }
 
 model Project {
@@ -70,4 +78,20 @@ model TimeEntry {
   // Trägt Daily/Monthly/Yearly-Queries.
   @@index([userId, date])
   @@index([projectId])
+}
+
+// Freitext-Notizen im Google-Keep-Stil, tagesbezogen. Kategorie färbt die Karte.
+model Note {
+  id        String       @id @default(cuid())
+  userId    String
+  // Tagesbezug wie bei TimeEntry (ohne Uhrzeit) → tagesbasierte Anzeige.
+  date      DateTime     @db.Date
+  content   String
+  category  NoteCategory @default(ARBEIT)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
 }

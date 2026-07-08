@@ -4,8 +4,11 @@ import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
 import { NewEntryForm } from "@/components/NewEntryForm";
 import { EntryRow, type EntryData } from "@/components/EntryRow";
+import { DayNotes } from "@/components/DayNotes";
 import { getDayEntries } from "@/lib/services/timeEntries";
 import { getBookableProjects } from "@/lib/services/projects";
+import { getDayNotes } from "@/lib/services/notes";
+import { toNoteDto } from "@/lib/api/dto";
 import {
   parseDateParam,
   toDateParam,
@@ -35,10 +38,12 @@ export default async function DayPage({
     redirect(`/day/${todayParam()}`);
   }
 
-  const [entries, projects] = await Promise.all([
+  const [entries, projects, notes] = await Promise.all([
     getDayEntries(userId, dateParam),
     getBookableProjects(userId),
+    getDayNotes(userId, dateParam),
   ]);
+  const noteDtos = notes.map(toNoteDto);
 
   const total = entries.reduce((sum, e) => sum + e.minutes, 0);
   const projectOptions = projects.map((p) => ({
@@ -96,6 +101,8 @@ export default async function DayPage({
           ))
         )}
       </div>
+
+      <DayNotes dateParam={dateParam} notes={noteDtos} />
     </div>
   );
 }

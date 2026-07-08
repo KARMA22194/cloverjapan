@@ -1,6 +1,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
+import { NOTE_CATEGORY_VALUES } from "@/lib/notes";
+
 // Zod um `.openapi()` erweitern — Schemas sind damit Single Source of Truth
 // für Laufzeit-Validierung UND die generierte OpenAPI-Spec.
 extendZodWithOpenApi(z);
@@ -75,6 +77,27 @@ export const userUpdateBody = z.object({
   active: z.boolean().openapi({ description: "true = aktivieren, false = deaktivieren" }),
 });
 
+export const noteCategorySchema = z
+  .enum(NOTE_CATEGORY_VALUES)
+  .openapi({ description: "Kategorie (färbt die Karte)", example: "ARBEIT" });
+
+export const noteCreateBody = z.object({
+  date: dateParamSchema,
+  content: z.string().min(1, "Notiz darf nicht leer sein.").max(2000).openapi({
+    example: "Feature X umgesetzt, Code-Review gemacht",
+  }),
+  category: noteCategorySchema.default("ARBEIT"),
+});
+
+export const noteUpdateBody = z
+  .object({
+    content: z.string().min(1, "Notiz darf nicht leer sein.").max(2000).optional(),
+    category: noteCategorySchema.optional(),
+  })
+  .refine((d) => d.content !== undefined || d.category !== undefined, {
+    message: "Nichts zu ändern.",
+  });
+
 /* ------------------------------------------------------------------ *
  *  Response-DTOs (Reads)
  * ------------------------------------------------------------------ */
@@ -120,6 +143,14 @@ export const meSchema = z.object({
   name: z.string(),
   email: z.string(),
   role: roleSchema,
+});
+
+export const noteSchema = z.object({
+  id: z.string(),
+  date: dateParamSchema,
+  content: z.string(),
+  category: noteCategorySchema,
+  createdAt: z.string().openapi({ format: "date-time" }),
 });
 
 const minutesByKey = z.record(z.string(), z.number().int());

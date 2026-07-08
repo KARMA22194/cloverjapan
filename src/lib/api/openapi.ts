@@ -31,6 +31,7 @@ export function buildOpenApiDocument() {
   const Me = registry.register("Me", S.meSchema);
   const MonthReport = registry.register("MonthReport", S.monthReportSchema);
   const YearReport = registry.register("YearReport", S.yearReportSchema);
+  const Note = registry.register("Note", S.noteSchema);
   const ErrorModel = registry.register("Error", S.errorSchema);
 
   // Request-Bodies
@@ -40,6 +41,8 @@ export function buildOpenApiDocument() {
   const ProjectUpdate = registry.register("ProjectUpdate", S.projectUpdateBody);
   const UserCreate = registry.register("UserCreate", S.userCreateBody);
   const UserUpdate = registry.register("UserUpdate", S.userUpdateBody);
+  const NoteCreate = registry.register("NoteCreate", S.noteCreateBody);
+  const NoteUpdate = registry.register("NoteUpdate", S.noteUpdateBody);
 
   const security = [{ sessionCookie: [] }];
   const errContent = { "application/json": { schema: ErrorModel } };
@@ -228,6 +231,55 @@ export function buildOpenApiDocument() {
     responses: { 200: jsonRes("Jahresmatrix", YearReport), ...common },
   });
 
+  /* ---------------- Notes ---------------- */
+  registry.registerPath({
+    method: "get",
+    path: "/api/v1/notes",
+    tags: ["Notes"],
+    summary: "Notizen eines Tages (aktueller Nutzer)",
+    security,
+    request: { query: z.object({ date: S.dateParamSchema }) },
+    responses: { 200: jsonRes("Liste der Notizen", z.array(Note)), ...common },
+  });
+  registry.registerPath({
+    method: "post",
+    path: "/api/v1/notes",
+    tags: ["Notes"],
+    summary: "Notiz anlegen",
+    security,
+    request: { body: jsonBody(NoteCreate) },
+    responses: { 201: jsonRes("Angelegte Notiz", Note), ...common },
+  });
+  registry.registerPath({
+    method: "patch",
+    path: "/api/v1/notes/{id}",
+    tags: ["Notes"],
+    summary: "Eigene Notiz ändern (Inhalt und/oder Kategorie)",
+    security,
+    request: {
+      params: z.object({ id: z.string() }),
+      body: jsonBody(NoteUpdate),
+    },
+    responses: {
+      200: jsonRes("Aktualisierte Notiz", Note),
+      404: err("Notiz nicht gefunden"),
+      ...common,
+    },
+  });
+  registry.registerPath({
+    method: "delete",
+    path: "/api/v1/notes/{id}",
+    tags: ["Notes"],
+    summary: "Eigene Notiz löschen",
+    security,
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: jsonRes("Gelöscht", z.object({ id: z.string(), deleted: z.literal(true) })),
+      404: err("Notiz nicht gefunden"),
+      ...common,
+    },
+  });
+
   const generator = new OpenApiGeneratorV31(registry.definitions);
   return generator.generateDocument({
     openapi: "3.1.0",
@@ -245,6 +297,7 @@ export function buildOpenApiDocument() {
       { name: "Projects", description: "Projekte (Lesen für alle, Schreiben nur ADMIN)" },
       { name: "Users", description: "Nutzerverwaltung (nur ADMIN)" },
       { name: "Reports", description: "Monats- und Jahresauswertungen" },
+      { name: "Notes", description: "Tagesnotizen (Google-Keep-Stil) mit Kategorien" },
     ],
   });
 }

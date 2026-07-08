@@ -80,7 +80,7 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   Zod-`parse` → Service → DTO → `ok()`. **Ownership** weiterhin via
   `updateMany`/`deleteMany` mit `where: { id, userId }` (Fremdzugriff auf DB-Ebene
   verhindert). Endpunkte: `me`, `time-entries` (+`[id]`), `projects` (+`[id]`),
-  `users` (+`[id]`), `reports/month`, `reports/year`, `openapi`.
+  `users` (+`[id]`), `reports/month`, `reports/year`, `notes` (+`[id]`), `openapi`.
 - **API-Docs:** OpenAPI-JSON unter `/api/v1/openapi`, interaktive **Swagger UI**
   unter **`/api-docs`** (self-hosted `swagger-ui-dist`, dynamischer Client-Import →
   kein SSR-`window`-Problem; `withCredentials` sendet das Session-Cookie bei
@@ -103,7 +103,7 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 ### Datenmodell (`prisma/schema.prisma`)
 
-`User` · `Project` · `Assignment` · `TimeEntry`. Kern-Entscheidungen:
+`User` · `Project` · `Assignment` · `TimeEntry` · `Note`. Kern-Entscheidungen:
 - `TimeEntry.minutes` als **Int** (nicht Float-Stunden) → keine Rundungsfehler.
   UI zeigt Stunden, speichert Minuten (`src/lib/time.ts`: `hoursToMinutes`/`minutesToHours`).
 - `TimeEntry.date` als **`@db.Date`** (ohne Uhrzeit) → tagesbasiert,
@@ -113,11 +113,16 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   (`getBookableProjects`).
 - Aggregation: Monat via Prisma `groupBy`, Jahr via `$queryRaw` (`EXTRACT(MONTH …)`).
   Siehe `src/lib/services/reports.ts`.
+- `Note` = Freitext-Notizen im Google-Keep-Stil, tagesbezogen (`@db.Date`). Enum
+  `NoteCategory` (ARBEIT/SCHULE/URLAUB/WOCHENENDE) — Kategorie **färbt die Karte**
+  (Farb-/Label-Mapping zentral in `src/lib/notes.ts`, von UI + API genutzt).
+  Ownership wie TimeEntry (`updateMany`/`deleteMany where { id, userId }`).
 
 ### Views / Routen
 
 - `/login` — Credentials-Login (Client, `useActionState`)
-- `/day/[date]` — Tagesansicht, Erfassen/Bearbeiten/Löschen, Tagessumme
+- `/day/[date]` — Tagesansicht: Zeiten erfassen/bearbeiten/löschen, Tagessumme
+  **+ Notizen** (Keep-Karten mit Kategorien, `src/components/DayNotes.tsx`)
 - `/calendar/[year]/[month]` — Monatskalender (Raster Mo–So), Tagessumme als
   Heatmap, Klick → Tagesansicht (SSR via `getMonthReport.perDay`)
 - `/month/[year]/[month]` — Matrix Tag × Projekt mit Summen
