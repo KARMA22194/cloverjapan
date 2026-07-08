@@ -20,17 +20,21 @@ export default async function AppLayout({
     { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
   ];
 
-  // Bereich „Reiseplaner"
-  const secondaryLinks = [
-    { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
-    { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
-  ];
+  // Ausklappbare Oberkategorie „Japan" in der oberen Leiste
+  const secondaryGroup = {
+    label: "Japan",
+    match: "/reiseplaner",
+    items: [
+      { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
+      { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
+    ],
+  };
 
   return (
     <div className="min-h-full">
       <TopNav
         links={links}
-        secondaryLinks={secondaryLinks}
+        secondaryGroup={secondaryGroup}
         userName={session.user.name ?? session.user.email ?? "Nutzer"}
         isAdmin={session.user.role === "ADMIN"}
       />
