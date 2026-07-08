@@ -1,16 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { createTimeEntryAction, type ActionState } from "@/app/actions/timeEntries";
-import { SubmitButton } from "@/components/SubmitButton";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { api } from "@/lib/api/client";
 
 interface ProjectOption {
   id: string;
   name: string;
   code: string;
 }
-
-const initial: ActionState = { ok: false };
 
 export function NewEntryForm({
   dateParam,
@@ -19,13 +18,9 @@ export function NewEntryForm({
   dateParam: string;
   projects: ProjectOption[];
 }) {
-  const [state, formAction] = useActionState(createTimeEntryAction, initial);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  // Nach erfolgreichem Anlegen die Eingaben zurücksetzen.
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state]);
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (projects.length === 0) {
     return (
@@ -35,21 +30,40 @@ export function NewEntryForm({
     );
   }
 
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    setPending(true);
+    setError(null);
+    try {
+      await api.post("/api/v1/time-entries", {
+        date: dateParam,
+        projectId: String(fd.get("projectId") ?? ""),
+        hours: String(fd.get("hours") ?? ""),
+        note: String(fd.get("note") ?? ""),
+      });
+      form.reset();
+      router.refresh(); // SSR-Seite mit frischen Daten neu rendern
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <form
-      ref={formRef}
-      action={formAction}
+      onSubmit={onSubmit}
       className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
     >
-      <input type="hidden" name="date" value={dateParam} />
-
       <div className="flex-1 min-w-[180px]">
         <label className="mb-1 block text-xs font-medium text-slate-600">Projekt</label>
         <select
           name="projectId"
           required
           defaultValue=""
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
         >
           <option value="" disabled>
             Projekt wählen…
@@ -69,7 +83,7 @@ export function NewEntryForm({
           inputMode="decimal"
           placeholder="z. B. 1,5"
           required
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
         />
       </div>
 
@@ -78,15 +92,19 @@ export function NewEntryForm({
         <input
           name="note"
           maxLength={500}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand"
         />
       </div>
 
-      <SubmitButton pendingLabel="Speichern…">Hinzufügen</SubmitButton>
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending ? "Speichern…" : "Hinzufügen"}
+      </button>
 
-      {state.error && (
-        <p className="w-full text-sm text-red-600">{state.error}</p>
-      )}
+      {error && <p className="w-full text-sm text-red-600">{error}</p>}
     </form>
   );
 }

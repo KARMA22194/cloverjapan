@@ -2,13 +2,10 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ProjectCreateForm, UserCreateForm } from "@/components/AdminForms";
+import { ProjectArchiveButton, UserActiveButton } from "@/components/AdminToggles";
 import { ProjectBadge } from "@/components/ProjectBadge";
 import { listAllProjects } from "@/lib/services/projects";
 import { listUsers } from "@/lib/services/users";
-import {
-  toggleProjectArchivedAction,
-  toggleUserActiveAction,
-} from "@/app/actions/admin";
 
 const roleLabel: Record<string, string> = {
   EMPLOYEE: "Employee",
@@ -50,16 +47,7 @@ export default async function AdminPage() {
                     </span>
                   )}
                 </div>
-                <form action={toggleProjectArchivedAction}>
-                  <input type="hidden" name="id" value={p.id} />
-                  <input type="hidden" name="archived" value={String(!p.archived)} />
-                  <button
-                    type="submit"
-                    className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100"
-                  >
-                    {p.archived ? "Reaktivieren" : "Archivieren"}
-                  </button>
-                </form>
+                <ProjectArchiveButton id={p.id} archived={p.archived} />
               </div>
             ))
           )}
@@ -94,16 +82,7 @@ export default async function AdminPage() {
               {u.id === session.user.id ? (
                 <span className="text-xs text-slate-400">du</span>
               ) : (
-                <form action={toggleUserActiveAction}>
-                  <input type="hidden" name="id" value={u.id} />
-                  <input type="hidden" name="active" value={String(!u.active)} />
-                  <button
-                    type="submit"
-                    className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100"
-                  >
-                    {u.active ? "Deaktivieren" : "Aktivieren"}
-                  </button>
-                </form>
+                <UserActiveButton id={u.id} active={u.active} />
               )}
             </div>
           ))}

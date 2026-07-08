@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
+import { Logo } from "@/components/Logo";
 
 interface NavLink {
   href: string;
@@ -27,8 +28,13 @@ export function TopNav({
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-6">
-          <span className="text-lg font-semibold text-slate-900">⏱ Time Tracker</span>
+        <div className="flex items-center gap-5">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="Zeiterfassung – Startseite">
+            <Logo height={26} priority />
+            <span className="hidden border-l border-slate-200 pl-2.5 text-sm font-medium text-slate-500 sm:inline">
+              Zeiterfassung
+            </span>
+          </Link>
           <nav className="flex gap-1">
             {allLinks.map((link) => {
               const active = pathname.startsWith(link.match);
@@ -38,7 +44,7 @@ export function TopNav({
                   href={link.href}
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                     active
-                      ? "bg-blue-100 text-blue-800"
+                      ? "bg-brand-tint text-brand-dark"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >

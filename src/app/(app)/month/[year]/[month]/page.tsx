@@ -81,7 +81,7 @@ export default async function MonthPage({
                     <td className="whitespace-nowrap px-3 py-1.5">
                       <Link
                         href={`/day/${dayParam(day)}`}
-                        className="text-slate-600 hover:text-blue-600 hover:underline"
+                        className="text-slate-600 hover:text-brand hover:underline"
                       >
                         {WEEKDAYS_DE[weekday]} {pad(day)}.
                       </Link>

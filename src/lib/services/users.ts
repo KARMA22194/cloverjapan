@@ -17,6 +17,8 @@ export function listUsers() {
   });
 }
 
+const userCount = { _count: { select: { timeEntries: true } } } as const;
+
 export async function createUser(input: {
   name: string;
   email: string;
@@ -31,9 +33,10 @@ export async function createUser(input: {
       passwordHash,
       role: input.role,
     },
+    include: userCount,
   });
 }
 
 export function setUserActive(id: string, active: boolean) {
-  return db.user.update({ where: { id }, data: { active } });
+  return db.user.update({ where: { id }, data: { active }, include: userCount });
 }

@@ -11,10 +11,13 @@ Auswertung als **Tages-, Monats- und Jahresansicht**. Rollen: `EMPLOYEE`,
 
 ## Tech-Stack
 
-- **Next.js 15** (App Router, Server Actions) + **TypeScript** (strict)
+- **Next.js 15** (App Router; REST-API via Route Handlers, Reads via Server Components)
+  + **TypeScript** (strict)
 - **Prisma** + **PostgreSQL 16**
 - **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted)
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
+- **OpenAPI/Swagger:** `@asteasolutions/zod-to-openapi` (Spec aus Zod) +
+  `swagger-ui-dist` (self-hosted UI unter `/api-docs`)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
 
 Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-66478**),
@@ -54,19 +57,46 @@ Neue npm-Pakete: **im Container** installieren
 
 ## Architektur
 
-- **Reads:** direkt in Server Components → `src/lib/services/*` → Prisma
-  (kein separater REST-Layer).
-- **Writes:** über **Server Actions** (`src/app/actions/*`) mit **Zod**-Validierung
-  und Rollen-/Ownership-Checks. Ownership via `updateMany`/`deleteMany` mit
-  `where: { id, userId }` (verhindert Fremdzugriff auf DB-Ebene).
+**REST-API als kanonische Schnittstelle.** Das Frontend spricht für **Mutationen
+ausschließlich** über die REST-API (`/api/v1/*`), nie mehr über Server Actions für
+Daten. Reads bleiben aus Performance-Gründen **SSR** — aber über *dieselbe*
+Service-Schicht, die auch die API nutzt. Es gibt also genau **einen** kanonischen
+Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
+
+- **API-Kern** (`src/lib/api/`):
+  - `http.ts` — `ApiError` + `handle()`-Wrapper (fängt ApiError/Zod/Prisma-Fehler,
+    einheitliche Fehlerhülle `{ error: { message, details? } }`; mappt P2002→409,
+    P2025→404). Route-Handler behalten native Next-Signatur (kein Signatur-Wrapper).
+  - `session.ts` — `requireUser()`/`requireAdmin()` (NextAuth-Session-Cookie → 401/403).
+  - `schemas.ts` — **Zod = Single Source of Truth** für Request-Validierung UND
+    OpenAPI (via `@asteasolutions/zod-to-openapi`, `extendZodWithOpenApi`).
+  - `dto.ts` — Prisma-Objekte → schlanke Response-DTOs (nie rohes Prisma zurückgeben,
+    z. B. **kein** `passwordHash`!).
+  - `openapi.ts` — baut das OpenAPI-3.1-Dokument (Pfade + Komponenten aus schemas.ts).
+  - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`); von den
+    Client-Components exklusiv genutzt. Nach Writes: **`router.refresh()`** rendert
+    die SSR-Seite mit frischen Daten neu (ersetzt `revalidatePath`).
+- **Route-Handler:** `src/app/api/v1/**/route.ts` — dünn: `requireUser/Admin` →
+  Zod-`parse` → Service → DTO → `ok()`. **Ownership** weiterhin via
+  `updateMany`/`deleteMany` mit `where: { id, userId }` (Fremdzugriff auf DB-Ebene
+  verhindert). Endpunkte: `me`, `time-entries` (+`[id]`), `projects` (+`[id]`),
+  `users` (+`[id]`), `reports/month`, `reports/year`, `openapi`.
+- **API-Docs:** OpenAPI-JSON unter `/api/v1/openapi`, interaktive **Swagger UI**
+  unter **`/api-docs`** (self-hosted `swagger-ui-dist`, dynamischer Client-Import →
+  kein SSR-`window`-Problem; `withCredentials` sendet das Session-Cookie bei
+  „Try it out“). Middleware schützt `/api*` **nicht** — Auth passiert in jedem
+  Handler (Docs & Spec sind bewusst öffentlich).
+- **Login/Logout bleiben NextAuth-Server-Actions** (`src/app/actions/auth.ts`):
+  Authentifizierung ist ein Framework-Belang (Cookie-Handling), **kein** Teil der
+  REST-Ressourcen-API. `/api/auth/*` ist der NextAuth-Flow.
 - **Auth Split-Config** (Edge-Kompatibilität):
   - `src/auth.config.ts` — **edge-safe** (keine Prisma-/bcrypt-Importe!), enthält
     `authorized`/`jwt`/`session`-Callbacks. Von der Middleware genutzt.
   - `src/auth.ts` — volle Instanz mit Credentials-Provider (Prisma + bcrypt),
     nur Node-Runtime.
   - `src/middleware.ts` — eigene NextAuth-Instanz aus `authConfig` für den Route-Schutz.
-- **Rollen-Gating doppelt:** Middleware (Route-Ebene) **und** in jeder Page/Action
-  (`session.user.role`), nie nur im UI.
+- **Rollen-Gating doppelt:** Middleware (Seiten-Routen) **und** in jeder Page bzw.
+  jedem API-Handler (`session.user.role` / `requireAdmin`), nie nur im UI.
 - Rolle/ID sind im JWT und in der Session (Typ-Augmentation in
   `src/types/next-auth.d.ts`). Im `session`-Callback nötiger Cast, da der Callback
   den nicht-augmentierten `@auth/core/jwt`-Typ nutzt.
@@ -91,9 +121,22 @@ Neue npm-Pakete: **im Container** installieren
 - `/month/[year]/[month]` — Matrix Tag × Projekt mit Summen
 - `/year/[year]` — Matrix Monat × Projekt mit Summen
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
+- `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
 - `/` → Redirect auf heutige Tagesansicht
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
+
+### Branding (etikett.de)
+
+UI übernimmt das Corporate Design von **https://etikett.de/** — alle Assets
+**self-hosted** (kein Google-Fonts-/CDN-Runtime-Fetch, passt zum Docker/Proxy-Setup):
+- **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`,
+  Dateien in `public/fonts/`.
+- **Farben:** als Tailwind-v4-`@theme`-Tokens in `globals.css` → Utilities
+  `brand` (`#009BC9`), `brand-dark` (`#0A314C`), `brand-tint` (`#B9E7F7`),
+  `accent` (`#F87805`), `danger` (`#E2001A`). Primär-Akzent statt Tailwind-`blue-*`.
+- **Logo:** `public/brand/logo-etikett.png` (Komponente `src/components/Logo.tsx`).
+- **Favicon:** `src/app/icon.png` (Next App-Router-Konvention).
 
 ## Demo-Daten & Zugänge
 

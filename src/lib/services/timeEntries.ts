@@ -11,6 +11,14 @@ export function getDayEntries(userId: string, dateParam: string) {
   });
 }
 
+/** Einzelner Eintrag – nur wenn er dem User gehört (inkl. Projekt). */
+export function getOwnedEntry(id: string, userId: string) {
+  return db.timeEntry.findFirst({
+    where: { id, userId },
+    include: { project: true },
+  });
+}
+
 export function createTimeEntry(input: {
   userId: string;
   projectId: string;
@@ -26,6 +34,7 @@ export function createTimeEntry(input: {
       minutes: input.minutes,
       note: input.note?.trim() || null,
     },
+    include: { project: true },
   });
 }
 

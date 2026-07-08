@@ -1,29 +1,45 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import {
-  createProjectAction,
-  createUserAction,
-  type ActionState,
-} from "@/app/actions/admin";
-import { SubmitButton } from "@/components/SubmitButton";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-const initial: ActionState = { ok: false };
+import { api } from "@/lib/api/client";
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500";
+  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand";
+
+const submitClass =
+  "inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60";
 
 export function ProjectCreateForm() {
-  const [state, formAction] = useActionState(createProjectAction, initial);
-  const ref = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.ok) ref.current?.reset();
-  }, [state]);
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    setPending(true);
+    setError(null);
+    try {
+      await api.post("/api/v1/projects", {
+        name: String(fd.get("name") ?? ""),
+        code: String(fd.get("code") ?? ""),
+        color: String(fd.get("color") ?? "#3b82f6"),
+      });
+      form.reset();
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Anlegen.");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <form
-      ref={ref}
-      action={formAction}
+      onSubmit={onSubmit}
       className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
     >
       <div className="flex-1 min-w-[160px]">
@@ -43,23 +59,44 @@ export function ProjectCreateForm() {
           className="h-[38px] w-full rounded-md border border-slate-300"
         />
       </div>
-      <SubmitButton pendingLabel="…">Projekt anlegen</SubmitButton>
-      {state.error && <p className="w-full text-sm text-red-600">{state.error}</p>}
+      <button type="submit" disabled={pending} className={submitClass}>
+        {pending ? "…" : "Projekt anlegen"}
+      </button>
+      {error && <p className="w-full text-sm text-red-600">{error}</p>}
     </form>
   );
 }
 
 export function UserCreateForm() {
-  const [state, formAction] = useActionState(createUserAction, initial);
-  const ref = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.ok) ref.current?.reset();
-  }, [state]);
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    setPending(true);
+    setError(null);
+    try {
+      await api.post("/api/v1/users", {
+        name: String(fd.get("name") ?? ""),
+        email: String(fd.get("email") ?? ""),
+        password: String(fd.get("password") ?? ""),
+        role: String(fd.get("role") ?? "EMPLOYEE"),
+      });
+      form.reset();
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Anlegen.");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <form
-      ref={ref}
-      action={formAction}
+      onSubmit={onSubmit}
       className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
     >
       <div className="flex-1 min-w-[140px]">
@@ -82,8 +119,10 @@ export function UserCreateForm() {
           <option value="ADMIN">Admin</option>
         </select>
       </div>
-      <SubmitButton pendingLabel="…">Nutzer anlegen</SubmitButton>
-      {state.error && <p className="w-full text-sm text-red-600">{state.error}</p>}
+      <button type="submit" disabled={pending} className={submitClass}>
+        {pending ? "…" : "Nutzer anlegen"}
+      </button>
+      {error && <p className="w-full text-sm text-red-600">{error}</p>}
     </form>
   );
 }

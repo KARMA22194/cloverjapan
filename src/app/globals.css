@@ -1,5 +1,50 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ *
+ *  Design-Tokens im etikett.de-Branding
+ *  (Farben & Schriften der Website https://etikett.de/)
+ * ------------------------------------------------------------------ */
+@theme {
+  --color-brand: #009bc9; /* Leitfarbe (Cyan-Blau) */
+  --color-brand-dark: #0a314c; /* dunkler Kontrast (Navy) */
+  --color-brand-tint: #b9e7f7; /* heller Tint für Badges/Aktiv-Zustände */
+  --color-accent: #f87805; /* Orange (Highlights) */
+  --color-danger: #e2001a; /* Signal-Rot (CTA/Fehler) */
+
+  --font-sans: "PT Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Viga", "PT Sans", ui-sans-serif, sans-serif;
+}
+
+/* --- Self-hosted Fonts (aus dem etikett.de-Theme, siehe public/fonts) --- */
+@font-face {
+  font-family: "Viga";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/viga-latin-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "PT Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/pt-sans-latin-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "PT Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/pt-sans-latin-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "PT Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/pt-sans-latin-italic.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
 }
@@ -11,4 +56,14 @@ body {
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: var(--font-sans);
+}
+
+/* Überschriften in der Marken-Headline-Schrift (Viga). */
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-heading);
 }
