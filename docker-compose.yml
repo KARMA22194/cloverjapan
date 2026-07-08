@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: timetracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d timetracker"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      # Innerhalb des Containers erreicht die App die DB über den Service-Namen "db"
+      HOSTNAME: "0.0.0.0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Corporate-Proxy (Cato Networks) MITM: dessen Root-CA vertrauen,
+      # sonst scheitern z. B. Prisma-Engine-Downloads (self-signed cert in chain).
+      NODE_EXTRA_CA_CERTS: "/app/certs/proxy-ca.pem"
+    command: sh -c "npx prisma generate && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      # node_modules bleibt containerlokal (linux-Binaries für next-swc/prisma-engine)
+      - node_modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  node_modules:

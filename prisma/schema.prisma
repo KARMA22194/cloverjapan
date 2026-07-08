@@ -1,0 +1,73 @@
+// Prisma-Schema für den Time Tracker.
+// Datenmodell laut Plan: User / Project / Assignment / TimeEntry.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  timeEntries TimeEntry[]
+  assignments Assignment[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  color     String   @default("#3b82f6")
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  timeEntries TimeEntry[]
+  assignments Assignment[]
+}
+
+// Welche Projekte darf ein User buchen (optional; leer = alle aktiven Projekte).
+model Assignment {
+  id        String  @id @default(cuid())
+  userId    String
+  projectId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+}
+
+model TimeEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  // Reines Datum (ohne Uhrzeit) → tagesbasierte Erfassung, zeitzonenfeste Aggregation.
+  date      DateTime @db.Date
+  // Dauer in Minuten (Int) → keine Float-Rundungsfehler.
+  minutes   Int
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  // Trägt Daily/Monthly/Yearly-Queries.
+  @@index([userId, date])
+  @@index([projectId])
+}
