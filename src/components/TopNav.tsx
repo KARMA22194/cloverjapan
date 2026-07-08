@@ -49,7 +49,7 @@ export function TopNav({
     <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2.5" aria-label="Startseite">
+          <Link href="/start" className="flex items-center gap-2.5" aria-label="Übersicht">
             <Logo height={26} priority />
           </Link>
           {/* Bereich „Zeiterfassung" und Bereich „Reiseplaner" — durch Trenner getrennt. */}

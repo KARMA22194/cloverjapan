@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { todayParam } from "@/lib/time";
 
-// Einstieg → Tagesansicht von heute.
+// Einstieg → kategorisierte Übersicht.
 export default function Home() {
-  redirect(`/day/${todayParam()}`);
+  redirect("/start");
 }

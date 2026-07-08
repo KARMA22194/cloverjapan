@@ -133,7 +133,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
 - `/ausgaben` — **Ausgabenrechner** Yen→Euro mit Kategorien (Reiseplaner-Bereich)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
-- `/` → Redirect auf heutige Tagesansicht
+- `/start` — **kategorisierte Übersicht** (Kacheln je Bereich); Logo verlinkt hierhin
+- `/` → Redirect auf `/start`
 
 Die Nav ist in zwei Bereiche getrennt (`TopNav`: `links` = **Zeiterfassung**,
 `secondaryLinks` = **Reiseplaner**).
