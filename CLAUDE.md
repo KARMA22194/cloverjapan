@@ -118,6 +118,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 - `/login` — Credentials-Login (Client, `useActionState`)
 - `/day/[date]` — Tagesansicht, Erfassen/Bearbeiten/Löschen, Tagessumme
+- `/calendar/[year]/[month]` — Monatskalender (Raster Mo–So), Tagessumme als
+  Heatmap, Klick → Tagesansicht (SSR via `getMonthReport.perDay`)
 - `/month/[year]/[month]` — Matrix Tag × Projekt mit Summen
 - `/year/[year]` — Matrix Monat × Projekt mit Summen
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)

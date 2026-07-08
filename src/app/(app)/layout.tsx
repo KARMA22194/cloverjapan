@@ -14,6 +14,7 @@ export default async function AppLayout({
   const [year, month] = today.split("-");
   const links = [
     { href: `/day/${today}`, label: "Tag", match: "/day" },
+    { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
     { href: `/month/${year}/${Number(month)}`, label: "Monat", match: "/month" },
     { href: `/year/${year}`, label: "Jahr", match: "/year" },
   ];
