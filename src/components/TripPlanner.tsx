@@ -33,6 +33,7 @@ interface TransitConn {
   departure: string | null;
   arrival: string | null;
   fare: { text: string } | null;
+  estimated?: boolean;
 }
 
 interface TransitLeg {
@@ -140,6 +141,13 @@ export function TripPlanner() {
     stops.forEach((s, i) => {
       L.marker([s.lat, s.lng], { icon: pinIcon(L, i + 1) })
         .addTo(layer)
+        // Dauerhaftes Label mit dem (deutsch bevorzugten) Ortsnamen direkt auf der Karte.
+        .bindTooltip(shortLabel(s.label), {
+          permanent: true,
+          direction: "right",
+          offset: [12, 0],
+          opacity: 0.9,
+        })
         .bindPopup(`${i + 1}. ${shortLabel(s.label)}`);
     });
 
@@ -384,6 +392,12 @@ export function TripPlanner() {
             </button>
             {transitError && (
               <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{transitError}</p>
+            )}
+            {transitLegs.some((l) => l.conn?.estimated) && (
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                Schätzung (kein Google-Key hinterlegt). Für echte Verbindungen{" "}
+                <code>GOOGLE_MAPS_API_KEY</code> in <code>.env</code> setzen.
+              </p>
             )}
             {transitLegs.length > 0 && (
               <ul className="mt-2 space-y-2">

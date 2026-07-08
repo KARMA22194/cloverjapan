@@ -15,58 +15,35 @@ interface NavLink {
 
 interface NavGroup {
   label: string;
-  match: string;
   items: NavLink[];
 }
 
-export function TopNav({
-  links,
-  secondaryGroup,
-  userName,
-  isAdmin,
-}: {
-  links: NavLink[];
-  secondaryGroup: NavGroup;
-  userName: string;
-  isAdmin: boolean;
-}) {
+export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: string }) {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement>(null);
 
-  const primary = isAdmin
-    ? [...links, { href: "/admin", label: "Admin", match: "/admin" }]
-    : links;
-
-  // Dropdown bei Klick außerhalb schließen.
+  // Offenes Menü bei Klick außerhalb der Navigation schließen.
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!openMenu) return;
     function onDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
+  }, [openMenu]);
 
   // Nach Navigation schließen.
   useEffect(() => {
-    setMenuOpen(false);
+    setOpenMenu(null);
   }, [pathname]);
 
-  const linkClass = (active: boolean) =>
-    `rounded-md px-3 py-1.5 text-sm font-medium transition ${
+  const buttonClass = (active: boolean) =>
+    `inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
       active
         ? "bg-brand-tint text-brand-dark"
         : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
     }`;
-
-  const renderLink = (link: NavLink) => (
-    <Link key={link.href} href={link.href} className={linkClass(pathname.startsWith(link.match))}>
-      {link.label}
-    </Link>
-  );
-
-  const groupActive = secondaryGroup.items.some((l) => pathname.startsWith(l.match));
 
   return (
     <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
@@ -75,58 +52,67 @@ export function TopNav({
           <Link href="/start" className="flex items-center gap-2.5" aria-label="Übersicht">
             <Logo height={26} priority />
           </Link>
-          {/* Bereich „Zeiterfassung" + ausklappbare Oberkategorie „Japan". */}
-          <nav className="flex items-center gap-1">
-            {primary.map(renderLink)}
 
-            <span
-              className="mx-1.5 h-5 w-px self-center bg-slate-200 dark:bg-slate-700"
-              aria-hidden
-            />
-
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                className={`inline-flex items-center gap-1 ${linkClass(groupActive)}`}
-              >
-                {secondaryGroup.label}
-                <span
-                  className={`text-[10px] transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
-                  aria-hidden
-                >
-                  ▾
-                </span>
-              </button>
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className="absolute left-0 top-full z-50 mt-1 min-w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg"
-                >
-                  {secondaryGroup.items.map((item) => {
-                    const active = pathname.startsWith(item.match);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        role="menuitem"
-                        className={`block rounded px-3 py-1.5 text-sm transition ${
-                          active
-                            ? "bg-brand-tint text-brand-dark"
-                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
+          {/* Kategorien als ausklappbare Dropdown-Menüs. */}
+          <nav ref={navRef} className="flex items-center gap-1">
+            {groups.map((group, gi) => {
+              const active = group.items.some((l) => pathname.startsWith(l.match));
+              const open = openMenu === group.label;
+              return (
+                <div key={group.label} className="flex items-center gap-1">
+                  {gi > 0 && (
+                    <span
+                      className="mx-1 h-5 w-px self-center bg-slate-200 dark:bg-slate-700"
+                      aria-hidden
+                    />
+                  )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenu(open ? null : group.label)}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      className={buttonClass(active)}
+                    >
+                      {group.label}
+                      <span
+                        className={`text-[10px] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                        aria-hidden
                       >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                        ▾
+                      </span>
+                    </button>
+                    {open && (
+                      <div
+                        role="menu"
+                        className="absolute left-0 top-full z-50 mt-1 min-w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg"
+                      >
+                        {group.items.map((item) => {
+                          const itemActive = pathname.startsWith(item.match);
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              role="menuitem"
+                              className={`block rounded px-3 py-1.5 text-sm transition ${
+                                itemActive
+                                  ? "bg-brand-tint text-brand-dark"
+                                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              {item.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </nav>
         </div>
+
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <span className="hidden text-sm text-slate-600 dark:text-slate-300 sm:inline">

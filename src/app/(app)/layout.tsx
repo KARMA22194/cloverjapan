@@ -12,31 +12,34 @@ export default async function AppLayout({
 
   const today = todayParam();
   const [year, month] = today.split("-");
-  // Bereich „Zeiterfassung"
-  const links = [
-    { href: `/day/${today}`, label: "Tag", match: "/day" },
-    { href: `/month/${year}/${Number(month)}`, label: "Monat", match: "/month" },
-    { href: `/year/${year}`, label: "Jahr", match: "/year" },
-    { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
-  ];
+  const isAdmin = session.user.role === "ADMIN";
 
-  // Ausklappbare Oberkategorie „Japan" in der oberen Leiste
-  const secondaryGroup = {
-    label: "Japan",
-    match: "/reiseplaner",
-    items: [
-      { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
-      { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
-    ],
-  };
+  // Ausklappbare Kategorien in der oberen Leiste.
+  const groups = [
+    {
+      label: "Timetracker",
+      items: [
+        { href: `/day/${today}`, label: "Tag", match: "/day" },
+        { href: `/month/${year}/${Number(month)}`, label: "Monat", match: "/month" },
+        { href: `/year/${year}`, label: "Jahr", match: "/year" },
+        { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
+        ...(isAdmin ? [{ href: "/admin", label: "Admin", match: "/admin" }] : []),
+      ],
+    },
+    {
+      label: "Japan",
+      items: [
+        { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
+        { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
+      ],
+    },
+  ];
 
   return (
     <div className="min-h-full">
       <TopNav
-        links={links}
-        secondaryGroup={secondaryGroup}
+        groups={groups}
         userName={session.user.name ?? session.user.email ?? "Nutzer"}
-        isAdmin={session.user.role === "ADMIN"}
       />
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
     </div>
