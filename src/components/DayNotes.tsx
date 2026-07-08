@@ -4,57 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api/client";
-import { NOTE_CATEGORIES, noteCategoryMeta, type NoteCategoryValue } from "@/lib/notes";
+import { autoCategoryForDate, noteCategoryMeta } from "@/lib/notes";
 import type { NoteDto } from "@/lib/api/dto";
-
-/** Kleine Farbchips zur Kategorie-Auswahl. */
-function CategoryChips({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: NoteCategoryValue;
-  onChange: (v: NoteCategoryValue) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {NOTE_CATEGORIES.map((c) => {
-        const selected = c.value === value;
-        return (
-          <button
-            key={c.value}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(c.value)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-slate-700 transition disabled:opacity-50 ${
-              selected
-                ? "border-slate-700 ring-1 ring-slate-700"
-                : "border-black/10 hover:border-slate-400"
-            }`}
-            style={{ backgroundColor: c.color }}
-            aria-pressed={selected}
-          >
-            <span className="h-2 w-2 rounded-full bg-slate-700/40" />
-            {c.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteDto[] }) {
   const router = useRouter();
 
+  // Kategorie ist an den Wochentag gebunden (erzwungen) — kein manueller Picker.
+  const forced = autoCategoryForDate(dateParam);
+  const forcedMeta = noteCategoryMeta(forced);
+
   const [newContent, setNewContent] = useState("");
-  const [newCategory, setNewCategory] = useState<NoteCategoryValue>("ARBEIT");
   const [addPending, setAddPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
-  const [editCategory, setEditCategory] = useState<NoteCategoryValue>("ARBEIT");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function addNote(e: React.FormEvent) {
@@ -66,10 +31,9 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
       await api.post("/api/v1/notes", {
         date: dateParam,
         content: newContent,
-        category: newCategory,
+        category: forced, // durch den Wochentag bestimmt
       });
       setNewContent("");
-      setNewCategory("ARBEIT");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
@@ -81,7 +45,6 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
   function startEdit(note: NoteDto) {
     setEditingId(note.id);
     setEditContent(note.content);
-    setEditCategory(note.category as NoteCategoryValue);
     setError(null);
   }
 
@@ -90,27 +53,12 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
     setBusyId(id);
     setError(null);
     try {
-      await api.patch(`/api/v1/notes/${id}`, {
-        content: editContent,
-        category: editCategory,
-      });
+      // Nur der Inhalt ist editierbar — die Kategorie folgt dem Datum.
+      await api.patch(`/api/v1/notes/${id}`, { content: editContent });
       setEditingId(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function recolor(id: string, category: NoteCategoryValue) {
-    setBusyId(id);
-    setError(null);
-    try {
-      await api.patch(`/api/v1/notes/${id}`, { category });
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Ändern.");
     } finally {
       setBusyId(null);
     }
@@ -132,7 +80,7 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
     <section className="mt-8">
       <h2 className="mb-3 text-lg text-slate-900 dark:text-slate-100">Notizen</h2>
 
-      {/* Neue Notiz */}
+      {/* Neue Notiz — Kategorie ist durch den Wochentag vorgegeben. */}
       <form
         onSubmit={addNote}
         className="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
@@ -145,7 +93,16 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
           className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
         />
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <CategoryChips value={newCategory} onChange={setNewCategory} disabled={addPending} />
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            Kategorie (automatisch):
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-2.5 py-1 font-medium text-slate-700"
+              style={{ backgroundColor: forcedMeta.color }}
+            >
+              <span className="h-2 w-2 rounded-full bg-slate-700/40" />
+              {forcedMeta.label}
+            </span>
+          </span>
           <button
             type="submit"
             disabled={addPending || !newContent.trim()}
@@ -184,13 +141,6 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
                       rows={4}
                       className="w-full resize-none rounded-md border border-black/15 bg-white/70 px-2 py-1.5 text-sm text-slate-800 outline-none focus:border-slate-500"
                     />
-                    <div className="mt-2">
-                      <CategoryChips
-                        value={editCategory}
-                        onChange={setEditCategory}
-                        disabled={busy}
-                      />
-                    </div>
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
@@ -225,43 +175,22 @@ export function DayNotes({ dateParam, notes }: { dateParam: string; notes: NoteD
                     <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
                       {note.content}
                     </p>
-                    <div className="mt-2 flex items-center justify-between gap-2 border-t border-black/10 pt-2">
-                      {/* Umfärben = Kategorie wechseln */}
-                      <div className="flex items-center gap-1">
-                        {NOTE_CATEGORIES.map((c) => (
-                          <button
-                            key={c.value}
-                            type="button"
-                            title={c.label}
-                            aria-label={`Kategorie ${c.label}`}
-                            disabled={busy}
-                            onClick={() => recolor(note.id, c.value)}
-                            className={`h-4 w-4 rounded-full border transition disabled:opacity-50 ${
-                              c.value === note.category
-                                ? "border-slate-700"
-                                : "border-black/20 hover:border-slate-500"
-                            }`}
-                            style={{ backgroundColor: c.color }}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(note)}
-                          className="rounded px-2 py-1 text-xs text-slate-600 transition hover:bg-black/5"
-                        >
-                          Bearbeiten
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => remove(note.id)}
-                          disabled={busy}
-                          className="rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 disabled:opacity-50"
-                        >
-                          Löschen
-                        </button>
-                      </div>
+                    <div className="mt-2 flex items-center justify-end gap-1 border-t border-black/10 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(note)}
+                        className="rounded px-2 py-1 text-xs text-slate-600 transition hover:bg-black/5"
+                      >
+                        Bearbeiten
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(note.id)}
+                        disabled={busy}
+                        className="rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        Löschen
+                      </button>
                     </div>
                   </>
                 )}
