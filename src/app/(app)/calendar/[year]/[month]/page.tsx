@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
 import { getMonthReport } from "@/lib/services/reports";
 import { getMonthNotes } from "@/lib/services/notes";
-import { noteCategoryMeta } from "@/lib/notes";
+import { NOTE_CATEGORIES, noteCategoryMeta } from "@/lib/notes";
 import { MONTHS_DE, formatMinutes, minutesToHours, todayParam } from "@/lib/time";
 
 // Montag-zuerst (getUTCDay: 0=So … 6=Sa → (d+6)%7: 0=Mo … 6=So).
@@ -163,8 +163,29 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-        Klicke einen Tag an, um Zeiten zu erfassen oder zu bearbeiten.
+      {/* Legende: was welche Farbe bedeutet */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+        <span className="font-medium text-slate-600 dark:text-slate-300">Farben:</span>
+        {NOTE_CATEGORIES.map((c) => (
+          <span key={c.value} className="inline-flex items-center gap-1.5">
+            <span
+              className="h-3 w-3 rounded-sm border border-black/10"
+              style={{ backgroundColor: c.color }}
+            />
+            {c.label}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="h-3 w-3 rounded-sm border border-black/10"
+            style={{ backgroundColor: "rgba(0, 155, 201, 0.5)" }}
+          />
+          gebuchte Stunden
+        </span>
+      </div>
+
+      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        Tage mit Notizen zeigen deren Farbe · klicke einen Tag an, um Zeiten oder Notizen zu erfassen.
       </p>
     </div>
   );
