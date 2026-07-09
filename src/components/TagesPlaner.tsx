@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import {
+  hasReminderPermission,
+  requestReminderPermission,
+  scheduleReminders,
+} from "@/lib/reminders";
 
 interface Task {
   id: string;
@@ -21,10 +26,25 @@ export function TagesPlaner() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [time, setTime] = useState("");
   const [text, setText] = useState("");
+  const [remindersOn, setRemindersOn] = useState(false);
 
   useEffect(() => {
     setDate(todayISO());
+    hasReminderPermission().then(setRemindersOn);
   }, []);
+
+  // Erinnerungen (1 h vorher) neu planen, wenn sich Aufgaben/Datum/Freigabe ändern.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    scheduleReminders(tasks, date).then((c) => {
+      cleanup = c;
+    });
+    return () => cleanup?.();
+  }, [tasks, date, remindersOn]);
+
+  async function enableReminders() {
+    setRemindersOn(await requestReminderPermission());
+  }
 
   // Beim Datumswechsel aus dem Konto laden.
   useEffect(() => {
@@ -92,6 +112,19 @@ export function TagesPlaner() {
           <span className="text-sm text-slate-500 dark:text-slate-400">
             {doneCount}/{tasks.length} erledigt
           </span>
+        )}
+        {remindersOn ? (
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            🔔 Erinnerung 1 h vorher aktiv
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={enableReminders}
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            🔔 Erinnerungen aktivieren
+          </button>
         )}
       </div>
 

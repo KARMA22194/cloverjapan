@@ -48,11 +48,13 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
     setOpenMenu(null);
   }, [pathname]);
 
+  // Tab-Button: aktive Kategorie nur dezent (fett), KEIN blauer Block —
+  // blau markiert wird ausschließlich der aktuelle Link im Dropdown.
   const buttonClass = (active: boolean) =>
-    `inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+    `inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800 ${
       active
-        ? "bg-brand-tint text-brand-dark"
-        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+        ? "font-semibold text-slate-900 dark:text-white"
+        : "font-medium text-slate-600 dark:text-slate-300"
     }`;
 
   return (
