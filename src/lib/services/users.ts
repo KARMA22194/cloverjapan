@@ -40,3 +40,12 @@ export async function createUser(input: {
 export function setUserActive(id: string, active: boolean) {
   return db.user.update({ where: { id }, data: { active }, include: userCount });
 }
+
+export async function getUserImage(userId: string): Promise<string | null> {
+  const u = await db.user.findUnique({ where: { id: userId }, select: { image: true } });
+  return u?.image ?? null;
+}
+
+export function setUserImage(userId: string, image: string | null) {
+  return db.user.update({ where: { id: userId }, data: { image } });
+}

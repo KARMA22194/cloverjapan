@@ -12,7 +12,10 @@ export async function getTripMembers(tripId: string) {
   return db.tripMember.findMany({
     where: { tripId },
     orderBy: { joinedAt: "asc" },
-    select: { joinedAt: true, user: { select: { id: true, name: true, email: true } } },
+    select: {
+      joinedAt: true,
+      user: { select: { id: true, name: true, email: true, image: true } },
+    },
   });
 }
 

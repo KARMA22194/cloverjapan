@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { Avatar } from "@/components/Avatar";
 
 interface Member {
   id: string;
   name: string;
   email: string;
+  image?: string | null;
   isMe: boolean;
 }
 
@@ -83,6 +85,7 @@ export function TripMembers() {
             key={m.id}
             className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
           >
+            <Avatar name={m.name} image={m.image} size={36} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
                 {m.name}

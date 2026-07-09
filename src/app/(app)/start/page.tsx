@@ -50,6 +50,7 @@ export default async function StartPage() {
       title: "Mehr",
       hint: "Verwaltung & Schnittstellen",
       tiles: [
+        { href: "/profil", label: "Profil", desc: "Profilbild festlegen", emoji: "🙂" },
         ...(isAdmin
           ? [{ href: "/admin", label: "Admin", desc: "Projekte & Mitarbeiter", emoji: "⚙️" }]
           : []),

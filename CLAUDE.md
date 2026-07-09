@@ -136,6 +136,9 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/tagesplaner` · `/checkliste` · `/mitglieder` — **Japan**-Bereich (Tagesaufgaben,
   Checkliste, Mitglieder/Einladen)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
+- `/profil` — **Profilbild** setzen (Upload → client-seitig auf 128×128 verkleinert,
+  als Data-URL in `User.image`; `PATCH /api/v1/me`). Fallback: Initialen-Avatar
+  (`src/components/Avatar.tsx`). Avatare in TopNav, Mitgliederliste.
 - `/start` — **kategorisierte Übersicht** (Kacheln je Bereich); Logo verlinkt hierhin
 - `/` → Redirect auf `/start`
 

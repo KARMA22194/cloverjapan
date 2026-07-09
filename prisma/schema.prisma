@@ -30,6 +30,7 @@ model User {
   passwordHash String
   role         Role     @default(EMPLOYEE)
   active       Boolean  @default(true)
+  image        String? // Profilbild als Data-URL (klein) oder null
   createdAt    DateTime @default(now())
 
   timeEntries    TimeEntry[]

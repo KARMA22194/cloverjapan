@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
+import { api } from "@/lib/api/client";
 import { Logo } from "@/components/Logo";
+import { Avatar } from "@/components/Avatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavLink {
@@ -21,7 +23,15 @@ interface NavGroup {
 export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: string }) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [me, setMe] = useState<{ name: string; image: string | null } | null>(null);
   const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    api
+      .get<{ name: string; image: string | null }>("/api/v1/me")
+      .then((m) => setMe({ name: m.name, image: m.image }))
+      .catch(() => {});
+  }, [pathname]);
 
   // Offenes Menü bei Klick außerhalb der Navigation schließen.
   useEffect(() => {
@@ -115,9 +125,16 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <span className="hidden text-sm text-slate-600 dark:text-slate-300 sm:inline">
-            {userName}
-          </span>
+          <Link
+            href="/profil"
+            className="flex items-center gap-2 rounded-md p-0.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+            title="Profil"
+          >
+            <Avatar name={me?.name ?? userName} image={me?.image} size={28} />
+            <span className="hidden text-sm text-slate-600 dark:text-slate-300 sm:inline">
+              {me?.name ?? userName}
+            </span>
+          </Link>
           <form action={logoutAction}>
             <button
               type="submit"
