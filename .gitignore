@@ -42,6 +42,10 @@ yarn-error.log*
 # --- Deployment ---
 .vercel
 
+# --- Capacitor (generierte native Projekte; lokal via `npx cap add` erzeugen) ---
+/ios
+/android
+
 # --- Betriebssystem / Editor ---
 .DS_Store
 Thumbs.db

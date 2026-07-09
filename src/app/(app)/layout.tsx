@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { TopNav } from "@/components/TopNav";
+import { BiometricLock } from "@/components/BiometricLock";
 import { todayParam } from "@/lib/time";
 
 export default async function AppLayout({
@@ -39,12 +40,14 @@ export default async function AppLayout({
   ];
 
   return (
-    <div className="min-h-full">
-      <TopNav
-        groups={groups}
-        userName={session.user.name ?? session.user.email ?? "Nutzer"}
-      />
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
-    </div>
+    <BiometricLock>
+      <div className="min-h-full">
+        <TopNav
+          groups={groups}
+          userName={session.user.name ?? session.user.email ?? "Nutzer"}
+        />
+        <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      </div>
+    </BiometricLock>
   );
 }

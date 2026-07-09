@@ -74,6 +74,11 @@ Neue npm-Pakete: **im Container** installieren
   `docker compose exec app npx playwright install --with-deps chromium`, dann
   `docker compose exec app npx playwright test`. Tests in `e2e/` laufen gegen den
   Dev-Server (mobiles Gerät); Config `playwright.config.ts` (`--no-sandbox`, da root).
+- **Native Store-App (Capacitor):** WebView auf die gehostete App
+  (`capacitor.config.ts`, `server.url`), da Server-App (kein statischer Export).
+  **Fingerabdruck-Lock** `src/components/BiometricLock.tsx` (nur nativ, sonst No-Op),
+  eingehängt im `(app)`-Layout. Native Build/Toolchains laufen **auf dem Host** (nicht
+  im Container) — siehe `CAPACITOR.md`. `ios/`/`android/` sind gitignored.
 
 ## Architektur
 
