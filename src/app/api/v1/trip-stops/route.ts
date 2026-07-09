@@ -14,11 +14,18 @@ const stopSchema = z.object({
 });
 const putBody = z.object({ stops: z.array(stopSchema).max(200) });
 
-const toDto = (s: { id: string; label: string; lat: number; lng: number }) => ({
+const toDto = (s: {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  createdByName: string;
+}) => ({
   id: s.id,
   label: s.label,
   lat: s.lat,
   lng: s.lng,
+  by: s.createdByName,
 });
 
 /** GET /api/v1/trip-stops — Stopps des aktuellen Nutzers (in Reihenfolge). */
@@ -36,6 +43,6 @@ export function PUT(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const { stops } = putBody.parse(await readJson(req));
-    return ok((await replaceTripStops(tripId, stops)).map(toDto));
+    return ok((await replaceTripStops(tripId, stops, user.name)).map(toDto));
   });
 }

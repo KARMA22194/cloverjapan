@@ -182,6 +182,8 @@ Komponenten bleiben tenant-agnostisch. Einladen per E-Mail unter `/mitglieder`
 (`/api/v1/trip/members`); Eingeladene **wechseln** in die Reise (ihre alte bleibt
 bestehen). Endpunkte trip-basiert: `trip-stops` (PUT), `expenses`, `planner-tasks`,
 `checklist`, `trip/members` — nicht in OpenAPI registriert (wie geo/fx/weather).
+Jeder Eintrag trägt `createdByName` (Anzeige „von X"); bei PUT-Replace
+(Stopps/Checkliste) bleibt der ursprüngliche Ersteller je id erhalten.
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 

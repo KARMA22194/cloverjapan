@@ -8,6 +8,7 @@ interface Item {
   id: string;
   text: string;
   done: boolean;
+  by?: string;
 }
 
 export function Checkliste() {
@@ -24,7 +25,11 @@ export function Checkliste() {
   // Optimistisch aktualisieren + komplette Liste speichern (PUT-Replace).
   function save(next: Item[]) {
     setItems(next);
-    api.put("/api/v1/checklist", { items: next }).catch(() => {});
+    // Antwort enthält den Ersteller-Namen (by) → State damit auffrischen.
+    api
+      .put<Item[]>("/api/v1/checklist", { items: next })
+      .then(setItems)
+      .catch(() => {});
   }
 
   function add(e: React.FormEvent) {
@@ -94,15 +99,22 @@ export function Checkliste() {
                 onChange={() => toggle(it.id)}
                 className="h-4 w-4 accent-[#009bc9]"
               />
-              <span
-                className={`min-w-0 flex-1 text-sm ${
-                  it.done
-                    ? "text-slate-400 line-through dark:text-slate-500"
-                    : "text-slate-800 dark:text-slate-100"
-                }`}
-              >
-                {it.text}
-              </span>
+              <div className="min-w-0 flex-1">
+                <span
+                  className={`text-sm ${
+                    it.done
+                      ? "text-slate-400 line-through dark:text-slate-500"
+                      : "text-slate-800 dark:text-slate-100"
+                  }`}
+                >
+                  {it.text}
+                </span>
+                {it.by && (
+                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">
+                    · {it.by}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => remove(it.id)}

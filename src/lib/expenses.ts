@@ -24,6 +24,7 @@ export interface ExpenseItem {
   category: ExpenseCategoryValue;
   label: string;
   yen: number;
+  by?: string;
 }
 
 /**

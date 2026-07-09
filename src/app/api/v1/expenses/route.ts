@@ -12,11 +12,19 @@ const createBody = z.object({
   yen: z.number().int().positive().max(100_000_000),
 });
 
-const toDto = (e: { id: string; category: string; label: string; yen: number; createdAt: Date }) => ({
+const toDto = (e: {
+  id: string;
+  category: string;
+  label: string;
+  yen: number;
+  createdByName: string;
+  createdAt: Date;
+}) => ({
   id: e.id,
   category: e.category,
   label: e.label,
   yen: e.yen,
+  by: e.createdByName,
   createdAt: e.createdAt.toISOString(),
 });
 
@@ -35,7 +43,7 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = createBody.parse(await readJson(req));
-    return ok(toDto(await createExpense(tripId, body)), 201);
+    return ok(toDto(await createExpense(tripId, body, user.name)), 201);
   });
 }
 

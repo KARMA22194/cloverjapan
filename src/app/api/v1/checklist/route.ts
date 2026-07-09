@@ -13,10 +13,11 @@ const itemSchema = z.object({
 });
 const putBody = z.object({ items: z.array(itemSchema).max(500) });
 
-const toDto = (i: { id: string; text: string; done: boolean }) => ({
+const toDto = (i: { id: string; text: string; done: boolean; createdByName: string }) => ({
   id: i.id,
   text: i.text,
   done: i.done,
+  by: i.createdByName,
 });
 
 /** GET /api/v1/checklist — Checkliste des aktuellen Nutzers. */
@@ -34,6 +35,6 @@ export function PUT(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const { items } = putBody.parse(await readJson(req));
-    return ok((await replaceChecklist(tripId, items)).map(toDto));
+    return ok((await replaceChecklist(tripId, items, user.name)).map(toDto));
   });
 }

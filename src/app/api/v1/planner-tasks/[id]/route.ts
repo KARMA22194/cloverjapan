@@ -34,7 +34,14 @@ export function PATCH(req: NextRequest, ctx: Ctx) {
     if (count === 0) throw notFound("Aufgabe nicht gefunden.");
     const t = await getOwnedPlannerTask(id, tripId);
     if (!t) throw notFound("Aufgabe nicht gefunden.");
-    return ok({ id: t.id, date: toDateParam(t.date), time: t.time, text: t.text, done: t.done });
+    return ok({
+      id: t.id,
+      date: toDateParam(t.date),
+      time: t.time,
+      text: t.text,
+      done: t.done,
+      by: t.createdByName,
+    });
   });
 }
 

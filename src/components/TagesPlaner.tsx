@@ -9,6 +9,7 @@ interface Task {
   time: string;
   text: string;
   done: boolean;
+  by?: string;
 }
 
 function todayISO(): string {
@@ -151,15 +152,22 @@ export function TagesPlaner() {
                   {t.time}
                 </span>
               )}
-              <span
-                className={`min-w-0 flex-1 text-sm ${
-                  t.done
-                    ? "text-slate-400 line-through dark:text-slate-500"
-                    : "text-slate-800 dark:text-slate-100"
-                }`}
-              >
-                {t.text}
-              </span>
+              <div className="min-w-0 flex-1">
+                <span
+                  className={`text-sm ${
+                    t.done
+                      ? "text-slate-400 line-through dark:text-slate-500"
+                      : "text-slate-800 dark:text-slate-100"
+                  }`}
+                >
+                  {t.text}
+                </span>
+                {t.by && (
+                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">
+                    · {t.by}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => remove(t.id)}

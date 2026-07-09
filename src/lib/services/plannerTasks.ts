@@ -11,6 +11,7 @@ export function getPlannerTasks(tripId: string, dateParam: string) {
 export function createPlannerTask(
   tripId: string,
   input: { dateParam: string; time: string; text: string },
+  createdByName: string,
 ) {
   return db.plannerTask.create({
     data: {
@@ -18,6 +19,7 @@ export function createPlannerTask(
       date: parseDateParam(input.dateParam),
       time: input.time,
       text: input.text.trim(),
+      createdByName,
     },
   });
 }

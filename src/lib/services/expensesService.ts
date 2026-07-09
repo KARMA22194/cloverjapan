@@ -7,9 +7,16 @@ export function listExpenses(tripId: string) {
 export function createExpense(
   tripId: string,
   input: { category: string; label: string; yen: number },
+  createdByName: string,
 ) {
   return db.expense.create({
-    data: { tripId, category: input.category, label: input.label.trim(), yen: input.yen },
+    data: {
+      tripId,
+      category: input.category,
+      label: input.label.trim(),
+      yen: input.yen,
+      createdByName,
+    },
   });
 }
 

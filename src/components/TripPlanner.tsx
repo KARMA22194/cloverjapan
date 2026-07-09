@@ -12,6 +12,7 @@ interface Stop {
   label: string;
   lat: number;
   lng: number;
+  by?: string;
 }
 
 interface GeoResult {
@@ -94,12 +95,13 @@ export function TripPlanner() {
       .catch(() => {});
   }, []);
 
-  // Komplette Stopp-Liste speichern (PUT-Replace).
+  // Komplette Stopp-Liste speichern (PUT-Replace); Antwort enthält den Ersteller (by).
   function persistStops(next: Stop[]) {
     api
-      .put("/api/v1/trip-stops", {
+      .put<Stop[]>("/api/v1/trip-stops", {
         stops: next.map((s) => ({ id: s.id, label: s.label, lat: s.lat, lng: s.lng })),
       })
+      .then(setStops)
       .catch(() => {});
   }
 
@@ -439,9 +441,16 @@ export function TripPlanner() {
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
                     {i + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
-                    {shortLabel(s.label)}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
+                      {shortLabel(s.label)}
+                    </p>
+                    {s.by && (
+                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                        von {s.by}
+                      </p>
+                    )}
+                  </div>
                   {weather[s.id] && (
                     <span
                       className="shrink-0 text-xs text-slate-500 dark:text-slate-400"

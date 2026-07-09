@@ -14,12 +14,20 @@ const createBody = z.object({
   text: z.string().min(1).max(300),
 });
 
-const toDto = (t: { id: string; date: Date; time: string; text: string; done: boolean }) => ({
+const toDto = (t: {
+  id: string;
+  date: Date;
+  time: string;
+  text: string;
+  done: boolean;
+  createdByName: string;
+}) => ({
   id: t.id,
   date: toDateParam(t.date),
   time: t.time,
   text: t.text,
   done: t.done,
+  by: t.createdByName,
 });
 
 /** GET /api/v1/planner-tasks?date=YYYY-MM-DD — Aufgaben eines Tages. */
@@ -40,7 +48,11 @@ export function POST(req: NextRequest) {
     const body = createBody.parse(await readJson(req));
     return ok(
       toDto(
-        await createPlannerTask(tripId, { dateParam: body.date, time: body.time, text: body.text }),
+        await createPlannerTask(
+          tripId,
+          { dateParam: body.date, time: body.time, text: body.text },
+          user.name,
+        ),
       ),
       201,
     );

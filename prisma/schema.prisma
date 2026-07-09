@@ -126,50 +126,54 @@ model TripMember {
 
 // Reiseplaner-Stopp. id ist client-generiert (stabil über PUT-Replace).
 model TripStop {
-  id       String @id
-  tripId   String
-  label    String
-  lat      Float
-  lng      Float
-  position Int
-  trip     Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id            String @id
+  tripId        String
+  label         String
+  lat           Float
+  lng           Float
+  position      Int
+  createdByName String @default("")
+  trip          Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
 }
 
 model Expense {
-  id        String   @id @default(cuid())
-  tripId    String
-  category  String
-  label     String
-  yen       Int
-  createdAt DateTime @default(now())
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  tripId        String
+  category      String
+  label         String
+  yen           Int
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId])
 }
 
 model PlannerTask {
-  id        String   @id @default(cuid())
-  tripId    String
-  date      DateTime @db.Date
-  time      String
-  text      String
-  done      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  tripId        String
+  date          DateTime @db.Date
+  time          String
+  text          String
+  done          Boolean  @default(false)
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, date])
 }
 
 model ChecklistItem {
-  id        String   @id @default(cuid())
-  tripId    String
-  text      String
-  done      Boolean  @default(false)
-  position  Int
-  createdAt DateTime @default(now())
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  tripId        String
+  text          String
+  done          Boolean  @default(false)
+  position      Int
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
 }

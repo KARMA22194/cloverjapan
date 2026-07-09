@@ -303,9 +303,16 @@ export function ExpenseCalculator() {
                   >
                     {meta.label}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200">
-                    {it.label || "—"}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-slate-700 dark:text-slate-200">
+                      {it.label || "—"}
+                    </p>
+                    {it.by && (
+                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                        von {it.by}
+                      </p>
+                    )}
+                  </div>
                   <span className="shrink-0 text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
                     {yenFmt.format(it.yen)}
                   </span>
