@@ -34,11 +34,15 @@ export function TripMembers() {
     setError(null);
     setInfo(null);
     try {
-      const d = await api.post<{ member: Member }>("/api/v1/trip/members", {
+      const d = await api.post<{ member: Member; emailSent: boolean }>("/api/v1/trip/members", {
         email: email.trim(),
       });
       setMembers((prev) => [...prev.filter((m) => m.id !== d.member.id), d.member]);
-      setInfo(`${d.member.name} wurde eingeladen.`);
+      setInfo(
+        d.emailSent
+          ? `${d.member.name} eingeladen — E-Mail gesendet.`
+          : `${d.member.name} hinzugefügt (keine E-Mail konfiguriert).`,
+      );
       setEmail("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Einladen fehlgeschlagen.");

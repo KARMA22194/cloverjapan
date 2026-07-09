@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ApiError, conflict, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId, getTripMembers, inviteToTrip } from "@/lib/services/trip";
+import { sendTripInviteEmail } from "@/lib/mailer";
 
 const inviteBody = z.object({ email: z.string().email("Ungültige E-Mail.") });
 
@@ -35,10 +36,14 @@ export function POST(req: NextRequest) {
     const result = await inviteToTrip(tripId, email);
     if (!result.ok) {
       if (result.reason === "not_found") {
-        throw new ApiError(404, "Kein Nutzer mit dieser E-Mail gefunden.");
+        throw new ApiError(
+          404,
+          "Kein Konto mit dieser E-Mail. Die Person muss zuerst ein Konto haben (vom Admin angelegt).",
+        );
       }
       throw conflict("Nutzer ist bereits in dieser Reise.");
     }
-    return ok({ member: { ...result.user, isMe: false } }, 201);
+    const emailSent = await sendTripInviteEmail(result.user.email, user.name);
+    return ok({ member: { ...result.user, isMe: false }, emailSent }, 201);
   });
 }
