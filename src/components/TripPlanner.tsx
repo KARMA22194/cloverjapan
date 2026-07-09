@@ -84,6 +84,8 @@ export function TripPlanner() {
   const [transitLoading, setTransitLoading] = useState(false);
   const [transitError, setTransitError] = useState<string | null>(null);
   const [addedLegs, setAddedLegs] = useState<Record<number, boolean>>({});
+  const [weather, setWeather] = useState<Record<string, { emoji: string; tempC: number; text: string }>>({});
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   // localStorage laden (v1-Persistenz)
   useEffect(() => {
@@ -223,6 +225,30 @@ export function TripPlanner() {
       setError(err instanceof Error ? err.message : "Konnte keinen Ort ermitteln.");
     } finally {
       setPastePending(false);
+    }
+  }
+
+  async function loadWeather() {
+    if (stops.length === 0) return;
+    setWeatherLoading(true);
+    try {
+      const entries = await Promise.all(
+        stops.map(async (s) => {
+          try {
+            const w = await api.get<{ emoji: string; tempC: number; text: string }>(
+              `/api/v1/geo/weather?lat=${s.lat}&lng=${s.lng}`,
+            );
+            return [s.id, w] as const;
+          } catch {
+            return [s.id, null] as const;
+          }
+        }),
+      );
+      const map: Record<string, { emoji: string; tempC: number; text: string }> = {};
+      for (const [id, w] of entries) if (w) map[id] = w;
+      setWeather(map);
+    } finally {
+      setWeatherLoading(false);
     }
   }
 
@@ -381,13 +407,23 @@ export function TripPlanner() {
               Stopps ({stops.length})
             </span>
             {stops.length > 0 && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
-              >
-                Alle löschen
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={loadWeather}
+                  disabled={weatherLoading}
+                  className="text-xs text-brand transition hover:underline disabled:opacity-50"
+                >
+                  {weatherLoading ? "Wetter…" : "🌦 Wetter"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                >
+                  Alle löschen
+                </button>
+              </div>
             )}
           </div>
           {stops.length === 0 ? (
@@ -407,6 +443,14 @@ export function TripPlanner() {
                   <span className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
                     {shortLabel(s.label)}
                   </span>
+                  {weather[s.id] && (
+                    <span
+                      className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
+                      title={weather[s.id].text}
+                    >
+                      {weather[s.id].emoji} {weather[s.id].tempC}°
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeStop(s.id)}
