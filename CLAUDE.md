@@ -202,8 +202,10 @@ UI übernimmt das Corporate Design von **https://etikett.de/** — alle Assets
 - **Farben:** als Tailwind-v4-`@theme`-Tokens in `globals.css` → Utilities
   `brand` (`#009BC9`), `brand-dark` (`#0A314C`), `brand-tint` (`#B9E7F7`),
   `accent` (`#F87805`), `danger` (`#E2001A`). Primär-Akzent statt Tailwind-`blue-*`.
-- **Logo:** `public/brand/logo-etikett.png` (Komponente `src/components/Logo.tsx`).
-- **Favicon:** `src/app/icon.png` (Next App-Router-Konvention).
+- **Logo:** Kleeblatt-Silhouette `public/brand/clover.png` — via CSS-Maske in
+  `src/components/Logo.tsx` themenabhängig eingefärbt (dunkel/hell). (Altes
+  `logo-etikett.png` bleibt ungenutzt liegen.)
+- **Favicon:** `src/app/icon.png` = Kleeblatt auf Schwarz (`public/brand/clover-icon.png`).
 - **Dark-Mode:** klassenbasiert via Tailwind-v4 `@custom-variant dark (&:where(.dark,
   .dark *))` in `globals.css`. Umschalter `src/components/ThemeToggle.tsx` (Persistenz
   in `localStorage`, in TopNav + Login). Ein **Inline-Script** im Root-Layout setzt
