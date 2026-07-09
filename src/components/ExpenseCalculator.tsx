@@ -21,6 +21,52 @@ const yenFmt = new Intl.NumberFormat("de-DE", {
   maximumFractionDigits: 0,
 });
 
+/** Donut aus Anteilen; 2px-Lücke zwischen Segmenten (Track scheint durch). */
+function Donut({ segments }: { segments: { color: string; frac: number }[] }) {
+  const size = 132;
+  const stroke = 20;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="Ausgaben nach Kategorie"
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        strokeWidth={stroke}
+        className="stroke-slate-100 dark:stroke-slate-800"
+      />
+      {segments.map((s, i) => {
+        const dash = Math.max(s.frac * c - 2, 0.001);
+        const seg = (
+          <circle
+            key={i}
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={stroke}
+            strokeDasharray={`${dash} ${c - dash}`}
+            strokeDashoffset={-acc * c}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        );
+        acc += s.frac;
+        return seg;
+      })}
+    </svg>
+  );
+}
+
 export function ExpenseCalculator() {
   const [rate, setRate] = useState<number | null>(null);
   const [rateDate, setRateDate] = useState<string | null>(null);
@@ -33,6 +79,7 @@ export function ExpenseCalculator() {
   const [yenInput, setYenInput] = useState("");
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState<ExpenseCategoryValue>("ESSEN");
+  const [budget, setBudget] = useState("");
 
   // Kurs laden (mit Fallback).
   useEffect(() => {
@@ -86,6 +133,24 @@ export function ExpenseCalculator() {
     }
   }, [items, persist, loaded]);
 
+  // Budget laden/speichern.
+  useEffect(() => {
+    try {
+      const b = localStorage.getItem("japan-budget");
+      if (b) setBudget(b);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem("japan-budget", budget);
+    } catch {
+      /* ignore */
+    }
+  }, [budget, loaded]);
+
   const parsedYen = Number(yenInput.replace(",", "."));
   const validYen = Number.isFinite(parsedYen) && parsedYen > 0;
   const eur = (yen: number) => (rate ? yen * rate : 0);
@@ -99,6 +164,14 @@ export function ExpenseCalculator() {
     }
     return { perCat, yen };
   }, [items]);
+
+  const budgetYen = Math.max(0, Math.round(Number(budget.replace(",", ".")) || 0));
+  const pct = budgetYen > 0 ? Math.round((totals.yen / budgetYen) * 100) : 0;
+  const over = budgetYen > 0 && totals.yen > budgetYen;
+  const catBreakdown = EXPENSE_CATEGORIES.filter((c) => totals.perCat.has(c.value)).map((c) => {
+    const yen = totals.perCat.get(c.value) ?? 0;
+    return { ...c, yen, eur: eur(yen), frac: totals.yen > 0 ? yen / totals.yen : 0 };
+  });
 
   function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -119,7 +192,8 @@ export function ExpenseCalculator() {
     "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(300px,1fr)_1.2fr]">
+    <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-[minmax(300px,1fr)_1.2fr]">
       {/* Eingabe */}
       <div className="flex flex-col gap-3">
         {/* Kurs-Banner */}
@@ -305,6 +379,78 @@ export function ExpenseCalculator() {
           </div>
         )}
       </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h2 className="mb-3 text-lg text-slate-900 dark:text-slate-100">Auswertung</h2>
+
+          {/* Budget */}
+          <div className="mb-4">
+            <div className="mb-1.5 flex items-center gap-2">
+              <label htmlFor="budget" className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Budget (¥)
+              </label>
+              <input
+                id="budget"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                inputMode="decimal"
+                placeholder="z. B. 200000"
+                className="w-32 rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-2 py-1 text-sm outline-none focus:border-brand"
+              />
+            </div>
+            {budgetYen > 0 && (
+              <>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(pct, 100)}%`,
+                      backgroundColor: over ? "#e2001a" : "#009bc9",
+                    }}
+                  />
+                </div>
+                <p
+                  className={`mt-1 text-xs ${
+                    over ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  {yenFmt.format(totals.yen)} von {yenFmt.format(budgetYen)} ({pct}%)
+                  {over ? " — Budget überschritten!" : ` · ${yenFmt.format(budgetYen - totals.yen)} übrig`}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Donut + Legende */}
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="relative">
+              <Donut segments={catBreakdown.map((c) => ({ color: c.color, frac: c.frac }))} />
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">Gesamt</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {eurFmt.format(eur(totals.yen))}
+                </span>
+              </div>
+            </div>
+            <ul className="min-w-[200px] flex-1 space-y-1.5">
+              {catBreakdown.map((c) => (
+                <li key={c.value} className="flex items-center gap-2 text-sm">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border border-black/10"
+                    style={{ backgroundColor: c.color }}
+                  />
+                  <span className="text-slate-700 dark:text-slate-200">{c.label}</span>
+                  <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">
+                    {eurFmt.format(c.eur)} · {Math.round(c.frac * 100)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
