@@ -60,6 +60,21 @@ docker compose down -v                                    # Stoppen + Daten lös
 Neue npm-Pakete: **im Container** installieren
 (`docker compose run --rm app npm install <pkg>`), nicht auf dem Host.
 
+**Wichtig:** Nach `prisma migrate`/`generate` den **laufenden Dev-Server neu starten**
+(`docker compose restart app`) — sonst nutzt er den alten Prisma-Client im Speicher
+(neue Modelle sind dann `undefined`).
+
+## Mobile (PWA) & E2E-Tests
+
+- **PWA:** installierbar via `public/manifest.webmanifest` + Service-Worker
+  `public/sw.js` (network-first, `/api` nicht gecacht), registriert in
+  `src/components/PwaRegister.tsx` (Root-Layout). Icons `public/icon-192.png` /
+  `icon-512.png` (Kleeblatt). `start_url=/start`, `display=standalone`.
+- **Playwright** (im Container): einmalig
+  `docker compose exec app npx playwright install --with-deps chromium`, dann
+  `docker compose exec app npx playwright test`. Tests in `e2e/` laufen gegen den
+  Dev-Server (mobiles Gerät); Config `playwright.config.ts` (`--no-sandbox`, da root).
+
 ## Architektur
 
 **REST-API als kanonische Schnittstelle.** Das Frontend spricht für **Mutationen

@@ -1,9 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { PwaRegister } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
   title: "Time Tracker",
-  description: "Zeiterfassung für Mitarbeiter",
+  description: "Zeiterfassung & Japan-Reiseplaner",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Time Tracker" },
+  icons: { apple: "/icon-192.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#009bc9",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 // Setzt das Theme synchron vor dem ersten Paint → kein Flash (FOUC).
@@ -17,7 +28,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }
