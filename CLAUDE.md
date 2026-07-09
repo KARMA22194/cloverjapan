@@ -163,6 +163,10 @@ lädt der Browser:
   ein **dauerhaftes Tooltip** mit dem deutsch bevorzugten Ortsnamen (Nominatim
   `accept-language=de`). Vollständig deutsche Tile-Beschriftung gibt es für Japan
   nicht (fehlende `name:de`-Daten).
+- **Ort aus Link/Text** (`GET /api/v1/geo/resolve?q=`): Google-/Apple-Maps-Links
+  (auch Kurzlinks, folgt Redirect) → exakte Koordinaten (`@lat,lng` / `!3d!4d` /
+  `q=`/`ll=`); sonst Text/Caption → Nominatim (Japan). Instagram liefert **keinen**
+  Standort (kein öffentliches API, JS-Hülle) → klare 422-Meldung.
 
 **Ausgabenrechner** (`/ausgaben`, `ExpenseCalculator.tsx`): Yen→Euro live via
 `GET /api/v1/fx/rate` (open.er-api.com, keyfrei, server-seitig; Fallback-Rate).

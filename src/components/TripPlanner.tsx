@@ -74,6 +74,8 @@ export function TripPlanner() {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paste, setPaste] = useState("");
+  const [pastePending, setPastePending] = useState(false);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
 
@@ -201,6 +203,29 @@ export function TripPlanner() {
     }
   }
 
+  async function addFromPaste(e: React.FormEvent) {
+    e.preventDefault();
+    const q = paste.trim();
+    if (q.length < 2) return;
+    setPastePending(true);
+    setError(null);
+    try {
+      const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
+      setStops((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng },
+      ]);
+      setPaste("");
+      setRoute(null);
+      setTransitLegs([]);
+      setTransitError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Konnte keinen Ort ermitteln.");
+    } finally {
+      setPastePending(false);
+    }
+  }
+
   function removeStop(id: string) {
     setStops((prev) => prev.filter((s) => s.id !== id));
     setRoute(null);
@@ -319,6 +344,35 @@ export function TripPlanner() {
             </button>
           </div>
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+        </form>
+
+        {/* Ort aus Link oder Text (z. B. Google-Maps-Link oder Caption) einfügen. */}
+        <form
+          onSubmit={addFromPaste}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        >
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            Ort aus Link/Text einfügen
+          </label>
+          <textarea
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            rows={2}
+            placeholder="Google-Maps-Link oder Ortsname/Caption (z. B. „Fushimi Inari“)"
+            className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Maps-Link = exakt · Text/Caption = geschätzt
+            </span>
+            <button
+              type="submit"
+              disabled={pastePending || paste.trim().length < 2}
+              className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pastePending ? "…" : "Einfügen"}
+            </button>
+          </div>
         </form>
 
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
