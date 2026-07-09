@@ -45,7 +45,6 @@ interface TransitLeg {
   error: string | null;
 }
 
-const STORAGE_KEY = "reiseplaner-japan-stops";
 const JAPAN_CENTER: [number, number] = [36.2, 138.25];
 
 /** Kurzer, lesbarer Ortsname aus dem langen Nominatim-display_name. */
@@ -87,24 +86,22 @@ export function TripPlanner() {
   const [weather, setWeather] = useState<Record<string, { emoji: string; tempC: number; text: string }>>({});
   const [weatherLoading, setWeatherLoading] = useState(false);
 
-  // localStorage laden (v1-Persistenz)
+  // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setStops(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
+    api
+      .get<Stop[]>("/api/v1/trip-stops")
+      .then(setStops)
+      .catch(() => {});
   }, []);
 
-  // localStorage speichern
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stops));
-    } catch {
-      /* ignore */
-    }
-  }, [stops]);
+  // Komplette Stopp-Liste speichern (PUT-Replace).
+  function persistStops(next: Stop[]) {
+    api
+      .put("/api/v1/trip-stops", {
+        stops: next.map((s) => ({ id: s.id, label: s.label, lat: s.lat, lng: s.lng })),
+      })
+      .catch(() => {});
+  }
 
   // Karte einmalig initialisieren (nur im Client → dynamischer Import).
   useEffect(() => {
@@ -192,10 +189,9 @@ export function TripPlanner() {
         return;
       }
       const r = results[0];
-      setStops((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng },
-      ]);
+      const next = [...stops, { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng }];
+      setStops(next);
+      persistStops(next);
       setQuery("");
       setRoute(null); // Route veraltet, sobald sich die Stopps ändern
     } catch (err) {
@@ -213,10 +209,9 @@ export function TripPlanner() {
     setError(null);
     try {
       const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
-      setStops((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng },
-      ]);
+      const next = [...stops, { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng }];
+      setStops(next);
+      persistStops(next);
       setPaste("");
       setRoute(null);
       setTransitLegs([]);
@@ -253,12 +248,15 @@ export function TripPlanner() {
   }
 
   function removeStop(id: string) {
-    setStops((prev) => prev.filter((s) => s.id !== id));
+    const next = stops.filter((s) => s.id !== id);
+    setStops(next);
+    persistStops(next);
     setRoute(null);
   }
 
   function clearAll() {
     setStops([]);
+    persistStops([]);
     setRoute(null);
   }
 
@@ -276,6 +274,7 @@ export function TripPlanner() {
       // Stopps in die optimale Reihenfolge bringen (passt zur gezeichneten Route).
       const ordered = data.order.map((i) => stops[i]).filter(Boolean);
       setStops(ordered);
+      persistStops(ordered);
       setRoute(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Route nicht berechenbar.");
@@ -284,9 +283,9 @@ export function TripPlanner() {
     }
   }
 
-  function addLegToCalculator(leg: TransitLeg, index: number) {
+  async function addLegToCalculator(leg: TransitLeg, index: number) {
     if (!leg.conn?.fareYen) return;
-    const ok = addExpenseItem({
+    const ok = await addExpenseItem({
       category: "TRANSPORT",
       label: `Zug: ${shortLabel(leg.from.label)} → ${shortLabel(leg.to.label)}`,
       yen: leg.conn.fareYen,

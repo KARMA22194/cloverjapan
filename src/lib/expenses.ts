@@ -1,3 +1,5 @@
+import { api } from "@/lib/api/client";
+
 // Ausgaben-Kategorien für den Japan-Rechner (Label + Farbe). Rein clientseitig genutzt.
 export const EXPENSE_CATEGORIES = [
   { value: "ESSEN", label: "Essen", color: "#fca5a5" }, // rot
@@ -24,22 +26,15 @@ export interface ExpenseItem {
   yen: number;
 }
 
-/** Gemeinsamer localStorage-Schlüssel von Ausgabenrechner und Reiseplaner. */
-export const EXPENSES_STORAGE_KEY = "japan-ausgaben";
-
 /**
- * Hängt eine Ausgabe an die gespeicherte Rechnung an (localStorage).
- * Erhält die vorhandene „speichern"-Einstellung; default = speichern.
- * Wird z. B. vom Reiseplaner genutzt, um Zugfahrten in den Rechner zu übernehmen.
+ * Legt eine Ausgabe im Konto an (REST-API). Wird z. B. vom Reiseplaner genutzt,
+ * um Zugfahrten in den Ausgabenrechner zu übernehmen.
  */
-export function addExpenseItem(item: Omit<ExpenseItem, "id">): boolean {
+export async function addExpenseItem(
+  item: { category: string; label: string; yen: number },
+): Promise<boolean> {
   try {
-    const raw = localStorage.getItem(EXPENSES_STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as { persist?: boolean; items?: ExpenseItem[] }) : null;
-    const persist = typeof parsed?.persist === "boolean" ? parsed.persist : true;
-    const items = Array.isArray(parsed?.items) ? parsed.items : [];
-    const next = [...items, { ...item, id: crypto.randomUUID() }];
-    localStorage.setItem(EXPENSES_STORAGE_KEY, JSON.stringify({ persist, items: next }));
+    await api.post("/api/v1/expenses", item);
     return true;
   } catch {
     return false;

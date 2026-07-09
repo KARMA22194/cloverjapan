@@ -32,9 +32,10 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  timeEntries TimeEntry[]
-  assignments Assignment[]
-  notes       Note[]
+  timeEntries    TimeEntry[]
+  assignments    Assignment[]
+  notes          Note[]
+  tripMembership TripMember?
 }
 
 model Project {
@@ -94,4 +95,81 @@ model Note {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
+}
+
+// --- Japan-Reise: gemeinsamer Workspace (Trip) mit Mitgliedern ---
+// Alle Japan-Tools gehören einer Reise; eingeladene Mitglieder bearbeiten sie gemeinsam.
+
+model Trip {
+  id        String   @id @default(cuid())
+  name      String   @default("Japan-Reise")
+  createdAt DateTime @default(now())
+
+  members        TripMember[]
+  tripStops      TripStop[]
+  expenses       Expense[]
+  plannerTasks   PlannerTask[]
+  checklistItems ChecklistItem[]
+}
+
+// Ein Nutzer ist in genau einer Reise (userId @unique).
+model TripMember {
+  id       String   @id @default(cuid())
+  tripId   String
+  userId   String   @unique
+  joinedAt DateTime @default(now())
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+// Reiseplaner-Stopp. id ist client-generiert (stabil über PUT-Replace).
+model TripStop {
+  id       String @id
+  tripId   String
+  label    String
+  lat      Float
+  lng      Float
+  position Int
+  trip     Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, position])
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  tripId    String
+  category  String
+  label     String
+  yen       Int
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+model PlannerTask {
+  id        String   @id @default(cuid())
+  tripId    String
+  date      DateTime @db.Date
+  time      String
+  text      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, date])
+}
+
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  tripId    String
+  text      String
+  done      Boolean  @default(false)
+  position  Int
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, position])
 }

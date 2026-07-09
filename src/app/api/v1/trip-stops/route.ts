@@ -1,0 +1,41 @@
+import type { NextRequest } from "next/server";
+import { z } from "zod";
+
+import { handle, ok, readJson } from "@/lib/api/http";
+import { requireUser } from "@/lib/api/session";
+import { getActiveTripId } from "@/lib/services/trip";
+import { getTripStops, replaceTripStops } from "@/lib/services/tripStops";
+
+const stopSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  lat: z.number(),
+  lng: z.number(),
+});
+const putBody = z.object({ stops: z.array(stopSchema).max(200) });
+
+const toDto = (s: { id: string; label: string; lat: number; lng: number }) => ({
+  id: s.id,
+  label: s.label,
+  lat: s.lat,
+  lng: s.lng,
+});
+
+/** GET /api/v1/trip-stops — Stopps des aktuellen Nutzers (in Reihenfolge). */
+export function GET() {
+  return handle(async () => {
+    const user = await requireUser();
+    const tripId = await getActiveTripId(user.id);
+    return ok((await getTripStops(tripId)).map(toDto));
+  });
+}
+
+/** PUT /api/v1/trip-stops — komplette Stopp-Liste ersetzen. */
+export function PUT(req: NextRequest) {
+  return handle(async () => {
+    const user = await requireUser();
+    const tripId = await getActiveTripId(user.id);
+    const { stops } = putBody.parse(await readJson(req));
+    return ok((await replaceTripStops(tripId, stops)).map(toDto));
+  });
+}

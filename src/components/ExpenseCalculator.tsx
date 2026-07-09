@@ -5,13 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api/client";
 import {
   EXPENSE_CATEGORIES,
-  EXPENSES_STORAGE_KEY,
   expenseCategoryMeta,
   type ExpenseCategoryValue,
   type ExpenseItem as Item,
 } from "@/lib/expenses";
 
-const STORAGE_KEY = EXPENSES_STORAGE_KEY;
 const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst ausfällt
 
 const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -73,8 +71,6 @@ export function ExpenseCalculator() {
   const [rateEstimated, setRateEstimated] = useState(false);
 
   const [items, setItems] = useState<Item[]>([]);
-  const [persist, setPersist] = useState(true);
-  const [loaded, setLoaded] = useState(false);
 
   const [yenInput, setYenInput] = useState("");
   const [label, setLabel] = useState("");
@@ -105,35 +101,15 @@ export function ExpenseCalculator() {
     };
   }, []);
 
-  // Persistierte Rechnung laden.
+  // Ausgaben aus der (geteilten) Reise laden.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const s = JSON.parse(raw) as { persist?: boolean; items?: Item[] };
-        if (Array.isArray(s.items)) setItems(s.items);
-        if (typeof s.persist === "boolean") setPersist(s.persist);
-      }
-    } catch {
-      /* ignore */
-    }
-    setLoaded(true);
+    api
+      .get<Item[]>("/api/v1/expenses")
+      .then(setItems)
+      .catch(() => {});
   }, []);
 
-  // Speichern nur, wenn der Schalter an ist; sonst nichts Dauerhaftes ablegen.
-  useEffect(() => {
-    if (!loaded) return;
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ persist, items: persist ? items : [] }),
-      );
-    } catch {
-      /* ignore */
-    }
-  }, [items, persist, loaded]);
-
-  // Budget laden/speichern.
+  // Budget bleibt lokal (einzelner Wert). Laden beim Start; Speichern im onChange.
   useEffect(() => {
     try {
       const b = localStorage.getItem("japan-budget");
@@ -142,14 +118,6 @@ export function ExpenseCalculator() {
       /* ignore */
     }
   }, []);
-  useEffect(() => {
-    if (!loaded) return;
-    try {
-      localStorage.setItem("japan-budget", budget);
-    } catch {
-      /* ignore */
-    }
-  }, [budget, loaded]);
 
   const parsedYen = Number(yenInput.replace(",", "."));
   const validYen = Number.isFinite(parsedYen) && parsedYen > 0;
@@ -173,19 +141,31 @@ export function ExpenseCalculator() {
     return { ...c, yen, eur: eur(yen), frac: totals.yen > 0 ? yen / totals.yen : 0 };
   });
 
-  function addItem(e: React.FormEvent) {
+  async function addItem(e: React.FormEvent) {
     e.preventDefault();
     if (!validYen) return;
-    setItems((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), category, label: label.trim(), yen: parsedYen },
-    ]);
-    setYenInput("");
-    setLabel("");
+    try {
+      const created = await api.post<Item>("/api/v1/expenses", {
+        category,
+        label: label.trim(),
+        yen: Math.round(parsedYen),
+      });
+      setItems((prev) => [...prev, created]);
+      setYenInput("");
+      setLabel("");
+    } catch {
+      /* ignore */
+    }
   }
 
   function removeItem(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
+    api.delete(`/api/v1/expenses/${id}`).catch(() => {});
+  }
+
+  function clearAll() {
+    setItems([]);
+    api.delete("/api/v1/expenses").catch(() => {});
   }
 
   const inputClass =
@@ -282,19 +262,9 @@ export function ExpenseCalculator() {
           </div>
         </form>
 
-        {/* Speichern-Schalter */}
-        <label className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
-          <input
-            type="checkbox"
-            checked={persist}
-            onChange={(e) => setPersist(e.target.checked)}
-            className="h-4 w-4 accent-[var(--color-brand,#009bc9)]"
-          />
-          Rechnung speichern
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {persist ? "(bleibt nach Neuladen erhalten)" : "(nur diese Sitzung)"}
-          </span>
-        </label>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          Wird in der Reise gespeichert und mit eingeladenen Mitgliedern geteilt.
+        </p>
       </div>
 
       {/* Rechnung */}
@@ -306,7 +276,7 @@ export function ExpenseCalculator() {
           {items.length > 0 && (
             <button
               type="button"
-              onClick={() => setItems([])}
+              onClick={clearAll}
               className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
             >
               Alles löschen
@@ -394,7 +364,14 @@ export function ExpenseCalculator() {
               <input
                 id="budget"
                 value={budget}
-                onChange={(e) => setBudget(e.target.value)}
+                onChange={(e) => {
+                  setBudget(e.target.value);
+                  try {
+                    localStorage.setItem("japan-budget", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
                 inputMode="decimal"
                 placeholder="z. B. 200000"
                 className="w-32 rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-2 py-1 text-sm outline-none focus:border-brand"

@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+import { api } from "@/lib/api/client";
+
 interface Task {
   id: string;
-  time: string; // "HH:MM" oder ""
+  time: string;
   text: string;
   done: boolean;
 }
-
-const keyFor = (date: string) => `tagesplaner:${date}`;
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -21,51 +21,48 @@ export function TagesPlaner() {
   const [time, setTime] = useState("");
   const [text, setText] = useState("");
 
-  // Auf heute initialisieren (clientseitig).
   useEffect(() => {
     setDate(todayISO());
   }, []);
 
-  // Beim Datumswechsel laden.
+  // Beim Datumswechsel aus dem Konto laden.
   useEffect(() => {
     if (!date) return;
-    try {
-      const raw = localStorage.getItem(keyFor(date));
-      setTasks(raw ? (JSON.parse(raw) as Task[]) : []);
-    } catch {
-      setTasks([]);
-    }
+    let cancelled = false;
+    api
+      .get<Task[]>(`/api/v1/planner-tasks?date=${date}`)
+      .then((t) => {
+        if (!cancelled) setTasks(t);
+      })
+      .catch(() => {
+        if (!cancelled) setTasks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [date]);
 
-  // Persistenz direkt in den Handlern (vermeidet Race beim Datumswechsel).
-  function persist(next: Task[]) {
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
     try {
-      localStorage.setItem(keyFor(date), JSON.stringify(next));
+      const t = await api.post<Task>("/api/v1/planner-tasks", { date, time, text: text.trim() });
+      setTasks((prev) => [...prev, t]);
+      setTime("");
+      setText("");
     } catch {
       /* ignore */
     }
   }
 
-  function add(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim()) return;
-    const next = [...tasks, { id: crypto.randomUUID(), time, text: text.trim(), done: false }];
-    setTasks(next);
-    persist(next);
-    setTime("");
-    setText("");
-  }
-
-  function toggle(id: string) {
-    const next = tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
-    setTasks(next);
-    persist(next);
+  function toggle(id: string, done: boolean) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !done } : t)));
+    api.patch(`/api/v1/planner-tasks/${id}`, { done: !done }).catch(() => {});
   }
 
   function remove(id: string) {
-    const next = tasks.filter((t) => t.id !== id);
-    setTasks(next);
-    persist(next);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    api.delete(`/api/v1/planner-tasks/${id}`).catch(() => {});
   }
 
   const sorted = [...tasks].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
@@ -146,7 +143,7 @@ export function TagesPlaner() {
               <input
                 type="checkbox"
                 checked={t.done}
-                onChange={() => toggle(t.id)}
+                onChange={() => toggle(t.id, t.done)}
                 className="h-4 w-4 accent-[#009bc9]"
               />
               {t.time && (
@@ -177,7 +174,7 @@ export function TagesPlaner() {
       </div>
 
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-        Wird lokal in diesem Browser gespeichert (pro Tag).
+        Wird in deinem Konto gespeichert (pro Tag, gerätesynchron).
       </p>
     </div>
   );

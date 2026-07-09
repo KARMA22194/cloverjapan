@@ -2,61 +2,42 @@
 
 import { useEffect, useState } from "react";
 
+import { api } from "@/lib/api/client";
+
 interface Item {
   id: string;
   text: string;
   done: boolean;
 }
 
-const STORAGE_KEY = "checkliste";
-
 export function Checkliste() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw) as Item[]);
-    } catch {
-      /* ignore */
-    }
+    api
+      .get<Item[]>("/api/v1/checklist")
+      .then(setItems)
+      .catch(() => {});
   }, []);
 
-  function persist(next: Item[]) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+  // Optimistisch aktualisieren + komplette Liste speichern (PUT-Replace).
+  function save(next: Item[]) {
+    setItems(next);
+    api.put("/api/v1/checklist", { items: next }).catch(() => {});
   }
 
   function add(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    const next = [...items, { id: crypto.randomUUID(), text: text.trim(), done: false }];
-    setItems(next);
-    persist(next);
+    save([...items, { id: crypto.randomUUID(), text: text.trim(), done: false }]);
     setText("");
   }
 
-  function toggle(id: string) {
-    const next = items.map((it) => (it.id === id ? { ...it, done: !it.done } : it));
-    setItems(next);
-    persist(next);
-  }
-
-  function remove(id: string) {
-    const next = items.filter((it) => it.id !== id);
-    setItems(next);
-    persist(next);
-  }
-
-  function clearDone() {
-    const next = items.filter((it) => !it.done);
-    setItems(next);
-    persist(next);
-  }
+  const toggle = (id: string) =>
+    save(items.map((it) => (it.id === id ? { ...it, done: !it.done } : it)));
+  const remove = (id: string) => save(items.filter((it) => it.id !== id));
+  const clearDone = () => save(items.filter((it) => !it.done));
 
   const doneCount = items.filter((it) => it.done).length;
 
@@ -136,7 +117,7 @@ export function Checkliste() {
       </div>
 
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-        Wird lokal in diesem Browser gespeichert.
+        Wird in deinem Konto gespeichert (gerätesynchron).
       </p>
     </div>
   );

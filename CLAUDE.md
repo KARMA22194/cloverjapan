@@ -105,7 +105,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 ### Datenmodell (`prisma/schema.prisma`)
 
-`User` · `Project` · `Assignment` · `TimeEntry` · `Note`. Kern-Entscheidungen:
+`User` · `Project` · `Assignment` · `TimeEntry` · `Note` · `Trip` · `TripMember`
+· `TripStop` · `Expense` · `PlannerTask` · `ChecklistItem`. Kern-Entscheidungen:
 - `TimeEntry.minutes` als **Int** (nicht Float-Stunden) → keine Rundungsfehler.
   UI zeigt Stunden, speichert Minuten (`src/lib/time.ts`: `hoursToMinutes`/`minutesToHours`).
 - `TimeEntry.date` als **`@db.Date`** (ohne Uhrzeit) → tagesbasiert,
@@ -132,8 +133,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
 - `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
 - `/ausgaben` — **Ausgabenrechner** Yen→Euro mit Kategorien (Reiseplaner-Bereich)
-- `/tagesplaner` · `/checkliste` — im **Japan**-Bereich (datumsbasierte Tagesaufgaben
-  bzw. freie Checkliste, localStorage)
+- `/tagesplaner` · `/checkliste` · `/mitglieder` — **Japan**-Bereich (Tagesaufgaben,
+  Checkliste, Mitglieder/Einladen)
 - `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
 - `/start` — **kategorisierte Übersicht** (Kacheln je Bereich); Logo verlinkt hierhin
 - `/` → Redirect auf `/start`
@@ -153,7 +154,7 @@ lädt der Browser:
   Besuchsreihenfolge).
 - Karte: `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`).
   Tiles **Wikimedia „osm-intl"** (internationale/lateinische Beschriftung).
-- Stopps aktuell in **localStorage** (v1) — noch nicht in der DB.
+- Stopps in der **DB** pro Reise (`TripStop`, PUT-Replace-Endpoint `/api/v1/trip-stops`).
 - **Zugverbindungen**: `GET /api/v1/geo/transit?from=&to=&mode=direct|any`.
   Mit `GOOGLE_MAPS_API_KEY` (.env) → echte Verbindung via **Google Directions**
   (Transit); ohne Key (oder wenn Google scheitert) → **distanzbasierte Schätzung**
@@ -170,8 +171,17 @@ lädt der Browser:
 
 **Ausgabenrechner** (`/ausgaben`, `ExpenseCalculator.tsx`): Yen→Euro live via
 `GET /api/v1/fx/rate` (open.er-api.com, keyfrei, server-seitig; Fallback-Rate).
-Kategorien (Essen/Figuren/Kleidung/Sightseeing/Sonstiges) mit Summen; Schalter
-„Rechnung speichern" steuert die localStorage-Persistenz.
+Kategorien mit Summen + Auswertung (Budget-Bar + Donut). Ausgaben liegen in der
+**DB** pro Reise (`/api/v1/expenses`); nur das Budget bleibt lokal.
+
+**Geteilte Reise (Kollaboration, Japan-only):** Alle Japan-Tools (Stopps, Ausgaben,
+Tagesplaner, Checkliste) gehören einem **`Trip`**; Nutzer sind über **`TripMember`**
+(userId @unique → genau eine Reise) Mitglied. `getActiveTripId(userId)` legt beim
+ersten Zugriff eine Solo-Reise an. Routen lösen die Reise serverseitig auf →
+Komponenten bleiben tenant-agnostisch. Einladen per E-Mail unter `/mitglieder`
+(`/api/v1/trip/members`); Eingeladene **wechseln** in die Reise (ihre alte bleibt
+bestehen). Endpunkte trip-basiert: `trip-stops` (PUT), `expenses`, `planner-tasks`,
+`checklist`, `trip/members` — nicht in OpenAPI registriert (wie geo/fx/weather).
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 

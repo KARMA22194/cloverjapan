@@ -43,6 +43,7 @@ export default async function StartPage() {
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },
+        { href: "/mitglieder", label: "Mitglieder", desc: "Leute einladen & gemeinsam bearbeiten", emoji: "👥" },
       ],
     },
     {
