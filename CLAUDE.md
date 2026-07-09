@@ -14,7 +14,10 @@ Auswertung als **Tages-, Monats- und Jahresansicht**. Rollen: `EMPLOYEE`,
 - **Next.js 15** (App Router; REST-API via Route Handlers, Reads via Server Components)
   + **TypeScript** (strict)
 - **Prisma** + **PostgreSQL 16**
-- **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted)
+- **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted);
+  zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`,
+  `Credential`-Tabelle; Challenge im httpOnly-Cookie; Config in `src/lib/webauthn.ts`,
+  ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS)
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
 - **OpenAPI/Swagger:** `@asteasolutions/zod-to-openapi` (Spec aus Zod) +
   `swagger-ui-dist` (self-hosted UI unter `/api-docs`)

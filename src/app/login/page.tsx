@@ -1,7 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { signIn } from "next-auth/react";
+import { startAuthentication } from "@simplewebauthn/browser";
 import { loginAction, type LoginState } from "@/app/actions/auth";
+import { api } from "@/lib/api/client";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -10,6 +13,29 @@ const initial: LoginState = {};
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(loginAction, initial);
+  const [pkError, setPkError] = useState<string | null>(null);
+  const [pkPending, setPkPending] = useState(false);
+
+  async function passkeyLogin() {
+    setPkPending(true);
+    setPkError(null);
+    try {
+      const options = await api.get<Parameters<typeof startAuthentication>[0]>(
+        "/api/v1/passkey/auth/options",
+      );
+      const authResp = await startAuthentication(options);
+      const res = await signIn("passkey", {
+        authResp: JSON.stringify(authResp),
+        redirect: false,
+      });
+      if (res?.ok && !res.error) window.location.href = "/";
+      else setPkError("Fingerabdruck-Anmeldung fehlgeschlagen.");
+    } catch {
+      setPkError("Kein Passkey verfügbar oder abgebrochen.");
+    } finally {
+      setPkPending(false);
+    }
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
@@ -59,6 +85,24 @@ export default function LoginPage() {
             Anmelden
           </SubmitButton>
         </form>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          oder
+          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+        </div>
+
+        <button
+          type="button"
+          onClick={passkeyLogin}
+          disabled={pkPending}
+          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+        >
+          {pkPending ? "…" : "🔒 Mit Fingerabdruck anmelden"}
+        </button>
+        {pkError && (
+          <p className="mt-2 text-center text-sm text-red-600 dark:text-red-400">{pkError}</p>
+        )}
 
         <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
           Demo: employee@etikett.de / password123

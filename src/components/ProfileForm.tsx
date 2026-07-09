@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { startRegistration } from "@simplewebauthn/browser";
 
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
@@ -38,7 +39,26 @@ export function ProfileForm() {
   const [image, setImage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pkPending, setPkPending] = useState(false);
+  const [pkMsg, setPkMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function addPasskey() {
+    setPkPending(true);
+    setPkMsg(null);
+    try {
+      const options = await api.get<Parameters<typeof startRegistration>[0]>(
+        "/api/v1/passkey/register/options",
+      );
+      const attResp = await startRegistration(options);
+      await api.post("/api/v1/passkey/register/verify", attResp);
+      setPkMsg("Passkey eingerichtet — künftig Login per Fingerabdruck/Face ID möglich.");
+    } catch {
+      setPkMsg("Passkey konnte nicht eingerichtet werden (abgebrochen oder nicht unterstützt).");
+    } finally {
+      setPkPending(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -115,6 +135,25 @@ export function ProfileForm() {
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
         Das Bild wird auf 128×128 verkleinert und in deinem Konto gespeichert.
       </p>
+
+      <div className="mt-6 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <h2 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Anmeldung per Fingerabdruck (Passkey)
+        </h2>
+        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Richte auf diesem Gerät einen Passkey ein, um dich künftig per Fingerabdruck oder
+          Face ID anzumelden.
+        </p>
+        <button
+          type="button"
+          onClick={addPasskey}
+          disabled={pkPending}
+          className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60"
+        >
+          {pkPending ? "…" : "Passkey einrichten"}
+        </button>
+        {pkMsg && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{pkMsg}</p>}
+      </div>
     </div>
   );
 }

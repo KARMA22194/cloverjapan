@@ -37,6 +37,20 @@ model User {
   assignments    Assignment[]
   notes          Note[]
   tripMembership TripMember?
+  credentials    Credential[]
+}
+
+// WebAuthn/Passkey-Credential (Public Key des Geräts; Fingerabdruck bleibt lokal).
+model Credential {
+  id         String   @id // credentialID (base64url)
+  userId     String
+  publicKey  Bytes
+  counter    Int
+  transports String   @default("")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Project {
