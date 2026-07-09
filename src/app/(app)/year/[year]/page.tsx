@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
+import { ReportExport } from "@/components/ReportExport";
 import { getYearReport } from "@/lib/services/reports";
 import { MONTHS_DE, formatMinutes, todayParam } from "@/lib/time";
 
@@ -33,6 +34,12 @@ export default async function YearPage({
         todayHref={`/year/${currentYear}`}
         todayLabel="Akt. Jahr"
       />
+
+      {report.projects.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <ReportExport type="year" year={year} />
+        </div>
+      )}
 
       {report.projects.length === 0 ? (
         <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">

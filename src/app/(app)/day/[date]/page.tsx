@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
 import { NewEntryForm } from "@/components/NewEntryForm";
+import { TimeTimer } from "@/components/TimeTimer";
 import { EntryRow, type EntryData } from "@/components/EntryRow";
 import { DayNotes } from "@/components/DayNotes";
 import { getDayEntries } from "@/lib/services/timeEntries";
@@ -80,6 +81,12 @@ export default async function DayPage({
         nextHref={`/day/${next}`}
         todayHref={`/day/${todayParam()}`}
       />
+
+      {projectOptions.length > 0 && (
+        <div className="mb-4">
+          <TimeTimer dateParam={dateParam} projects={projectOptions} />
+        </div>
+      )}
 
       <div className="mb-6">
         <NewEntryForm dateParam={dateParam} projects={projectOptions} />

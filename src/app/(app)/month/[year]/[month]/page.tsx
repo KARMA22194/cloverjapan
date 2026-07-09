@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { PeriodNav } from "@/components/PeriodNav";
+import { ReportExport } from "@/components/ReportExport";
 import { getMonthReport } from "@/lib/services/reports";
 import { MONTHS_DE, WEEKDAYS_DE, formatMinutes, todayParam } from "@/lib/time";
 
@@ -41,6 +42,12 @@ export default async function MonthPage({
         todayHref={`/month/${ty}/${Number(tm)}`}
         todayLabel="Akt. Monat"
       />
+
+      {report.projects.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <ReportExport type="month" year={year} month={month} />
+        </div>
+      )}
 
       {report.projects.length === 0 ? (
         <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
