@@ -24,7 +24,7 @@ test.describe("PWA (mobil)", () => {
     const res = await request.get(href!);
     expect(res.ok()).toBeTruthy();
     const manifest = await res.json();
-    expect(manifest.name).toBe("Time Tracker");
+    expect(manifest.name).toBe("CloverJapanPlaner");
     expect(manifest.display).toBe("standalone");
     expect(Array.isArray(manifest.icons) && manifest.icons.length).toBeGreaterThanOrEqual(2);
 

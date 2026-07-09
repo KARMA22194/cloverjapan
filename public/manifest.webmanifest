@@ -1,6 +1,6 @@
 {
-  "name": "Time Tracker",
-  "short_name": "Tracker",
+  "name": "CloverJapanPlaner",
+  "short_name": "Clover Japan",
   "description": "Zeiterfassung & Japan-Reiseplaner",
   "start_url": "/start",
   "scope": "/",

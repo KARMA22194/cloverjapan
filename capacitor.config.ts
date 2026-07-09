@@ -7,7 +7,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
 //     das wäre das Gerät selbst) + cleartext: true.
 const config: CapacitorConfig = {
   appId: "de.etikett.timetracker",
-  appName: "Time Tracker",
+  // Name unter dem App-Icon (Homescreen). Store-Titel „CloverJapanPlaner" wird
+  // separat in App Store Connect / Play Console gesetzt.
+  appName: "Clover Japan",
   webDir: "www",
   server: {
     url: process.env.CAP_SERVER_URL ?? "https://deine-domain.example",

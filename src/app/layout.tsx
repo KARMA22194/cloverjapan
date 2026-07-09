@@ -3,10 +3,10 @@ import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "Time Tracker",
+  title: "CloverJapanPlaner",
   description: "Zeiterfassung & Japan-Reiseplaner",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Time Tracker" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Clover Japan" },
   icons: { apple: "/icon-192.png" },
 };
 
