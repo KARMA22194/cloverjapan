@@ -50,11 +50,18 @@ export function ProfileForm() {
       const options = await api.get<Parameters<typeof startRegistration>[0]>(
         "/api/v1/passkey/register/options",
       );
-      const attResp = await startRegistration(options);
+      let attResp;
+      try {
+        attResp = await startRegistration(options);
+      } catch {
+        setPkMsg("Biometrie abgebrochen oder vom Gerät/Browser nicht unterstützt.");
+        return;
+      }
       await api.post("/api/v1/passkey/register/verify", attResp);
-      setPkMsg("Passkey eingerichtet — künftig Login per Fingerabdruck/Face ID möglich.");
-    } catch {
-      setPkMsg("Passkey konnte nicht eingerichtet werden (abgebrochen oder nicht unterstützt).");
+      setPkMsg("✓ Passkey eingerichtet — künftig Login per Fingerabdruck/Face ID möglich.");
+    } catch (e) {
+      // Serverfehler (z. B. Verifizierung) sichtbar machen statt zu verschlucken.
+      setPkMsg(e instanceof Error ? `Fehler: ${e.message}` : "Passkey konnte nicht eingerichtet werden.");
     } finally {
       setPkPending(false);
     }
