@@ -9,6 +9,10 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
+    // Kürzer als der NextAuth-Default (30 Tage) — begrenzt das Zeitfenster, in dem
+    // eine ausgestellte Session gültig bleibt. Der active-Status wird zusätzlich bei
+    // jeder API-Anfrage frisch geprüft (requireUser).
+    maxAge: 12 * 60 * 60, // 12 Stunden
   },
   providers: [], // Credentials-Provider wird erst in auth.ts (Node-Runtime) ergänzt.
   callbacks: {

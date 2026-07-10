@@ -147,16 +147,22 @@ export function TripPlanner() {
 
     layer.clearLayers();
     stops.forEach((s, i) => {
+      // Label als DOM-Element mit textContent binden (nicht als HTML-String) —
+      // Leaflet rendert String-Inhalte sonst als HTML → Stored XSS über den Stopp-Namen.
+      const tooltipEl = document.createElement("span");
+      tooltipEl.textContent = shortLabel(s.label);
+      const popupEl = document.createElement("div");
+      popupEl.textContent = `${i + 1}. ${shortLabel(s.label)}`;
       L.marker([s.lat, s.lng], { icon: pinIcon(L, i + 1) })
         .addTo(layer)
         // Dauerhaftes Label mit dem (deutsch bevorzugten) Ortsnamen direkt auf der Karte.
-        .bindTooltip(shortLabel(s.label), {
+        .bindTooltip(tooltipEl, {
           permanent: true,
           direction: "right",
           offset: [12, 0],
           opacity: 0.9,
         })
-        .bindPopup(`${i + 1}. ${shortLabel(s.label)}`);
+        .bindPopup(popupEl);
     });
 
     if (routeRef.current) {

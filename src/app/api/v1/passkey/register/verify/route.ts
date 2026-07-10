@@ -5,13 +5,14 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { db } from "@/lib/db";
-import { CHALLENGE_COOKIE, origin, rpID } from "@/lib/webauthn";
+import { assertWebauthnConfig, CHALLENGE_COOKIE, origin, rpID } from "@/lib/webauthn";
 
 type RegResponse = Parameters<typeof verifyRegistrationResponse>[0]["response"];
 
 /** POST /api/v1/passkey/register/verify — Passkey-Registrierung abschließen. */
 export function POST(req: NextRequest) {
   return handle(async () => {
+    assertWebauthnConfig();
     const user = await requireUser();
     const body = (await readJson(req)) as RegResponse;
     const expectedChallenge = req.cookies.get(CHALLENGE_COOKIE)?.value;

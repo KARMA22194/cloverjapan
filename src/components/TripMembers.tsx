@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
@@ -13,21 +13,48 @@ interface Member {
   isMe: boolean;
 }
 
+interface Invitation {
+  id: string;
+  email: string;
+  invitedBy: string;
+  createdAt: string;
+  expiresAt: string;
+  expired: boolean;
+  inviteUrl: string;
+}
+
+/** „läuft in X Tagen ab" bzw. „abgelaufen" aus dem ISO-Ablaufdatum. */
+function expiryLabel(inv: Invitation): string {
+  if (inv.expired) return "abgelaufen";
+  const ms = new Date(inv.expiresAt).getTime() - Date.now();
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "läuft heute ab";
+  if (days === 1) return "läuft morgen ab";
+  return `läuft in ${days} Tagen ab`;
+}
+
 export function TripMembers() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<{ url: string; email: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
-      .get<{ members: Member[] }>("/api/v1/trip/members")
-      .then((d) => setMembers(d.members))
+  const reload = useCallback(() => {
+    return api
+      .get<{ members: Member[]; invitations: Invitation[] }>("/api/v1/trip/members")
+      .then((d) => {
+        setMembers(d.members);
+        setInvitations(d.invitations);
+      })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
@@ -35,8 +62,6 @@ export function TripMembers() {
     setPending(true);
     setError(null);
     setInfo(null);
-    setInviteLink(null);
-    setCopied(false);
     try {
       const d = await api.post<
         | { member: Member; emailSent: boolean }
@@ -44,12 +69,10 @@ export function TripMembers() {
       >("/api/v1/trip/members", { email: email.trim() });
 
       if ("invited" in d) {
-        // Person ohne Konto → Registrierungs-Link zum Teilen.
-        setInviteLink({ url: d.inviteUrl, email: d.email });
         setInfo(
           d.emailSent
-            ? `Einladung an ${d.email} gesendet. Registrierungs-Link auch hier:`
-            : `${d.email} hat noch kein Konto. Schick ihr diesen Registrierungs-Link:`,
+            ? `Einladung an ${d.email} gesendet — sie erscheint unten als ausstehend.`
+            : `Registrierungs-Link für ${d.email} erstellt — unten kopieren und teilen.`,
         );
       } else {
         setMembers((prev) => [...prev.filter((m) => m.id !== d.member.id), d.member]);
@@ -60,6 +83,7 @@ export function TripMembers() {
         );
       }
       setEmail("");
+      await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Einladen fehlgeschlagen.");
     } finally {
@@ -67,15 +91,19 @@ export function TripMembers() {
     }
   }
 
-  async function copyLink() {
-    if (!inviteLink) return;
+  async function copyLink(inv: Invitation) {
     try {
-      await navigator.clipboard.writeText(inviteLink.url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(inv.inviteUrl);
+      setCopiedId(inv.id);
+      setTimeout(() => setCopiedId((c) => (c === inv.id ? null : c)), 2000);
     } catch {
-      setCopied(false);
+      setCopiedId(null);
     }
+  }
+
+  function revoke(id: string) {
+    setInvitations((prev) => prev.filter((i) => i.id !== id));
+    api.delete(`/api/v1/trip/invitations/${id}`).catch(() => reload());
   }
 
   function remove(id: string) {
@@ -105,22 +133,57 @@ export function TripMembers() {
         </button>
       </form>
       {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {info && <p className="mb-2 text-sm text-emerald-600 dark:text-emerald-400">{info}</p>}
-      {inviteLink && (
-        <div className="mb-3 flex gap-2 rounded-lg border border-brand/40 bg-brand-tint/30 dark:bg-brand/10 p-2">
-          <input
-            readOnly
-            value={inviteLink.url}
-            onFocus={(e) => e.target.select()}
-            className="w-full truncate rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-slate-600 dark:text-slate-300 outline-none"
-          />
-          <button
-            type="button"
-            onClick={copyLink}
-            className="shrink-0 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
-          >
-            {copied ? "Kopiert ✓" : "Kopieren"}
-          </button>
+      {info && <p className="mb-3 text-sm text-emerald-600 dark:text-emerald-400">{info}</p>}
+
+      {/* Ausstehende Einladungen (noch kein Konto angelegt / Reise noch nicht beigetreten). */}
+      {invitations.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-300/60 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/5">
+          <div className="border-b border-amber-200/70 dark:border-amber-500/20 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+            Ausstehende Einladungen ({invitations.length})
+          </div>
+          {invitations.map((inv) => (
+            <div
+              key={inv.id}
+              className="flex items-center gap-3 border-b border-amber-200/50 dark:border-amber-500/10 px-4 py-2.5 last:border-b-0"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-200/70 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                ✉
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                  {inv.email}
+                </p>
+                <p className="flex items-center gap-1.5 text-xs">
+                  <span
+                    className={`inline-block rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                      inv.expired
+                        ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    {inv.expired ? "Abgelaufen" : "Ausstehend"}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">· {expiryLabel(inv)}</span>
+                </p>
+              </div>
+              {!inv.expired && (
+                <button
+                  type="button"
+                  onClick={() => copyLink(inv)}
+                  className="shrink-0 rounded px-2 py-1 text-xs font-medium text-brand transition hover:bg-brand/10"
+                >
+                  {copiedId === inv.id ? "Kopiert ✓" : "Link"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => revoke(inv.id)}
+                className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+              >
+                {inv.expired ? "Löschen" : "Widerrufen"}
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -157,7 +220,8 @@ export function TripMembers() {
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
         Eingeladene Mitglieder bearbeiten Reiseplaner, Ausgaben, Tagesplaner und Checkliste
         gemeinsam. Hat die Person schon ein Konto, wechselt sie sofort in diese Reise; hat sie
-        noch keins, bekommt sie einen Registrierungs-Link (per E-Mail und/oder zum Teilen).
+        noch keins, bekommt sie einen Registrierungs-Link (14 Tage gültig) und erscheint hier als
+        „ausstehend“, bis sie beigetreten ist.
       </p>
     </div>
   );

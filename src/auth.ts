@@ -7,7 +7,7 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
-import { CHALLENGE_COOKIE, origin, readCookie, rpID } from "@/lib/webauthn";
+import { assertWebauthnConfig, CHALLENGE_COOKIE, origin, readCookie, rpID } from "@/lib/webauthn";
 
 type AuthResponse = Parameters<typeof verifyAuthenticationResponse>[0]["response"];
 
@@ -51,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "Passkey",
       credentials: { authResp: {} },
       async authorize(credentials, request) {
+        assertWebauthnConfig();
         const raw = credentials?.authResp;
         if (typeof raw !== "string") return null;
         let response: AuthResponse;

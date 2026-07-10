@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code- & Security-Audit — Time Tracker</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#ffffff; --ink:#0A314C; --muted:#5b6b78; --line:#e3e8ec;
+    --brand:#009BC9; --brand-dark:#0A314C; --accent:#F87805; --danger:#E2001A;
+    --crit:#b1001a; --high:#E2001A; --med:#F87805; --low:#009BC9; --info:#7a8791;
+    --shadow:0 1px 3px rgba(10,49,76,.08),0 8px 24px rgba(10,49,76,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b1620; --card:#122231; --ink:#e8f1f6; --muted:#93a6b3; --line:#1f3547; --shadow:0 1px 3px rgba(0,0,0,.4); }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"PT Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 20px 80px}
+  header.top{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:26px}
+  .kicker{color:var(--brand);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:12px;margin:0 0 6px}
+  h1{font-family:Viga,system-ui,sans-serif;font-weight:400;font-size:30px;margin:0 0 8px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0;font-size:15px}
+  .meta{color:var(--muted);font-size:13px;margin-top:10px}
+  .note{background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+    border-radius:10px;padding:12px 16px;margin:18px 0 0;font-size:14px}
+  .note b{color:var(--accent)}
+
+  .dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:26px 0}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .stat .n{font-family:Viga,sans-serif;font-size:30px;line-height:1}
+  .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:8px}
+  .stat.crit .n{color:var(--crit)} .stat.high .n{color:var(--high)} .stat.med .n{color:var(--med)}
+  .stat.low .n{color:var(--low)} .stat.info .n{color:var(--info)} .stat.total .n{color:var(--ink)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;align-items:center}
+  .controls .grp{display:flex;flex-wrap:wrap;gap:6px}
+  button.f{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 13px;border-radius:999px;
+    font-size:13px;cursor:pointer;font-weight:700;transition:.15s}
+  button.f:hover{border-color:var(--brand)}
+  button.f.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .controls .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
+
+  .list{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-left-width:5px;border-radius:12px;padding:18px 20px;box-shadow:var(--shadow)}
+  .card[data-sev="crit"]{border-left-color:var(--crit)}
+  .card[data-sev="high"]{border-left-color:var(--high)}
+  .card[data-sev="med"]{border-left-color:var(--med)}
+  .card[data-sev="low"]{border-left-color:var(--low)}
+  .card[data-sev="info"]{border-left-color:var(--info)}
+  .card h3{margin:0 0 4px;font-size:17px;font-family:Viga,sans-serif;font-weight:400}
+  .badges{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 10px}
+  .b{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+  .b.sev-crit{background:var(--crit);color:#fff} .b.sev-high{background:var(--high);color:#fff}
+  .b.sev-med{background:var(--med);color:#fff} .b.sev-low{background:var(--low);color:#fff}
+  .b.sev-info{background:var(--info);color:#fff}
+  .b.area{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
+  .b.id{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .card p{margin:8px 0}
+  .card .desc{font-size:14.5px}
+  .fix{font-size:14px;background:color-mix(in srgb,var(--brand) 7%,transparent);border-radius:8px;padding:10px 13px;margin-top:10px}
+  .fix b{color:var(--brand)}
+  code,.loc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+  .loc{display:inline-block;background:color-mix(in srgb,var(--ink) 8%,transparent);padding:2px 7px;border-radius:6px;margin-top:2px;word-break:break-all}
+  .empty{color:var(--muted);text-align:center;padding:40px;display:none}
+  h2.sec{font-family:Viga,sans-serif;font-weight:400;font-size:20px;margin:34px 0 6px;border-top:1px solid var(--line);padding-top:26px}
+  .good{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);margin-top:8px}
+  .good ul{margin:8px 0 0;padding-left:20px} .good li{margin:5px 0;font-size:14px}
+  .good h3{margin:0;font-family:Viga,sans-serif;font-weight:400;font-size:16px;color:#1a8f57}
+  footer{color:var(--muted);font-size:12.5px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="kicker">Code- & Security-Audit</p>
+    <h1>Time Tracker — Befunde & Verbesserungspotenzial</h1>
+    <p class="sub">Read-only-Analyse durch 5 parallele Agenten: Auth/Sessions · REST-API · Prisma/DB · Frontend/PWA · Infra/Config.</p>
+    <p class="meta">Stand: 2026-07-10 · Stack: Next.js 15 · Auth.js v5 · Prisma/PostgreSQL · Tailwind v4 · 32 Funde</p>
+    <div class="note"><b>Hinweis:</b> Dies ist ausschließlich ein Bericht. Am Code wurde <b>nichts geändert</b>. Fixes erst nach ausdrücklichem OK.</div>
+  </header>
+
+  <section class="dash" id="dash"></section>
+
+  <div class="controls">
+    <span class="lbl">Schweregrad</span>
+    <div class="grp" id="sevFilter"></div>
+  </div>
+  <div class="controls" style="margin-top:-10px">
+    <span class="lbl">Bereich</span>
+    <div class="grp" id="areaFilter"></div>
+  </div>
+
+  <div class="list" id="list"></div>
+  <p class="empty" id="empty">Keine Funde für diese Filter.</p>
+
+  <h2 class="sec">Explizit geprüft — und in Ordnung ✓</h2>
+  <div class="good">
+    <h3>Solide umgesetzt (keine Maßnahme nötig)</h3>
+    <ul>
+      <li><b>Keine Privilege Escalation:</b> Weder <code>PATCH /me</code> (nur <code>image</code>) noch <code>PATCH /users/{id}</code> (nur <code>active</code>) erlauben eine Rollenänderung.</li>
+      <li><b>Kein klassisches IDOR:</b> Ownership durchgängig via <code>where { id, userId }</code> bzw. <code>{ id, tripId }</code>. Reports auf eigene <code>user.id</code> gescoped.</li>
+      <li><b>Kein SQL-Injection:</b> Einzige Raw-Query (<code>getYearReport</code>) nutzt parametrisiertes <code>$queryRaw</code>-Tagged-Template. Kein <code>$queryRawUnsafe</code>.</li>
+      <li><b>Keine DTO-Leaks:</b> <code>passwordHash</code> wird nie zurückgegeben; Zod strippt unbekannte Felder → kein Mass-Assignment.</li>
+      <li><b>Git-Hygiene sauber:</b> <code>.env</code> und <code>certs/</code> nicht getrackt; keine Secrets in der Git-Historie; <code>.gitignore</code> vollständig.</li>
+      <li><b>Invite-Token stark:</b> 256-Bit-Entropie (<code>randomBytes(32)</code>), 7-Tage-TTL, atomare One-Time-Einlösung.</li>
+      <li><b>Dep-Versionen ok:</b> <code>next@15.5.20</code> (CVE-2025-66478 nicht betroffen), Tailwind/PostCSS identische 4.x, kein <code>ignoreBuildErrors</code>.</li>
+      <li><b>Kein Secret-Leak zum Client:</b> keine <code>NEXT_PUBLIC_</code>-Keys; <code>GOOGLE_MAPS_API_KEY</code> etc. bleiben serverseitig.</li>
+      <li><b>Minuten-Aggregation:</b> Alles in <code>Int</code>-Minuten → keine akkumulierten Rundungsfehler; Rundung nur an der Anzeigekante.</li>
+    </ul>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const F = [
+  // ── KRITISCH ──
+  {id:"SEC-01",sev:"crit",area:"Infra",title:"Echtes Gmail-App-Passwort im Klartext in .env",
+   loc:".env:22-24 (SMTP_USER / SMTP_PASS / SMTP_FROM)",
+   desc:"Ein produktiv gültiges Google-App-Passwort (voller SMTP-Versand über das reale Konto) liegt im Klartext im Arbeitsverzeichnis. Nicht in Git — aber live nutzbar und bereits von Tooling gelesen.",
+   fix:"App-Passwort <b>sofort im Google-Konto widerrufen</b> und neu erzeugen. Neues Secret nur als verschlüsselte Env-Variable bei Vercel bzw. via Secret-Manager/direnv halten; .env nach Rotation bereinigen."},
+
+  // ── HOCH ──
+  {id:"SEC-02",sev:"high",area:"API",title:"SSRF in geo/resolve — beliebige URL wird serverseitig gefetcht",
+   loc:"src/app/api/v1/geo/resolve/route.ts:47, :85, :127",
+   desc:"Jeder eingeloggte Nutzer kann in q eine beliebige URL übergeben; nicht-Maps/Instagram-URLs landen in resolveGenericUrl() mit fetch(url,{redirect:'follow'}). Erreichbar sind interne Ziele (169.254.169.254 Cloud-Metadaten, localhost, db:5432). Kurzlinks folgen Redirects zu unvalidierten Hosts.",
+   fix:"Ziel-Host per DNS auflösen und private/loopback/link-local/metadata-Ranges blocken; Redirects manuell verfolgen (redirect:'manual') und jeden Hop prüfen; auf Domain-Allowlist beschränken; Timeout + Response-Größenlimit."},
+  {id:"SEC-03",sev:"high",area:"Frontend",title:"Stored XSS über Leaflet-Popups/Tooltips (Reiseplaner)",
+   loc:"src/components/TripPlanner.tsx:153, :159 (+ trip-stops/route.ts:11)",
+   desc:"Leaflet rendert bindTooltip/bindPopup als HTML. Das Stopp-label (via PUT /trip-stops, nur .min(1)) wird ungefiltert gespeichert. Ein Reise-Mitglied kann ein <img onerror=…>-Label ablegen; öffnet ein anderes Mitglied den Planer, läuft das Skript im fremden Browser (kein CSP als Mitigation).",
+   fix:"Popup/Tooltip nie als HTML-String übergeben — DOM-Element mit textContent bauen und dieses binden, oder HTML-escapen. Zusätzlich label serverseitig begrenzen (.max(200)) und ggf. HTML strippen."},
+  {id:"SEC-04",sev:"high",area:"Auth",title:"Session-Revocation fehlt — deaktivierte Nutzer behalten bis zu 30 Tage Zugriff",
+   loc:"src/auth.config.ts:41-47 (jwt-Callback), users/[id]/route.ts:12-26",
+   desc:"JWT-Strategie ohne session.maxAge (Default 30 Tage). jwt-Callback liest id/role nur beim Login, active wird nur in authorize geprüft. Deaktiviert ein Admin einen Nutzer, bleibt dessen Session voll gültig — die Deaktivierung greift nicht bei aktiven Sitzungen.",
+   fix:"Im jwt-Callback periodisch (via token.iat) den Nutzer neu laden, bei !active Token invalidieren; session.maxAge deutlich kürzer (z.B. 8h); optional active-Recheck in requireUser()."},
+  {id:"SEC-05",sev:"high",area:"Infra",title:"Schwaches/Default AUTH_SECRET",
+   loc:".env:8 (AUTH_SECRET=\"dev-secret-please-change-…\")",
+   desc:"Statischer Platzhalter signiert die NextAuth-JWTs. In einem erreichbaren Deployment aktiv, lassen sich Sessions/Rollen (ADMIN) fälschen → Auth-Bypass. Auth.js erzwingt zwar ein gesetztes Secret, prüft aber nicht dessen Qualität.",
+   fix:"Pro Umgebung eigenes Secret via openssl rand -base64 32; bei Vercel als Env-Var; Startup-Check in Prod auf hinreichend zufälliges Secret."},
+  {id:"SEC-06",sev:"high",area:"Infra",title:"Keine Security-Header (CSP, HSTS, X-Frame-Options, nosniff)",
+   loc:"next.config.ts (keine headers()), src/middleware.ts",
+   desc:"Grep über src/ + next.config.ts findet 0 Security-Header. Folge: Clickjacking (kein X-Frame-Options/frame-ancestors), MIME-Sniffing (kein nosniff), kein HSTS, keine CSP — Letzteres verschärft auch den XSS-Fund SEC-03.",
+   fix:"async headers() in next.config.ts: X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Strict-Transport-Security, Referrer-Policy: strict-origin-when-cross-origin, plus CSP (mit Ausnahmen für /api-docs & Leaflet)."},
+  {id:"SEC-07",sev:"high",area:"DB",title:"Race Condition in getActiveTripId → 500 + Orphan-Trip",
+   loc:"src/lib/services/trip.ts:10-15",
+   desc:"Check-then-create ohne Transaktion. Beim ersten Japan-Seitenaufruf feuern SSR/PWA mehrere Requests parallel; beide finden keinen Member und legen beide an. Wegen TripMember.userId @unique wirft der zweite einen unbehandelten P2002 → 500 statt sauberer Reise; zusätzlich eine verwaiste leere Reise.",
+   fix:"tripMember.upsert innerhalb einer $transaction; Trip anlegen und Membership per upsert(where userId) absichern, oder P2002 fangen und Member erneut lesen."},
+
+  // ── MITTEL ──
+  {id:"SEC-08",sev:"med",area:"Auth",title:"Kein Rate-Limiting / Brute-Force-Schutz (API-weit, Login, Passkey)",
+   loc:"src/auth.ts:27-45, actions/auth.ts:15, gesamte api/v1/**",
+   desc:"Keinerlei Rate-Limiting im Projekt. signIn('credentials',…) ist ohne Lockout aufrufbar (bcrypt bremst, verhindert aber kein verteiltes Spraying). Auch Passkey-Options und externe geo/*-Fetches sind ungedrosselt.",
+   fix:"IP-/Account-basiertes Rate-Limit bzw. exponentielles Backoff/Lockout vor authorize; im Docker-Setup ggf. Postgres-basiert, sonst Upstash/Redis. Speziell für mail-versendende und externe-Fetch-Endpunkte."},
+  {id:"SEC-09",sev:"med",area:"API",title:"Mail-Abuse + Account-Enumeration über Trip-Einladung",
+   loc:"src/app/api/v1/trip/members/route.ts:30-54",
+   desc:"POST /trip/members erfordert nur requireUser (kein MANAGER/ADMIN) und versendet ungedrosselt Mails an eine frei wählbare Adresse → Spam-/Relay-Vektor über die eigene Domain. Unterschiedliche Antworten 'member' vs. 'invited' erlauben zudem Account-Enumeration.",
+   fix:"Rate-Limit pro Nutzer; Einladungsrecht ggf. auf MANAGER/ADMIN; Response-Form vereinheitlichen, damit sie Konto-Existenz nicht verrät."},
+  {id:"SEC-10",sev:"med",area:"Auth",title:"Erzwungene Trip-Mitgliedschaft ohne Zustimmung des Eingeladenen",
+   loc:"src/lib/services/trip.ts:47-57 (inviteToTrip → upsert)",
+   desc:"Wird eine bestehende E-Mail eingeladen, wird das Opfer sofort per upsert in die Reise des Einladenden verschoben (update:{tripId}). Es verliert ungefragt Zugriff auf seine bisherige Reise. Ein beliebiger EMPLOYEE kann so jeden anderen per bekannter E-Mail 'herausziehen'.",
+   fix:"Auch für bestehende Konten einen Pending-Invitation-/Bestätigungsschritt einführen, den der Eingeladene aktiv annimmt, statt tripMember direkt umzuschreiben."},
+  {id:"SEC-11",sev:"med",area:"API",title:"TimeEntry-Buchung prüft keine Projekt-Berechtigung",
+   loc:"time-entries/route.ts:25, services/timeEntries.ts:22 (createTimeEntry/updateTimeEntryOwned)",
+   desc:"projectId wird ungeprüft übernommen. Ein Nutzer kann Zeit auf beliebige (auch archivierte oder ihm nicht via Assignment zugewiesene) Projekte buchen — die getBookableProjects-Berechtigung wird auf dem Schreibpfad umgangen. Nur FK-Existenz wird erzwungen.",
+   fix:"Vor Create/Update prüfen, dass projectId in getBookableProjects(userId) enthalten und nicht archiviert ist; sonst 403/400."},
+  {id:"SEC-12",sev:"med",area:"Auth",title:"WebAuthn: Origin/RP-ID fallen unsicher auf localhost/HTTP zurück",
+   loc:"src/lib/webauthn.ts:2-4",
+   desc:"rpID/origin/rpName haben Defaults localhost / http://localhost:3000. Fehlen die ENV-Variablen in Prod, werden Assertions still gegen localhost validiert — kein Fail-Fast.",
+   fix:"Bei NODE_ENV==='production' das Fehlen von WEBAUTHN_RP_ID/ORIGIN bzw. ein http://-Origin per Throw abfangen."},
+  {id:"SEC-13",sev:"med",area:"Frontend",title:"Service-Worker cacht authentifizierte Seiten-HTML → Cross-User-Leak offline",
+   loc:"public/sw.js:19-37",
+   desc:"Der fetch-Handler cacht jede same-origin GET-Response außer /api* — auch SSR-Seiten (/admin, /day, /profil) mit personenbezogenen Daten. Offline liefert caches.match die zuletzt gecachte Seite eines vorigen Nutzers; kein Invalidieren beim Logout.",
+   fix:"Nur App-Shell/statische Assets cachen (Allowlist /_next/static, /fonts, /icon-*, manifest); navigate-Requests nicht persistent cachen bzw. beim Logout caches.delete(CACHE)."},
+  {id:"SEC-14",sev:"med",area:"DB",title:"removeFromTrip / Member-Wechsel ohne Transaktion → Orphan-Trips",
+   loc:"src/lib/services/trip.ts:142-148",
+   desc:"trip.create({}) und tripMember.update sind zwei getrennte Writes. Schlägt der update fehl, bleibt eine leere Reise ohne Mitglieder zurück. Solche verwaisten Trips häufen sich generell an und werden nie aufgeräumt.",
+   fix:"Beide Writes in db.$transaction kapseln; periodisches Cleanup leerer Trips erwägen."},
+  {id:"SEC-15",sev:"med",area:"DB",title:"TOCTOU beim Einlösen der Einladung (acceptInvitation)",
+   loc:"src/lib/services/trip.ts:116-136",
+   desc:"Prüfung von acceptedAt/expiresAt erfolgt vor der Transaktion. Zwei parallele Einlösungen desselben Tokens passieren beide die Vorprüfung; die zweite scheitert erst an tx.user.create (P2002) → unbehandelter 500 statt sauberem 'bereits eingelöst'.",
+   fix:"Innerhalb der Transaktion konditional entwerten: tx.tripInvitation.updateMany({where:{id,acceptedAt:null},data:{acceptedAt}}) und bei count===0 abbrechen (Rollback)."},
+  {id:"SEC-16",sev:"med",area:"DB",title:"Zeitzonen-Randfall in getYearReport (Raw-Query)",
+   loc:"src/lib/services/reports.ts:88-98",
+   desc:"start/end sind JS-Date (UTC-Mitternacht), von Prisma als timestamptz gebunden; die Spalte ist @db.Date. Ist die DB-Session-TZ nicht UTC (Neon/Prod evtl.), können Einträge am 1. Januar an der Bereichsgrenze falsch ein-/ausgeschlossen werden.",
+   fix:"Grenzen als reine Dates casten (${start}::date) oder Session-TZ auf UTC festnageln; konsistenter: dieselbe Prisma-groupBy-Aggregation wie im Monatsreport (ohne Raw-SQL)."},
+  {id:"SEC-17",sev:"med",area:"Infra",title:"Capacitor cleartext:true für alle Builds",
+   loc:"capacitor.config.ts:15-16",
+   desc:"cleartext:true erlaubt unverschlüsselten HTTP-Traffic in der nativen WebView — laut Kommentar nur für Test, gilt aber auch für Store-Builds. Zusätzlich Platzhalter server.url='https://deine-domain.example'.",
+   fix:"cleartext nur bedingt in Dev; für Release entfernen und server.url fest auf HTTPS-Domain."},
+  {id:"SEC-18",sev:"med",area:"Infra",title:"next-auth als Beta in Produktion",
+   loc:"package.json:35 (next-auth@5.0.0-beta.25)",
+   desc:"Auth ist sicherheitskritisch; eine Beta erhält keine garantierten Security-Fixes.",
+   fix:"Auf stabiles NextAuth v5 aktualisieren, sobald verfügbar; Advisories beobachten."},
+  {id:"SEC-19",sev:"med",area:"Infra",title:"Docker-Container läuft als root; hardcodierte DB-Credentials",
+   loc:"Dockerfile.dev (kein USER), docker-compose.yml:6-10 (postgres:postgres, Port 5432 exponiert)",
+   desc:"Dev-Image läuft als root (daher Playwright --no-sandbox). DB-Credentials postgres:postgres trivial, DB auf localhost:5432 erreichbar. Für lokale Dev tolerierbar, verletzt aber Best Practice.",
+   fix:"USER node im Dockerfile ergänzen (Playwright-Sandbox wieder aktivierbar); außerhalb lokaler Dev starke Credentials, Port-Mapping nur bei Bedarf."},
+
+  // ── NIEDRIG ──
+  {id:"SEC-20",sev:"low",area:"API",title:"Jedes Trip-Mitglied kann jedes andere entfernen",
+   loc:"src/app/api/v1/trip/members/[userId]/route.ts:10",
+   desc:"DELETE erlaubt jedem authentifizierten Mitglied, jedes andere (inkl. Ersteller) aus der Reise zu entfernen — keine Owner-/Rollenprüfung. Datenisolation bleibt gewahrt, aber Griefing ist möglich.",
+   fix:"Bei bewusst kollaborativem Modell akzeptabel; sonst Owner-Konzept einführen."},
+  {id:"SEC-21",sev:"low",area:"API",title:"Fehlende Längen-/Range-Limits (DoS/Integrität)",
+   loc:"trip-stops/route.ts:11 (label ohne max, lat/lng ohne Range), geo/resolve/route.ts:25 (q ohne max), http.ts:39 (kein Body-Limit)",
+   desc:"label nur .min(1); lat/lng ohne -90..90 / -180..180; q ohne Max-Length; readJson ohne explizites Body-Size-Limit.",
+   fix:"label .max(200), lat/lng .min/.max, q.max(…) in den Zod-Schemas; Body-Größenlimit dokumentieren/erzwingen."},
+  {id:"SEC-22",sev:"low",area:"API",title:"fx/rate — from/to ungefiltert im externen URL-Pfad",
+   loc:"src/app/api/v1/fx/rate/route.ts:16",
+   desc:"from wird nur .toUpperCase() und direkt in den Pfad interpoliert (…/v6/latest/${from}). Kein SSRF (Host fix), aber Pfad-Manipulation auf dem Zielhost möglich (z.B. from=JPY/..).",
+   fix:"from/to per Zod gegen ^[A-Z]{3}$ validieren."},
+  {id:"SEC-23",sev:"low",area:"Auth",title:"Login-Challenge-Cookie nach Passkey-Auth nicht gelöscht",
+   loc:"src/auth.ts:63-93 (Passkey-authorize)",
+   desc:"Beim Passkey-Login wird pk_chal nur gelesen, nicht invalidiert (bleibt bis maxAge=300s). Anders als der Register-Flow ist die Challenge nicht strikt single-use; bei Authenticatoren mit Counter=0 entfällt der Replay-Schutz.",
+   fix:"Challenge-Cookie nach der Verifikation invalidieren (One-Time-Store server-seitig oder Cookie-Delete)."},
+  {id:"SEC-24",sev:"low",area:"Auth",title:"Inkonsistente / schwache Passwort-Policy",
+   loc:"schemas.ts:72 (min 6), invite/[token]/route.ts:24 (min 8), auth.ts:16 (min 1)",
+   desc:"Admin-Konten erlauben 6 Zeichen, Self-Registration 8, ohne Komplexitäts-/Breach-Prüfung. Uneinheitlich, Untergrenze unter aktuellen Empfehlungen.",
+   fix:"Zentrale Policy (mind. 8-12 Zeichen, optional zxcvbn/HIBP) einheitlich in allen Bodies."},
+  {id:"SEC-25",sev:"low",area:"Auth",title:"bcrypt-Cost-Faktor 10",
+   loc:"services/users.ts:28, services/trip.ts:124, scripts/*",
+   desc:"Cost 10 ist am unteren Rand der OWASP-Empfehlung (immerhin konsistent).",
+   fix:"Auf 12 anheben (Docker-CPU-Budget prüfen) oder auf argon2id wechseln."},
+  {id:"SEC-26",sev:"low",area:"Auth",title:"Middleware-Matcher: Pfade mit Punkt umgehen den Seiten-Schutz",
+   loc:"src/middleware.ts:11",
+   desc:"Der Matcher schließt jeden Pfad mit '.' aus. Aktuell keine geschützte Route mit '.', daher nicht ausnutzbar — aber ein Footgun, falls künftig eine Route einen Punkt enthält.",
+   fix:"Statt Punkt-Ausschluss gezielt bekannte statische Endungen matchen bzw. Ausschluss auf _next/Assets begrenzen."},
+  {id:"SEC-27",sev:"low",area:"Frontend",title:"Service-Worker cacht Fehler-/Redirect-Responses (Cache-Poisoning)",
+   loc:"public/sw.js:27-32",
+   desc:"cache.put läuft ohne Prüfung von response.ok/type. Ein 302 auf /login, 404 oder 500 wird unter dem URL-Key gecacht und offline fälschlich ausgeliefert.",
+   fix:"Nur cachen bei response.ok && response.type==='basic'."},
+  {id:"SEC-28",sev:"low",area:"Frontend",title:"Profilbild akzeptiert SVG-Data-URLs; keine Client-Größenprüfung",
+   loc:"ProfileForm.tsx:10-34, me/route.ts:17-23",
+   desc:"Client prüft file.size/type nicht vor FileReader (Client-DoS bei großer Datei). Server akzeptiert data:image/svg+xml — via <img src> zwar kein XSS, aber unnötig zugelassen. Storage ist serverseitig via .max(300_000) gedeckt.",
+   fix:"Client file.size/type vorab prüfen; Server-Schema auf Rastertypen einengen (png|jpeg|webp)."},
+  {id:"SEC-29",sev:"low",area:"DB",title:"createInvitation — Race erzeugt mehrere offene Einladungen",
+   loc:"src/lib/services/trip.ts:75-84",
+   desc:"deleteMany(open)+create nicht atomar und ohne DB-Constraint. Parallele Einladungen an dieselbe E-Mail/Reise erzeugen mehrere gültige Links — widerspricht 'genau ein gültiger Link'.",
+   fix:"Transaktion + partieller Unique-Index @@unique([tripId,email]) auf acceptedAt IS NULL (Postgres Partial-Index)."},
+  {id:"SEC-30",sev:"low",area:"DB",title:"PUT-Replace: Last-Write-Wins bei paralleler Kollaboration",
+   loc:"services/tripStops.ts:15-33, services/checklist.ts:14-32",
+   desc:"deleteMany+createMany läuft atomar (gut), aber das vorherige findMany zur createdByName-Übernahme liegt außerhalb. Bei zwei gleichzeitigen Replace-Requests gewinnt der letzte komplett (Datenverlust des anderen).",
+   fix:"Optimistic Concurrency (Version/updatedAt-Check) oder Merge statt Full-Replace, falls real parallel genutzt."},
+  {id:"SEC-31",sev:"low",area:"Frontend",title:"Timer-Leak / Doppelplanung bei asynchronem Effect-Cleanup",
+   loc:"TagesPlaner.tsx:37-43 + lib/reminders.ts:91-103",
+   desc:"Effect gibt synchron ()=>cleanup?.() zurück, cleanup wird aber erst nach await gesetzt. Läuft der Effect erneut vor Promise-Auflösung, ist cleanup noch undefined → setTimeout-Timer stapeln sich (mehrfache Benachrichtigungen).",
+   fix:"cancelled-Flag setzen und im Cleanup prüfen, oder Timer-IDs in useRef sammeln."},
+  {id:"SEC-32",sev:"low",area:"Infra",title:"prisma migrate deploy im Vercel-Build-Command",
+   loc:"vercel.json:3",
+   desc:"Migrationen laufen bei jedem Build (auch Preview) gegen die konfigurierte DB. Preview-Builds können die Prod-DB migrieren, wenn dieselbe DATABASE_URL genutzt wird.",
+   fix:"Getrennte Preview-/Prod-DBs sicherstellen; migrate deploy ggf. in separaten Release-Schritt statt in den Build."},
+];
+
+// Info-Sammelfunde (kompakt)
+const INFO = [
+  {id:"SEC-33",area:"DB",title:"Seed nicht vollständig deterministisch (new Date() → tagesabhängiger Umfang)",loc:"prisma/seed.ts:131"},
+  {id:"SEC-34",area:"DB",title:"Seed-Prod-Risiko (deleteMany löscht echte Einträge) + falscher '~5,5–8,5h'-Kommentar (real bis 11h)",loc:"prisma/seed.ts:47,129,152"},
+  {id:"SEC-35",area:"DB",title:"getDayTotal dupliziert Datums-Parsung ohne Validierung (statt parseDateParam)",loc:"reports.ts:120-127"},
+  {id:"SEC-36",area:"DB",title:"Fehlende Pagination auf Listen-Reads (findMany ohne take/skip)",loc:"expenses/projects/tripStops/checklist/notes"},
+  {id:"SEC-37",area:"API",title:"Passkey-verify: Body nicht per Zod validiert + kein Signature-Counter-Regressions-Check",loc:"passkey/register/verify/route.ts:16"},
+  {id:"SEC-38",area:"Frontend",title:"Fehlende Fetch-Cancellation in mehreren Mount-Effects (inkonsistent)",loc:"TripPlanner/TripMembers/Checkliste/ExpenseCalculator/ProfileForm/TopNav"},
+  {id:"SEC-39",area:"Frontend",title:"Index als React-key bei transitLegs; ✕-Button ohne aria-label (A11y)",loc:"TripPlanner.tsx:534, :464-470"},
+  {id:"SEC-40",area:"Frontend",title:"BiometricLock ist nur Overlay über geladenem Inhalt (keine harte Grenze)",loc:"BiometricLock.tsx:52-70"},
+  {id:"SEC-41",area:"Infra",title:"Veraltete Deps: bcryptjs@2.4.3 (→3.x), nodemailer@6.10.1 (→7.x) — npm audit empfohlen",loc:"package.json:30,33"},
+];
+INFO.forEach(i=>F.push({...i,sev:"info",desc:"Kleinere Verbesserung / kein aktiver Sicherheitspfad.",fix:"Siehe Bericht — geringe Priorität."}));
+
+const SEV = {crit:["Kritisch",1],high:["Hoch",0],med:["Mittel",0],low:["Niedrig",0],info:["Info",0]};
+const SEVORDER = ["crit","high","med","low","info"];
+const AREAS = [...new Set(F.map(f=>f.area))].sort();
+
+// Dashboard
+const counts = {crit:0,high:0,med:0,low:0,info:0};
+F.forEach(f=>counts[f.sev]++);
+const dash = document.getElementById("dash");
+dash.innerHTML =
+  `<div class="stat total"><div class="n">${F.length}</div><div class="l">Funde gesamt</div></div>`+
+  SEVORDER.map(s=>`<div class="stat ${s}"><div class="n">${counts[s]}</div><div class="l">${SEV[s][0]}</div></div>`).join("");
+
+// Filter state
+let activeSev="all", activeArea="all";
+function chip(label,val,cur,fn){const b=document.createElement("button");b.className="f"+(val===cur?" on":"");b.textContent=label;b.onclick=()=>fn(val);return b;}
+function renderSevFilter(){const c=document.getElementById("sevFilter");c.innerHTML="";
+  c.appendChild(chip("Alle","all",activeSev,setSev));
+  SEVORDER.forEach(s=>c.appendChild(chip(`${SEV[s][0]} (${counts[s]})`,s,activeSev,setSev)));}
+function renderAreaFilter(){const c=document.getElementById("areaFilter");c.innerHTML="";
+  c.appendChild(chip("Alle","all",activeArea,setArea));
+  AREAS.forEach(a=>c.appendChild(chip(a,a,activeArea,setArea)));}
+function setSev(v){activeSev=v;renderSevFilter();render();}
+function setArea(v){activeArea=v;renderAreaFilter();render();}
+
+function render(){
+  const list=document.getElementById("list");list.innerHTML="";
+  const items=F.filter(f=>(activeSev==="all"||f.sev===activeSev)&&(activeArea==="all"||f.area===activeArea))
+    .sort((a,b)=>SEVORDER.indexOf(a.sev)-SEVORDER.indexOf(b.sev)||a.id.localeCompare(b.id));
+  document.getElementById("empty").style.display=items.length?"none":"block";
+  items.forEach(f=>{
+    const el=document.createElement("div");el.className="card";el.dataset.sev=f.sev;
+    el.innerHTML=
+      `<div class="badges">
+        <span class="b sev-${f.sev}">${SEV[f.sev][0]}</span>
+        <span class="b area">${f.area}</span>
+        <span class="b id">${f.id}</span>
+      </div>
+      <h3>${f.title}</h3>
+      <div class="loc">${f.loc}</div>
+      <p class="desc">${f.desc}</p>
+      <div class="fix"><b>Empfehlung:</b> ${f.fix}</div>`;
+    list.appendChild(el);
+  });
+}
+document.getElementById("foot").innerHTML =
+  `Erstellt durch Read-only-Analyse (5 parallele Agenten) am 2026-07-10. Zeilennummern sind Momentaufnahmen und können bei künftigen Änderungen abweichen. Priorität: SEC-01 (Passwort rotieren) → SEC-02/03/04/05/06/07 → Mittel-Funde.`;
+renderSevFilter();renderAreaFilter();render();
+</script>
+</body>
+</html>

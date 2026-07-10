@@ -1,5 +1,20 @@
 import { db } from "@/lib/db";
+import { forbidden } from "@/lib/api/http";
 import { parseDateParam } from "@/lib/time";
+import { getBookableProjects } from "./projects";
+
+/**
+ * Stellt sicher, dass der Nutzer auf dieses Projekt buchen darf (via Assignment
+ * zugewiesen bzw. – ohne Assignments – ein aktives Projekt) und es nicht
+ * archiviert ist. Sonst 403. Verhindert Umgehung der Buchungsberechtigung auf
+ * dem Schreibpfad (nur die FK-Existenz reicht nicht).
+ */
+async function assertBookableProject(userId: string, projectId: string) {
+  const projects = await getBookableProjects(userId);
+  if (!projects.some((p) => p.id === projectId)) {
+    throw forbidden("Für dieses Projekt besteht keine Buchungsberechtigung.");
+  }
+}
 
 /** Alle Einträge eines Users an einem Tag (inkl. Projekt), sortiert. */
 export function getDayEntries(userId: string, dateParam: string) {
@@ -19,13 +34,14 @@ export function getOwnedEntry(id: string, userId: string) {
   });
 }
 
-export function createTimeEntry(input: {
+export async function createTimeEntry(input: {
   userId: string;
   projectId: string;
   dateParam: string;
   minutes: number;
   note?: string | null;
 }) {
+  await assertBookableProject(input.userId, input.projectId);
   return db.timeEntry.create({
     data: {
       userId: input.userId,
@@ -46,6 +62,7 @@ export async function updateTimeEntryOwned(input: {
   minutes: number;
   note?: string | null;
 }) {
+  await assertBookableProject(input.userId, input.projectId);
   const result = await db.timeEntry.updateMany({
     where: { id: input.id, userId: input.userId },
     data: {

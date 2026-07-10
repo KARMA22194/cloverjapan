@@ -7,10 +7,10 @@ import { getActiveTripId } from "@/lib/services/trip";
 import { getTripStops, replaceTripStops } from "@/lib/services/tripStops";
 
 const stopSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  lat: z.number(),
-  lng: z.number(),
+  id: z.string().min(1).max(100),
+  label: z.string().min(1).max(200),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 const putBody = z.object({ stops: z.array(stopSchema).max(200) });
 

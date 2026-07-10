@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn } from "next-auth/react";
 import { startAuthentication } from "@simplewebauthn/browser";
@@ -104,7 +105,14 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-red-600 dark:text-red-400">{pkError}</p>
         )}
 
-        <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-300">
+          Noch kein Konto?{" "}
+          <Link href="/register" className="font-medium text-brand hover:underline">
+            Registrieren
+          </Link>
+        </p>
+
+        <p className="mt-3 text-center text-xs text-slate-400 dark:text-slate-500">
           Demo: employee@etikett.de / password123
         </p>
       </div>

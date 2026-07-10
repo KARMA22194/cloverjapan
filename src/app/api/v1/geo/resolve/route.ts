@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { safeFetch } from "@/lib/net";
 
 const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
 
@@ -24,6 +25,7 @@ export function GET(req: NextRequest) {
     await requireUser();
     const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
     if (q.length < 2) throw badRequest("Bitte einen Ortsnamen oder Link einfügen.");
+    if (q.length > 2000) throw badRequest("Eingabe zu lang.");
 
     const urlMatch = q.match(/https?:\/\/[^\s]+/);
     if (urlMatch) {
@@ -82,7 +84,7 @@ async function resolveMapsLink(url: string): Promise<Resolved> {
 
   // Nur wenn im (Kurz-)Link keine Koordinaten stehen: Redirect folgen + Body lesen.
   if (!coords) {
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, redirect: "follow" });
+    const res = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
     finalUrl = res.url || url;
     const body = (await res.text()).slice(0, 200000);
     coords = findCoords(finalUrl) ?? findCoords(body);
@@ -124,7 +126,7 @@ async function geocode(text: string, source: "text" | "url"): Promise<Resolved |
 
 async function resolveGenericUrl(url: string): Promise<Resolved | null> {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, redirect: "follow" });
+    const res = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
     if (!res.ok) return null;
     const html = (await res.text()).slice(0, 200000);
     const og =

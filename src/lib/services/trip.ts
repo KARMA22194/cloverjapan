@@ -4,14 +4,30 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
 // Gültigkeitsdauer eines Einladungs-Links.
-const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** Prüft, ob ein Fehler ein Prisma-Unique-Constraint-Verstoß (P2002) ist. */
+function isUniqueViolation(err: unknown): boolean {
+  return !!err && typeof err === "object" && "code" in err && (err as { code: unknown }).code === "P2002";
+}
 
 /** Aktive Reise des Nutzers; legt beim ersten Zugriff eine eigene Reise an. */
 export async function getActiveTripId(userId: string): Promise<string> {
   const member = await db.tripMember.findUnique({ where: { userId } });
   if (member) return member.tripId;
-  const trip = await db.trip.create({ data: { members: { create: { userId } } } });
-  return trip.id;
+  try {
+    const trip = await db.trip.create({ data: { members: { create: { userId } } } });
+    return trip.id;
+  } catch (err) {
+    // Race: paralleler erster Zugriff (SSR + PWA) hat die Mitgliedschaft schon
+    // angelegt → TripMember.userId @unique wirft P2002. Dann einfach neu lesen,
+    // statt mit 500 zu scheitern.
+    if (isUniqueViolation(err)) {
+      const again = await db.tripMember.findUnique({ where: { userId } });
+      if (again) return again.tripId;
+    }
+    throw err;
+  }
 }
 
 export async function getTripMembers(tripId: string) {
@@ -70,17 +86,15 @@ export async function createInvitation(
   invitedBy: string,
 ): Promise<string> {
   const normalized = email.toLowerCase();
-  // Offene (noch nicht eingelöste) Einladungen für diese E-Mail/Reise entfernen,
-  // damit stets genau ein gültiger Link existiert.
-  await db.tripInvitation.deleteMany({
-    where: { tripId, email: normalized, acceptedAt: null },
-  });
-
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-  await db.tripInvitation.create({
-    data: { tripId, email: normalized, token, invitedBy, expiresAt },
-  });
+
+  // Offene Einladungen entwerten + neue anlegen atomar, damit bei parallelen
+  // Aufrufen nicht mehrere gültige Links für dieselbe E-Mail/Reise entstehen.
+  await db.$transaction([
+    db.tripInvitation.deleteMany({ where: { tripId, email: normalized, acceptedAt: null } }),
+    db.tripInvitation.create({ data: { tripId, email: normalized, token, invitedBy, expiresAt } }),
+  ]);
   return token;
 }
 
@@ -89,6 +103,67 @@ type InvitationInfo = {
   invitedBy: string;
   tripName: string;
 };
+
+/**
+ * Offene (noch nicht eingelöste) Einladungen einer Reise — für die Pending-Ansicht.
+ * Enthält Ablaufdatum + abgeleiteten Status, damit die UI „läuft in X Tagen ab" bzw.
+ * „abgelaufen" anzeigen kann.
+ */
+export async function getPendingInvitations(tripId: string) {
+  const invs = await db.tripInvitation.findMany({
+    where: { tripId, acceptedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+  const now = new Date();
+  return invs.map((inv) => ({
+    id: inv.id,
+    email: inv.email,
+    invitedBy: inv.invitedBy,
+    token: inv.token,
+    createdAt: inv.createdAt.toISOString(),
+    expiresAt: inv.expiresAt.toISOString(),
+    expired: inv.expiresAt < now,
+  }));
+}
+
+/** Widerruft eine offene Einladung (nur innerhalb der eigenen Reise). */
+export async function revokeInvitation(tripId: string, id: string): Promise<boolean> {
+  const result = await db.tripInvitation.deleteMany({
+    where: { id, tripId, acceptedAt: null },
+  });
+  return result.count > 0;
+}
+
+/**
+ * Offene Selbst-Registrierung (ohne Einladung): legt ein Konto an und startet mit
+ * einer eigenen Solo-Reise. E-Mail-Kollision → { ok:false, reason:"exists" }.
+ */
+export async function registerSelf(
+  name: string,
+  email: string,
+  password: string,
+): Promise<AcceptResult> {
+  const normalized = email.toLowerCase();
+  const existing = await db.user.findUnique({ where: { email: normalized } });
+  if (existing) return { ok: false, reason: "exists" };
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  try {
+    const user = await db.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { name, email: normalized, passwordHash },
+      });
+      // Eigene Reise, damit die Japan-Tools sofort nutzbar sind.
+      await tx.trip.create({ data: { members: { create: { userId: created.id } } } });
+      return created;
+    });
+    return { ok: true, user: { id: user.id, name: user.name, email: user.email } };
+  } catch (err) {
+    // Race: parallele Registrierung derselben E-Mail → User.email @unique (P2002).
+    if (isUniqueViolation(err)) return { ok: false, reason: "exists" };
+    throw err;
+  }
+}
 
 /** Liefert die Einladung zu einem Token, wenn sie gültig (offen + nicht abgelaufen) ist. */
 export async function getValidInvitation(token: string): Promise<InvitationInfo | null> {
@@ -122,27 +197,43 @@ export async function acceptInvitation(
   if (existing) return { ok: false, reason: "exists" };
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await db.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: { name, email: inv.email, passwordHash },
-    });
-    // Bestehende Mitgliedschaft ist ausgeschlossen (Konto ist neu) → create genügt.
-    await tx.tripMember.create({ data: { tripId: inv.tripId, userId: created.id } });
-    await tx.tripInvitation.update({
-      where: { id: inv.id },
-      data: { acceptedAt: new Date() },
-    });
-    return created;
-  });
+  try {
+    const user = await db.$transaction(async (tx) => {
+      // Einladung *innerhalb* der Transaktion konditional entwerten: nur solange
+      // acceptedAt noch null ist. Bei paralleler Zweiteinlösung desselben Tokens
+      // trifft count===0 → sauberer Abbruch statt P2002-500 an user.create.
+      const consumed = await tx.tripInvitation.updateMany({
+        where: { id: inv.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (consumed.count === 0) throw new Error("ALREADY_ACCEPTED");
 
-  return { ok: true, user: { id: user.id, name: user.name, email: user.email } };
+      const created = await tx.user.create({
+        data: { name, email: inv.email, passwordHash },
+      });
+      // Bestehende Mitgliedschaft ist ausgeschlossen (Konto ist neu) → create genügt.
+      await tx.tripMember.create({ data: { tripId: inv.tripId, userId: created.id } });
+      return created;
+    });
+    return { ok: true, user: { id: user.id, name: user.name, email: user.email } };
+  } catch (err) {
+    if (err instanceof Error && err.message === "ALREADY_ACCEPTED") {
+      return { ok: false, reason: "invalid" };
+    }
+    if (isUniqueViolation(err)) return { ok: false, reason: "exists" };
+    throw err;
+  }
 }
 
 /** Entfernt ein Mitglied aus der Reise → verschiebt es in eine eigene neue Reise. */
 export async function removeFromTrip(tripId: string, userId: string): Promise<boolean> {
   const member = await db.tripMember.findUnique({ where: { userId } });
   if (!member || member.tripId !== tripId) return false;
-  const fresh = await db.trip.create({ data: {} });
-  await db.tripMember.update({ where: { userId }, data: { tripId: fresh.id } });
+  // Neue Solo-Reise anlegen + Mitgliedschaft umhängen atomar — sonst kann eine
+  // leere Reise ohne Mitglied zurückbleiben, wenn der zweite Write scheitert.
+  await db.$transaction(async (tx) => {
+    const fresh = await tx.trip.create({ data: {} });
+    await tx.tripMember.update({ where: { userId }, data: { tripId: fresh.id } });
+  });
   return true;
 }

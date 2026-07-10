@@ -4,11 +4,12 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { db } from "@/lib/db";
-import { CHALLENGE_COOKIE, rpID, rpName } from "@/lib/webauthn";
+import { assertWebauthnConfig, CHALLENGE_COOKIE, rpID, rpName } from "@/lib/webauthn";
 
 /** GET /api/v1/passkey/register/options — Optionen zum Einrichten eines Passkeys. */
 export function GET() {
   return handle(async () => {
+    assertWebauthnConfig();
     const user = await requireUser();
     const existing = await db.credential.findMany({
       where: { userId: user.id },

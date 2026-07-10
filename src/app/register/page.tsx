@@ -22,9 +22,15 @@ export default async function RegisterPage({ searchParams }: Props) {
         <div className="mb-6">
           <Logo height={40} priority />
           <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">Registrieren</h1>
+          {!token && (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Lege ein Konto an, um loszulegen.
+            </p>
+          )}
         </div>
 
         {invitation && token ? (
+          // Gültige Einladung → Invite-Modus (Beitritt zur Reise des Einladenden).
           <RegisterForm
             token={token}
             email={invitation.email}
@@ -33,18 +39,23 @@ export default async function RegisterPage({ searchParams }: Props) {
           />
         ) : (
           <div className="space-y-4">
-            <p className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-              Diese Einladung ist ungültig oder abgelaufen. Bitte die einladende Person um einen
-              neuen Link.
-            </p>
-            <Link
-              href="/login"
-              className="block text-center text-sm text-brand hover:underline"
-            >
-              Zur Anmeldung
-            </Link>
+            {token && (
+              <p className="rounded-md bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+                Diese Einladung ist ungültig oder abgelaufen. Du kannst dir trotzdem unten ein
+                eigenes Konto anlegen.
+              </p>
+            )}
+            {/* Kein/ungültiger Token → offene Selbst-Registrierung (eigene Reise). */}
+            <RegisterForm />
           </div>
         )}
+
+        <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-300">
+          Schon ein Konto?{" "}
+          <Link href="/login" className="font-medium text-brand hover:underline">
+            Anmelden
+          </Link>
+        </p>
       </div>
     </div>
   );

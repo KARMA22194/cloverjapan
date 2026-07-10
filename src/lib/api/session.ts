@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
 
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { forbidden, unauthorized } from "./http";
 
 export interface ApiUser {
@@ -17,8 +18,18 @@ export interface ApiUser {
 export async function requireUser(): Promise<ApiUser> {
   const session = await auth();
   if (!session?.user) throw unauthorized();
-  const { id, name, email, role } = session.user;
-  return { id, name: name ?? "", email: email ?? "", role };
+  const { id, name, email } = session.user;
+
+  // Session-Revocation: JWT trägt Rolle/ID vom Login-Zeitpunkt. Deaktiviert ein
+  // Admin den Nutzer (oder ändert dessen Rolle), muss das sofort greifen — daher
+  // active/role bei jeder Anfrage frisch aus der DB lesen (statt aus dem Token).
+  const fresh = await db.user.findUnique({
+    where: { id },
+    select: { active: true, role: true },
+  });
+  if (!fresh || !fresh.active) throw unauthorized("Konto deaktiviert oder nicht vorhanden.");
+
+  return { id, name: name ?? "", email: email ?? "", role: fresh.role };
 }
 
 /** Wie {@link requireUser}, zusätzlich ADMIN-Pflicht (sonst 403). */

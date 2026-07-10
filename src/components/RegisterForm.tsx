@@ -6,13 +6,17 @@ import { signIn } from "next-auth/react";
 import { api } from "@/lib/api/client";
 
 interface Props {
-  token: string;
-  email: string;
-  invitedBy: string;
-  tripName: string;
+  /** Bei Einladung gesetzt → Invite-Modus (E-Mail fix, Beitritt zur fremden Reise). */
+  token?: string;
+  /** Bei Einladung vorbelegte, nicht änderbare E-Mail. Im Selbst-Modus leer. */
+  email?: string;
+  invitedBy?: string;
+  tripName?: string;
 }
 
-export function RegisterForm({ token, email, invitedBy, tripName }: Props) {
+export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }: Props) {
+  const isInvite = Boolean(token);
+  const [email, setEmail] = useState(invitedEmail ?? "");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -34,11 +38,20 @@ export function RegisterForm({ token, email, invitedBy, tripName }: Props) {
 
     setPending(true);
     try {
-      await api.post(`/api/v1/invite/${token}`, { name: name.trim(), password });
-      // Konto steht → direkt anmelden und in die Reise springen.
-      const res = await signIn("credentials", { email, password, redirect: false });
+      // Invite-Modus → Einladung einlösen; sonst → offene Selbst-Registrierung.
+      if (isInvite) {
+        await api.post(`/api/v1/invite/${token}`, { name: name.trim(), password });
+      } else {
+        await api.post("/api/v1/register", { name: name.trim(), email: email.trim(), password });
+      }
+      // Konto steht → direkt anmelden. (Im Invite-Modus ist `email` die fixe Invite-Adresse.)
+      const res = await signIn("credentials", {
+        email: email.trim(),
+        password,
+        redirect: false,
+      });
       if (res?.ok && !res.error) {
-        window.location.href = "/reiseplaner";
+        window.location.href = isInvite ? "/reiseplaner" : "/start";
       } else {
         // Konto ist angelegt; nur der Auto-Login schlug fehl → zur Login-Seite.
         window.location.href = "/login";
@@ -51,20 +64,30 @@ export function RegisterForm({ token, email, invitedBy, tripName }: Props) {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p className="rounded-md bg-brand-tint/40 dark:bg-brand/10 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
-        <strong>{invitedBy}</strong> hat dich zu <strong>{tripName}</strong> eingeladen. Lege ein
-        Konto an, um gemeinsam zu planen.
-      </p>
+      {isInvite && (
+        <p className="rounded-md bg-brand-tint/40 dark:bg-brand/10 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+          <strong>{invitedBy}</strong> hat dich zu <strong>{tripName}</strong> eingeladen. Lege ein
+          Konto an, um gemeinsam zu planen.
+        </p>
+      )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
           E-Mail
         </label>
         <input
+          id="email"
           type="email"
+          autoComplete="email"
+          required
+          readOnly={isInvite}
           value={email}
-          readOnly
-          className="w-full cursor-not-allowed rounded-md border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 outline-none"
+          onChange={(e) => setEmail(e.target.value)}
+          className={
+            isInvite
+              ? "w-full cursor-not-allowed rounded-md border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 outline-none"
+              : "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          }
         />
       </div>
       <div>
@@ -122,7 +145,11 @@ export function RegisterForm({ token, email, invitedBy, tripName }: Props) {
         disabled={pending}
         className="inline-flex w-full items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {pending ? "Konto wird angelegt…" : "Konto erstellen & beitreten"}
+        {pending
+          ? "Konto wird angelegt…"
+          : isInvite
+            ? "Konto erstellen & beitreten"
+            : "Konto erstellen"}
       </button>
     </form>
   );

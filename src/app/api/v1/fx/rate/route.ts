@@ -1,7 +1,13 @@
 import type { NextRequest } from "next/server";
 
+import { z } from "zod";
+
 import { ApiError, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+
+// ISO-4217-Code: genau 3 Großbuchstaben. Verhindert Pfad-Manipulation im externen
+// URL-Pfad (…/v6/latest/${from}), z. B. from="JPY/..".
+const currencySchema = z.string().regex(/^[A-Z]{3}$/, "Ungültiger Währungscode.");
 
 /**
  * GET /api/v1/fx/rate?from=JPY&to=EUR — aktueller Wechselkurs (keyfrei, ECB-nah).
@@ -10,8 +16,8 @@ import { requireUser } from "@/lib/api/session";
 export function GET(req: NextRequest) {
   return handle(async () => {
     await requireUser();
-    const from = (req.nextUrl.searchParams.get("from") ?? "JPY").toUpperCase();
-    const to = (req.nextUrl.searchParams.get("to") ?? "EUR").toUpperCase();
+    const from = currencySchema.parse((req.nextUrl.searchParams.get("from") ?? "JPY").toUpperCase());
+    const to = currencySchema.parse((req.nextUrl.searchParams.get("to") ?? "EUR").toUpperCase());
 
     const res = await fetch(`https://open.er-api.com/v6/latest/${from}`, {
       headers: { "User-Agent": "TimeTracker/1.0" },

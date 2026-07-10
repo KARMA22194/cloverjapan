@@ -1,11 +1,12 @@
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
 
 import { handle, ok } from "@/lib/api/http";
-import { CHALLENGE_COOKIE, rpID } from "@/lib/webauthn";
+import { assertWebauthnConfig, CHALLENGE_COOKIE, rpID } from "@/lib/webauthn";
 
 /** GET /api/v1/passkey/auth/options — Optionen für den Passkey-Login (öffentlich). */
 export function GET() {
   return handle(async () => {
+    assertWebauthnConfig();
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: "preferred",

@@ -141,7 +141,7 @@ model TripInvitation {
   token      String    @unique // im Registrierungs-Link
   invitedBy  String // Name des Einladenden (Schnappschuss)
   createdAt  DateTime  @default(now())
-  expiresAt  DateTime // Gültigkeit (z. B. 7 Tage)
+  expiresAt  DateTime // Gültigkeit (14 Tage)
   acceptedAt DateTime? // gesetzt, sobald eingelöst → Link verbraucht
   trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
 

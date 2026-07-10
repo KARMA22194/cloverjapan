@@ -3,17 +3,29 @@ import { z } from "zod";
 
 import { conflict, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
-import { getActiveTripId, getTripMembers, inviteToTrip } from "@/lib/services/trip";
+import {
+  getActiveTripId,
+  getPendingInvitations,
+  getTripMembers,
+  inviteToTrip,
+} from "@/lib/services/trip";
 import { sendRegistrationInviteEmail, sendTripInviteEmail } from "@/lib/mailer";
 
 const inviteBody = z.object({ email: z.string().email("Ungültige E-Mail.") });
 
-/** GET /api/v1/trip/members — Mitglieder der aktuellen Reise. */
-export function GET() {
+function inviteUrl(token: string, req: NextRequest): string {
+  return new URL(`/register?token=${token}`, process.env.APP_URL || req.nextUrl.origin).toString();
+}
+
+/** GET /api/v1/trip/members — Mitglieder + offene (pending) Einladungen der aktuellen Reise. */
+export function GET(req: NextRequest) {
   return handle(async () => {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
-    const members = await getTripMembers(tripId);
+    const [members, invitations] = await Promise.all([
+      getTripMembers(tripId),
+      getPendingInvitations(tripId),
+    ]);
     return ok({
       members: members.map((m) => ({
         id: m.user.id,
@@ -21,6 +33,15 @@ export function GET() {
         email: m.user.email,
         image: m.user.image,
         isMe: m.user.id === user.id,
+      })),
+      invitations: invitations.map((inv) => ({
+        id: inv.id,
+        email: inv.email,
+        invitedBy: inv.invitedBy,
+        createdAt: inv.createdAt,
+        expiresAt: inv.expiresAt,
+        expired: inv.expired,
+        inviteUrl: inviteUrl(inv.token, req),
       })),
     });
   });
@@ -45,11 +66,8 @@ export function POST(req: NextRequest) {
     }
 
     // Kein Konto → Registrierungs-Link erzeugen und (falls SMTP) versenden.
-    const inviteUrl = new URL(
-      `/register?token=${result.token}`,
-      process.env.APP_URL || req.nextUrl.origin,
-    ).toString();
-    const emailSent = await sendRegistrationInviteEmail(result.email, user.name, inviteUrl);
-    return ok({ invited: true, email: result.email, inviteUrl, emailSent }, 201);
+    const url = inviteUrl(result.token, req);
+    const emailSent = await sendRegistrationInviteEmail(result.email, user.name, url);
+    return ok({ invited: true, email: result.email, inviteUrl: url, emailSent }, 201);
   });
 }
