@@ -71,9 +71,9 @@ export default async function StartPage() {
       </div>
 
       {groups.map((group) => (
-        <details key={group.title} open className="group">
+        <details key={group.title} open className="group/section">
           <summary className="mb-3 flex cursor-pointer list-none items-center gap-2 rounded-md py-1 transition hover:opacity-90">
-            <span className="text-brand transition-transform duration-200 group-open:rotate-90" aria-hidden>
+            <span className="text-brand transition-transform duration-200 group-open/section:rotate-90" aria-hidden>
               ▸
             </span>
             <span>
@@ -88,13 +88,13 @@ export default async function StartPage() {
               <Link
                 key={tile.href}
                 href={tile.href}
-                className="group flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 transition hover:border-brand hover:shadow-sm"
+                className="group/tile flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 transition hover:border-brand hover:shadow-sm"
               >
                 <span className="text-2xl" aria-hidden>
                   {tile.emoji}
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-medium text-slate-800 dark:text-slate-100 group-hover:text-brand">
+                  <span className="block font-medium text-slate-800 dark:text-slate-100 group-hover/tile:text-brand">
                     {tile.label}
                   </span>
                   <span className="block text-sm text-slate-500 dark:text-slate-400">

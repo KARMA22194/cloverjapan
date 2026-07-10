@@ -7,7 +7,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Laufzeit-Verbindung der App (bei Neon: die „Pooled"-URL).
   url      = env("DATABASE_URL")
+  // Direkte Verbindung nur für `prisma migrate` (bei Neon: die „Direct"-URL).
+  // Lokal (Docker) identisch mit DATABASE_URL setzen.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -125,6 +129,24 @@ model Trip {
   expenses       Expense[]
   plannerTasks   PlannerTask[]
   checklistItems ChecklistItem[]
+  invitations    TripInvitation[]
+}
+
+// Einladung für eine Person OHNE Konto: Token-Link zum Selbst-Registrieren.
+// Beim Einlösen entsteht ein User, der direkt Mitglied dieser Reise wird.
+model TripInvitation {
+  id         String    @id @default(cuid())
+  tripId     String
+  email      String // Ziel-E-Mail (lowercase), an die eingeladen wurde
+  token      String    @unique // im Registrierungs-Link
+  invitedBy  String // Name des Einladenden (Schnappschuss)
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime // Gültigkeit (z. B. 7 Tage)
+  acceptedAt DateTime? // gesetzt, sobald eingelöst → Link verbraucht
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([email])
 }
 
 // Ein Nutzer ist in genau einer Reise (userId @unique).

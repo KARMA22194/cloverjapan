@@ -65,8 +65,11 @@ Android-App (Capacitor) vorbereitet:
 - **Tagesplaner** `/tagesplaner`: Aufgaben je Tag (Uhrzeit + Text), abhaken;
   **Erinnerung 1 h vorher** (nativ auch bei geschlossener App; Web solange offen).
 - **Checkliste** `/checkliste`: eigene Punkte, abhaken, „Erledigte löschen".
-- **Mitglieder** `/mitglieder`: Leute **per E-Mail einladen** (bestehendes Konto);
-  alle bearbeiten die Japan-Tools gemeinsam. Jeder Eintrag zeigt **„von <Name>"**.
+- **Mitglieder** `/mitglieder`: Leute **per E-Mail einladen**. Bestehendes Konto →
+  tritt sofort bei; **kein Konto** → **Registrierungs-Link** (`/register?token=…`,
+  7 Tage gültig) per E-Mail und/oder zum Kopieren, über den sich die Person selbst
+  registriert und automatisch beitritt. Alle bearbeiten die Japan-Tools gemeinsam;
+  jeder Eintrag zeigt **„von <Name>"**.
 
 ### App-weit
 - **Übersicht/Start** `/start`: kategorisierte Kachel-Hub (Home = `/`).
@@ -163,8 +166,10 @@ docker compose exec app npx playwright test              # E2E (mobil)
   **Installations-Dialog** laufen nur auf deinem Gerät — nicht in dieser Umgebung
   testbar.
 - **Produktion braucht HTTPS-Hosting** (für Passkeys, PWA und die Capacitor-URL).
-- **Einladen** nur für Personen mit **bestehendem Konto** (keine Selbstregistrierung).
-- **E-Mail-Versand** nur mit konfiguriertem SMTP (ungetestet ohne echten Server).
+- **Einladen** funktioniert auch für Personen **ohne Konto** (Registrierungs-Link);
+  freie Selbstregistrierung ohne Einladung gibt es weiterhin nicht.
+- **E-Mail-Versand** nur mit konfiguriertem SMTP — ohne SMTP wird der
+  Registrierungs-Link in der App angezeigt (kopieren & selbst teilen).
 - **Web-Erinnerungen** feuern nur bei offener App; „auch geschlossen" nur nativ.
 - Karten-Tile-Labels für Japan sind **romanisiert** (kein vollständiges Deutsch —
   fehlende `name:de`-Daten).
@@ -177,7 +182,5 @@ docker compose exec app npx playwright test              # E2E (mobil)
 ## 12. Nächste sinnvolle Schritte (Vorschläge)
 - **Prod-Deployment** (Dockerfile prod + Caddy/nginx mit HTTPS) → dann läuft die
   Store-App und die `server.url` steht.
-- Einladungs-**Selbstregistrierung** (Link + Signup), falls neue Leute ohne Konto
-  eingeladen werden sollen.
 - Trip-Endpunkte in **OpenAPI/Swagger** aufnehmen.
 - App-Icon/Splash via `@capacitor/assets` aus `public/icon-512.png`.

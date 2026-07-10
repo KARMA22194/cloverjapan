@@ -1,7 +1,7 @@
 // Minimaler Service-Worker: macht die App installierbar (fetch-Handler) und
 // cached statische Assets/Seiten (network-first mit Cache-Fallback für Offline).
 // API-Requests (/api/*) werden NICHT abgefangen → immer frisch/über das Netz.
-const CACHE = "tt-cache-v1";
+const CACHE = "tt-cache-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

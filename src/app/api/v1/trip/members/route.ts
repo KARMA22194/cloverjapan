@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { ApiError, conflict, handle, ok, readJson } from "@/lib/api/http";
+import { conflict, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId, getTripMembers, inviteToTrip } from "@/lib/services/trip";
-import { sendTripInviteEmail } from "@/lib/mailer";
+import { sendRegistrationInviteEmail, sendTripInviteEmail } from "@/lib/mailer";
 
 const inviteBody = z.object({ email: z.string().email("Ungültige E-Mail.") });
 
@@ -33,17 +33,23 @@ export function POST(req: NextRequest) {
     const tripId = await getActiveTripId(user.id);
     const { email } = inviteBody.parse(await readJson(req));
 
-    const result = await inviteToTrip(tripId, email);
+    const result = await inviteToTrip(tripId, email, user.name);
     if (!result.ok) {
-      if (result.reason === "not_found") {
-        throw new ApiError(
-          404,
-          "Kein Konto mit dieser E-Mail. Die Person muss zuerst ein Konto haben (vom Admin angelegt).",
-        );
-      }
       throw conflict("Nutzer ist bereits in dieser Reise.");
     }
-    const emailSent = await sendTripInviteEmail(result.user.email, user.name);
-    return ok({ member: { ...result.user, isMe: false }, emailSent }, 201);
+
+    // Bestehendes Konto → direkt Mitglied.
+    if (result.kind === "member") {
+      const emailSent = await sendTripInviteEmail(result.user.email, user.name);
+      return ok({ member: { ...result.user, isMe: false }, emailSent }, 201);
+    }
+
+    // Kein Konto → Registrierungs-Link erzeugen und (falls SMTP) versenden.
+    const inviteUrl = new URL(
+      `/register?token=${result.token}`,
+      process.env.APP_URL || req.nextUrl.origin,
+    ).toString();
+    const emailSent = await sendRegistrationInviteEmail(result.email, user.name, inviteUrl);
+    return ok({ invited: true, email: result.email, inviteUrl, emailSent }, 201);
   });
 }

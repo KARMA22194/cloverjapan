@@ -16,12 +16,16 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname.startsWith("/login");
+      // Registrierung per Einladungs-Link ist bewusst öffentlich.
+      const isOnRegister = nextUrl.pathname.startsWith("/register");
 
       if (isOnLogin) {
         // Eingeloggte Nutzer weg von der Login-Seite.
         if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));
         return true;
       }
+
+      if (isOnRegister) return true;
 
       // Alle übrigen (geschützten) Routen erfordern Login.
       if (!isLoggedIn) return false;
