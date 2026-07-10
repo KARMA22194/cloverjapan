@@ -68,33 +68,33 @@ async function main() {
   // --- Nutzer ---
   // Admin bucht nicht (verwaltet nur). Alle übrigen buchen auf ihre Projekte.
   const usersData = [
-    { email: "admin@etikett.de", name: "Admin", role: Role.ADMIN, projects: [] as string[] },
+    { email: "admin@clover.japan", name: "Admin", role: Role.ADMIN, projects: [] as string[] },
     {
-      email: "manager@etikett.de",
+      email: "manager@clover.japan",
       name: "Maria Manager",
       role: Role.MANAGER,
       projects: ["WEB", "MOBILE", "DESIGN"],
     },
     {
-      email: "employee@etikett.de",
+      email: "employee@clover.japan",
       name: "Erik Employee",
       role: Role.EMPLOYEE,
       projects: ["WEB", "TOOLS", "SUPPORT"],
     },
     {
-      email: "anna@etikett.de",
+      email: "anna@clover.japan",
       name: "Anna Weber",
       role: Role.EMPLOYEE,
       projects: ["WEB", "MOBILE"],
     },
     {
-      email: "ben@etikett.de",
+      email: "ben@clover.japan",
       name: "Ben Fischer",
       role: Role.EMPLOYEE,
       projects: ["SUPPORT", "TOOLS"],
     },
     {
-      email: "clara@etikett.de",
+      email: "clara@clover.japan",
       name: "Clara Schmidt",
       role: Role.EMPLOYEE,
       projects: ["DESIGN", "MOBILE", "WEB"],

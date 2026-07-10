@@ -39,9 +39,9 @@ App: http://localhost:3000 · **API-Docs (Swagger UI):** http://localhost:3000/a
 
 | Rolle    | E-Mail                 |
 |----------|------------------------|
-| Admin    | admin@etikett.de       |
-| Manager  | manager@etikett.de     |
-| Employee | employee@etikett.de    |
+| Admin    | admin@clover.japan       |
+| Manager  | manager@clover.japan     |
+| Employee | employee@clover.japan    |
 
 ## Architektur
 

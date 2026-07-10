@@ -49,7 +49,7 @@ test.describe("PWA (mobil)", () => {
 
   test("Login funktioniert mobil und zeigt die App-Navigation", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("E-Mail").fill("employee@etikett.de");
+    await page.getByLabel("E-Mail").fill("employee@clover.japan");
     await page.getByLabel("Passwort").fill("password123");
     await page.getByRole("button", { name: "Anmelden", exact: true }).click();
 

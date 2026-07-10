@@ -68,7 +68,7 @@ export const projectUpdateBody = z.object({
 
 export const userCreateBody = z.object({
   name: z.string().min(2, "Name zu kurz.").max(100).openapi({ example: "Erika Mustermann" }),
-  email: z.string().email("Ungültige E-Mail.").openapi({ example: "erika@etikett.de" }),
+  email: z.string().email("Ungültige E-Mail.").openapi({ example: "erika@clover.japan" }),
   password: z.string().min(6, "Passwort mind. 6 Zeichen.").openapi({ example: "password123" }),
   role: roleSchema.openapi({ example: "EMPLOYEE" }),
 });

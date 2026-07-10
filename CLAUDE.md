@@ -242,12 +242,12 @@ Alle Passwörter: `password123`
 
 | Rolle    | E-Mail               |
 |----------|----------------------|
-| Admin    | admin@etikett.de     |
-| Manager  | manager@etikett.de   |
-| Employee | employee@etikett.de  |
-| Employee | anna@etikett.de      |
-| Employee | ben@etikett.de       |
-| Employee | clara@etikett.de     |
+| Admin    | admin@clover.japan     |
+| Manager  | manager@clover.japan   |
+| Employee | employee@clover.japan  |
+| Employee | anna@clover.japan      |
+| Employee | ben@clover.japan       |
+| Employee | clara@clover.japan     |
 
 ## Arbeitsweise (projektspezifisch)
 

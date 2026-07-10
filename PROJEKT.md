@@ -154,10 +154,10 @@ docker compose exec app npx playwright test              # E2E (mobil)
 ## 10. Demo-Zugänge (Passwort `password123`)
 | Rolle | E-Mail | aktiv |
 |---|---|---|
-| Admin | admin@etikett.de | ja |
-| Employee | employee@etikett.de | ja |
-| Employee | clara@etikett.de | ja |
-| (Employee/Manager) | anna@/ben@/manager@etikett.de | **inaktiv** |
+| Admin | admin@clover.japan | ja |
+| Employee | employee@clover.japan | ja |
+| Employee | clara@clover.japan | ja |
+| (Employee/Manager) | anna@/ben@/manager@clover.japan | **inaktiv** |
 
 ---
 

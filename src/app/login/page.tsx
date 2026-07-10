@@ -113,7 +113,7 @@ export default function LoginPage() {
         </p>
 
         <p className="mt-3 text-center text-xs text-slate-400 dark:text-slate-500">
-          Demo: employee@etikett.de / password123
+          Demo: employee@clover.japan / password123
         </p>
       </div>
     </div>

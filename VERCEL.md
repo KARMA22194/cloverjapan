@@ -77,13 +77,13 @@ Vercel gibt dir eine URL, z. B. `https://cloverjapan.vercel.app`.
    - `WEBAUTHN_ORIGIN` = `https://cloverjapan.vercel.app`
    - `APP_URL` = `https://cloverjapan.vercel.app`
 2. **Login-Konto anlegen** (die DB ist noch leer). Einmalig von deinem Rechner aus
-   gegen die Neon-DB seeden (erzeugt die Demo-Konten inkl. `admin@etikett.de`):
+   gegen die Neon-DB seeden (erzeugt die Demo-Konten inkl. `admin@clover.japan`):
    ```bash
    docker compose run --rm \
      -e DATABASE_URL="<Neon-Pooled>" -e DIRECT_URL="<Neon-Direct>" \
      app npm run db:seed
    ```
-   Danach mit `admin@etikett.de` / `password123` einloggen. **Passwörter ändern!**
+   Danach mit `admin@clover.japan` / `password123` einloggen. **Passwörter ändern!**
 
 ---
 
