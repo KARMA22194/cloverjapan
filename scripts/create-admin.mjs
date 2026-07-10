@@ -29,8 +29,8 @@ try {
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash, name, role: Role.ADMIN, active: true },
-    create: { email, name, passwordHash, role: Role.ADMIN, active: true },
+    update: { passwordHash, name, role: Role.ADMIN, active: true, emailVerified: new Date() },
+    create: { email, name, passwordHash, role: Role.ADMIN, active: true, emailVerified: new Date() },
   });
   console.log(`\n✅ Admin-Konto bereit: ${user.name} <${user.email}> (Rolle ADMIN).`);
   console.log("   Login jetzt unter deiner Vercel-URL möglich.\n");

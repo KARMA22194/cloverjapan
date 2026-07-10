@@ -32,9 +32,27 @@ export async function createUser(input: {
       email: input.email.toLowerCase(),
       passwordHash,
       role: input.role,
+      // Admin-angelegte Konten gelten als bestätigt (keine Selbst-Registrierung).
+      emailVerified: new Date(),
     },
     include: userCount,
   });
+}
+
+/** Findet einen Nutzer per E-Mail (für den Passwort-Reset-Flow). */
+export function findUserByEmail(email: string) {
+  return db.user.findUnique({ where: { email: email.toLowerCase() } });
+}
+
+/** Markiert die E-Mail als bestätigt (Double-Opt-in abgeschlossen). */
+export function markEmailVerified(userId: string) {
+  return db.user.update({ where: { id: userId }, data: { emailVerified: new Date() } });
+}
+
+/** Setzt ein neues Passwort (Passwort-Reset). */
+export async function setUserPassword(userId: string, password: string) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  return db.user.update({ where: { id: userId }, data: { passwordHash } });
 }
 
 export function setUserActive(id: string, active: boolean) {

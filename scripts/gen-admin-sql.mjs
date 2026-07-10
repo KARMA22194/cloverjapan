@@ -30,10 +30,10 @@ const hash = await bcrypt.hash(password, 10);
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 
 const sql =
-  `INSERT INTO "User" (id, email, name, "passwordHash", role, active) ` +
-  `VALUES (${q(id)}, ${q(email)}, ${q(name)}, ${q(hash)}, 'ADMIN', true) ` +
+  `INSERT INTO "User" (id, email, name, "passwordHash", role, active, "emailVerified") ` +
+  `VALUES (${q(id)}, ${q(email)}, ${q(name)}, ${q(hash)}, 'ADMIN', true, NOW()) ` +
   `ON CONFLICT (email) DO UPDATE SET ` +
-  `name = EXCLUDED.name, "passwordHash" = EXCLUDED."passwordHash", role = 'ADMIN', active = true;`;
+  `name = EXCLUDED.name, "passwordHash" = EXCLUDED."passwordHash", role = 'ADMIN', active = true, "emailVerified" = NOW();`;
 
 console.log("\n===== SQL zum Kopieren (in Neon → SQL Editor einfügen & Run) =====\n");
 console.log(sql);

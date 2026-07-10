@@ -3,8 +3,10 @@ import { z } from "zod";
 
 import { conflict, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 import {
   getActiveTripId,
+  getIncomingInvitations,
   getPendingInvitations,
   getTripMembers,
   inviteToTrip,
@@ -22,9 +24,10 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
-    const [members, invitations] = await Promise.all([
+    const [members, invitations, incoming] = await Promise.all([
       getTripMembers(tripId),
       getPendingInvitations(tripId),
+      getIncomingInvitations(user.email, tripId),
     ]);
     return ok({
       members: members.map((m) => ({
@@ -43,6 +46,7 @@ export function GET(req: NextRequest) {
         expired: inv.expired,
         inviteUrl: inviteUrl(inv.token, req),
       })),
+      incoming,
     });
   });
 }
@@ -51,6 +55,8 @@ export function GET(req: NextRequest) {
 export function POST(req: NextRequest) {
   return handle(async () => {
     const user = await requireUser();
+    // Mail-Spam-/Relay-Schutz: max. 20 Einladungen pro Nutzer und Stunde.
+    await enforceRateLimit(`invite:${user.id}`, 20, 60 * 60 * 1000);
     const tripId = await getActiveTripId(user.id);
     const { email } = inviteBody.parse(await readJson(req));
 
@@ -59,15 +65,14 @@ export function POST(req: NextRequest) {
       throw conflict("Nutzer ist bereits in dieser Reise.");
     }
 
-    // Bestehendes Konto → direkt Mitglied.
-    if (result.kind === "member") {
-      const emailSent = await sendTripInviteEmail(result.user.email, user.name);
-      return ok({ member: { ...result.user, isMe: false }, emailSent }, 201);
-    }
-
-    // Kein Konto → Registrierungs-Link erzeugen und (falls SMTP) versenden.
     const url = inviteUrl(result.token, req);
-    const emailSent = await sendRegistrationInviteEmail(result.email, user.name, url);
-    return ok({ invited: true, email: result.email, inviteUrl: url, emailSent }, 201);
+    // Bestehendes Konto → Hinweis zum Anmelden & Annehmen; sonst Registrierungs-Link.
+    const emailSent = result.hasAccount
+      ? await sendTripInviteEmail(result.email, user.name)
+      : await sendRegistrationInviteEmail(result.email, user.name, url);
+    return ok(
+      { invited: true, email: result.email, inviteUrl: url, emailSent, hasAccount: result.hasAccount },
+      201,
+    );
   });
 }

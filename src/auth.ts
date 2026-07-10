@@ -7,6 +7,7 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
+import { consumeRateLimit } from "@/lib/rate";
 import { assertWebauthnConfig, CHALLENGE_COOKIE, origin, readCookie, rpID } from "@/lib/webauthn";
 
 type AuthResponse = Parameters<typeof verifyAuthenticationResponse>[0]["response"];
@@ -29,8 +30,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
+
+        // Brute-Force-Schutz: max. 10 Versuche pro E-Mail in 15 Minuten.
+        const allowed = await consumeRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000);
+        if (!allowed) return null;
+
         const user = await db.user.findUnique({ where: { email } });
         if (!user || !user.active) return null;
+        // E-Mail-Bestätigung erforderlich (nur unbestätigte Selbst-Registrierungen betroffen).
+        if (!user.emailVerified) return null;
 
         const passwordOk = await bcrypt.compare(password, user.passwordHash);
         if (!passwordOk) return null;

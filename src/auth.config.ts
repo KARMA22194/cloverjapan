@@ -20,8 +20,10 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname.startsWith("/login");
-      // Registrierung per Einladungs-Link ist bewusst öffentlich.
-      const isOnRegister = nextUrl.pathname.startsWith("/register");
+      // Registrierung, E-Mail-Bestätigung und Passwort-Reset sind bewusst öffentlich.
+      const isPublic = ["/register", "/verify", "/forgot", "/reset"].some((p) =>
+        nextUrl.pathname.startsWith(p),
+      );
 
       if (isOnLogin) {
         // Eingeloggte Nutzer weg von der Login-Seite.
@@ -29,7 +31,7 @@ export const authConfig = {
         return true;
       }
 
-      if (isOnRegister) return true;
+      if (isPublic) return true;
 
       // Alle übrigen (geschützten) Routen erfordern Login.
       if (!isLoggedIn) return false;

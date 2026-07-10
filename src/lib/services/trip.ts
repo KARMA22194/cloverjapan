@@ -42,15 +42,16 @@ export async function getTripMembers(tripId: string) {
 }
 
 type InviteResult =
-  | { ok: true; kind: "member"; user: { id: string; name: string; email: string } }
-  | { ok: true; kind: "invitation"; email: string; token: string }
+  | { ok: true; email: string; token: string; hasAccount: boolean }
   | { ok: false; reason: "already" };
 
 /**
- * Lädt jemanden per E-Mail in die Reise ein.
- * - Bestehendes Konto → wird direkt Mitglied (in diese Reise verschoben).
- * - Kein Konto → es wird eine Einladung mit Token-Link angelegt (kind: "invitation"),
- *   über den sich die Person selbst registriert und dann automatisch beitritt.
+ * Lädt jemanden per E-Mail in die Reise ein — immer als **ausstehende Einladung**,
+ * die die eingeladene Person selbst bestätigt (keine erzwungene Umhängung mehr).
+ * - Bestehendes Konto (`hasAccount: true`) → meldet sich an und nimmt die Einladung
+ *   unter „Mitglieder → Einladungen an dich" an.
+ * - Kein Konto (`hasAccount: false`) → registriert sich über den Token-Link und
+ *   tritt dabei automatisch bei.
  */
 export async function inviteToTrip(
   tripId: string,
@@ -63,17 +64,87 @@ export async function inviteToTrip(
   if (user) {
     const existing = await db.tripMember.findUnique({ where: { userId: user.id } });
     if (existing?.tripId === tripId) return { ok: false, reason: "already" };
-
-    await db.tripMember.upsert({
-      where: { userId: user.id },
-      create: { tripId, userId: user.id },
-      update: { tripId },
-    });
-    return { ok: true, kind: "member", user: { id: user.id, name: user.name, email: user.email } };
   }
 
   const token = await createInvitation(tripId, normalized, invitedBy);
-  return { ok: true, kind: "invitation", email: normalized, token };
+  return { ok: true, email: normalized, token, hasAccount: Boolean(user) };
+}
+
+type IncomingInvitation = {
+  id: string;
+  tripName: string;
+  invitedBy: string;
+  expiresAt: string;
+};
+
+/**
+ * Offene Einladungen, die an die E-Mail des Nutzers gerichtet sind (nicht an seine
+ * aktuelle Reise) — für den Zustimmungs-Schritt „Einladungen an dich".
+ */
+export async function getIncomingInvitations(
+  email: string,
+  currentTripId: string,
+): Promise<IncomingInvitation[]> {
+  const now = new Date();
+  const invs = await db.tripInvitation.findMany({
+    where: {
+      email: email.toLowerCase(),
+      acceptedAt: null,
+      expiresAt: { gt: now },
+      tripId: { not: currentTripId },
+    },
+    orderBy: { createdAt: "desc" },
+    include: { trip: { select: { name: true } } },
+  });
+  return invs.map((inv) => ({
+    id: inv.id,
+    tripName: inv.trip.name,
+    invitedBy: inv.invitedBy,
+    expiresAt: inv.expiresAt.toISOString(),
+  }));
+}
+
+/**
+ * Nimmt eine an den Nutzer gerichtete Einladung an: hängt seine Mitgliedschaft in die
+ * eingeladene Reise um (verlässt die bisherige) und entwertet die Einladung — atomar.
+ */
+export async function acceptIncomingInvitation(
+  userId: string,
+  email: string,
+  invitationId: string,
+): Promise<boolean> {
+  const inv = await db.tripInvitation.findUnique({ where: { id: invitationId } });
+  if (
+    !inv ||
+    inv.email !== email.toLowerCase() ||
+    inv.acceptedAt ||
+    inv.expiresAt < new Date()
+  ) {
+    return false;
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      const consumed = await tx.tripInvitation.updateMany({
+        where: { id: inv.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (consumed.count === 0) throw new Error("ALREADY_ACCEPTED");
+      await tx.tripMember.update({ where: { userId }, data: { tripId: inv.tripId } });
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.message === "ALREADY_ACCEPTED") return false;
+    throw err;
+  }
+}
+
+/** Lehnt eine an den Nutzer gerichtete Einladung ab (löscht sie). */
+export async function declineIncomingInvitation(email: string, invitationId: string): Promise<boolean> {
+  const result = await db.tripInvitation.deleteMany({
+    where: { id: invitationId, email: email.toLowerCase(), acceptedAt: null },
+  });
+  return result.count > 0;
 }
 
 /**
@@ -209,7 +280,8 @@ export async function acceptInvitation(
       if (consumed.count === 0) throw new Error("ALREADY_ACCEPTED");
 
       const created = await tx.user.create({
-        data: { name, email: inv.email, passwordHash },
+        // Einladung per Mail-Link beweist E-Mail-Besitz → direkt als bestätigt anlegen.
+        data: { name, email: inv.email, passwordHash, emailVerified: new Date() },
       });
       // Bestehende Mitgliedschaft ist ausgeschlossen (Konto ist neu) → create genügt.
       await tx.tripMember.create({ data: { tripId: inv.tripId, userId: created.id } });

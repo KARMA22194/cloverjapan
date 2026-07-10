@@ -14,6 +14,63 @@ function transport() {
   });
 }
 
+/** true, wenn SMTP konfiguriert ist (sonst kein Mailversand möglich). */
+export function mailConfigured(): boolean {
+  return Boolean(process.env.SMTP_HOST);
+}
+
+function fromAddress(): string {
+  return process.env.SMTP_FROM ?? "CloverJapanPlaner <no-reply@localhost>";
+}
+
+/**
+ * Schickt den Bestätigungslink für die offene Selbst-Registrierung (Double-Opt-in).
+ * Gibt zurück, ob tatsächlich versendet wurde.
+ */
+export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<boolean> {
+  const t = transport();
+  if (!t) return false;
+  try {
+    await t.sendMail({
+      from: fromAddress(),
+      to,
+      subject: "Bitte bestätige deine E-Mail-Adresse (Clover Japan)",
+      text:
+        `Willkommen bei Clover Japan!\n\n` +
+        `Bitte bestätige deine E-Mail-Adresse über diesen Link (24 Stunden gültig):\n` +
+        `${verifyUrl}\n\n` +
+        `Danach kannst du dich anmelden. Wenn du dich nicht registriert hast, ignoriere diese Mail.`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Schickt den Link zum Zurücksetzen des Passworts.
+ * Gibt zurück, ob tatsächlich versendet wurde.
+ */
+export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<boolean> {
+  const t = transport();
+  if (!t) return false;
+  try {
+    await t.sendMail({
+      from: fromAddress(),
+      to,
+      subject: "Passwort zurücksetzen (Clover Japan)",
+      text:
+        `Es wurde ein Zurücksetzen deines Passworts angefordert.\n\n` +
+        `Setze es über diesen Link neu (1 Stunde gültig):\n` +
+        `${resetUrl}\n\n` +
+        `Wenn du das nicht warst, ignoriere diese Mail — dein Passwort bleibt unverändert.`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Schickt eine Einladungs-Mail zur gemeinsamen Japan-Reise.
  * Gibt zurück, ob tatsächlich versendet wurde (false, wenn SMTP fehlt/Fehler).
@@ -60,7 +117,7 @@ export async function sendRegistrationInviteEmail(
       subject: `${inviterName} hat dich zur Japan-Reise eingeladen`,
       text:
         `${inviterName} hat dich zur gemeinsamen Japan-Reise (CloverJapanPlaner) eingeladen.\n\n` +
-        `Du hast noch kein Konto. Registriere dich über diesen Link (7 Tage gültig):\n` +
+        `Du hast noch kein Konto. Registriere dich über diesen Link (14 Tage gültig):\n` +
         `${inviteUrl}\n\n` +
         `Danach bearbeitet ihr Reiseplaner, Ausgaben, Tagesplaner und Checkliste gemeinsam.`,
     });

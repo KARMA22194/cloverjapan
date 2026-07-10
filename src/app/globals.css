@@ -5,8 +5,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ *
- *  Design-Tokens im etikett.de-Branding
- *  (Farben & Schriften der Website https://etikett.de/)
+ *  Design-Tokens im Clover-Japan-Branding
+ *  (Farben & Schriften, self-hosted)
  * ------------------------------------------------------------------ */
 @theme {
   --color-brand: #009bc9; /* Leitfarbe (Cyan-Blau) */
@@ -19,7 +19,7 @@
   --font-heading: "Viga", "PT Sans", ui-sans-serif, sans-serif;
 }
 
-/* --- Self-hosted Fonts (aus dem etikett.de-Theme, siehe public/fonts) --- */
+/* --- Self-hosted Fonts (siehe public/fonts) --- */
 @font-face {
   font-family: "Viga";
   font-style: normal;

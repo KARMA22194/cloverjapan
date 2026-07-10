@@ -85,6 +85,15 @@ export default function LoginPage() {
           <SubmitButton className="w-full" pendingLabel="Anmelden…">
             Anmelden
           </SubmitButton>
+
+          <p className="text-center">
+            <Link
+              href="/forgot"
+              className="text-xs text-slate-500 hover:text-brand hover:underline dark:text-slate-400"
+            >
+              Passwort vergessen?
+            </Link>
+          </p>
         </form>
 
         <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">

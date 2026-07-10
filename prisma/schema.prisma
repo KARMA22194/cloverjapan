@@ -27,21 +27,54 @@ enum NoteCategory {
   WOCHENENDE
 }
 
+enum TokenType {
+  EMAIL_VERIFY // Double-Opt-in bei offener Selbst-Registrierung
+  PASSWORD_RESET // Passwort-Vergessen-Flow
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         Role     @default(EMPLOYEE)
-  active       Boolean  @default(true)
-  image        String? // Profilbild als Data-URL (klein) oder null
-  createdAt    DateTime @default(now())
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          Role      @default(EMPLOYEE)
+  active        Boolean   @default(true)
+  // Zeitpunkt der E-Mail-Bestätigung; null = noch nicht bestätigt (Login gesperrt).
+  // Eingeladene/Admin-angelegte/geseedete Konten gelten als bestätigt.
+  emailVerified DateTime?
+  image         String? // Profilbild als Data-URL (klein) oder null
+  createdAt     DateTime  @default(now())
 
   timeEntries    TimeEntry[]
   assignments    Assignment[]
   notes          Note[]
   tripMembership TripMember?
   credentials    Credential[]
+  tokens         Token[]
+}
+
+// Einmal-Token für E-Mail-Bestätigung und Passwort-Reset.
+model Token {
+  id        String    @id @default(cuid())
+  userId    String
+  type      TokenType
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime? // gesetzt beim Einlösen → verbraucht
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+// Postgres-basiertes Rate-Limit (kein Redis nötig; funktioniert auch serverless).
+// Fixed-Window je key (z. B. "register:<ip>", "login:<email>").
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
 }
 
 // WebAuthn/Passkey-Credential (Public Key des Geräts; Fingerabdruck bleibt lokal).

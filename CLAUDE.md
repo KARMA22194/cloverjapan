@@ -213,9 +213,9 @@ Jeder Eintrag trägt `createdByName` (Anzeige „von X"); bei PUT-Replace
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 
-### Branding (etikett.de)
+### Branding (Clover Japan)
 
-UI übernimmt das Corporate Design von **https://etikett.de/** — alle Assets
+UI nutzt ein eigenes Corporate Design — alle Assets
 **self-hosted** (kein Google-Fonts-/CDN-Runtime-Fetch, passt zum Docker/Proxy-Setup):
 - **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`,
   Dateien in `public/fonts/`.

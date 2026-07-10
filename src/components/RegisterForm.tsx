@@ -22,6 +22,10 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Nach Selbst-Registrierung: Bestätigungs-Hinweis (kein Auto-Login, da unbestätigt).
+  const [done, setDone] = useState<{ email: string; emailSent: boolean; verifyUrl?: string } | null>(
+    null,
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,28 +42,46 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
 
     setPending(true);
     try {
-      // Invite-Modus → Einladung einlösen; sonst → offene Selbst-Registrierung.
       if (isInvite) {
+        // Invite-Modus: Einladung einlösen (Konto ist sofort bestätigt) → direkt anmelden.
         await api.post(`/api/v1/invite/${token}`, { name: name.trim(), password });
+        const res = await signIn("credentials", { email: email.trim(), password, redirect: false });
+        window.location.href = res?.ok && !res.error ? "/reiseplaner" : "/login";
       } else {
-        await api.post("/api/v1/register", { name: name.trim(), email: email.trim(), password });
-      }
-      // Konto steht → direkt anmelden. (Im Invite-Modus ist `email` die fixe Invite-Adresse.)
-      const res = await signIn("credentials", {
-        email: email.trim(),
-        password,
-        redirect: false,
-      });
-      if (res?.ok && !res.error) {
-        window.location.href = isInvite ? "/reiseplaner" : "/start";
-      } else {
-        // Konto ist angelegt; nur der Auto-Login schlug fehl → zur Login-Seite.
-        window.location.href = "/login";
+        // Selbst-Registrierung: Konto unbestätigt → Bestätigungs-Hinweis zeigen.
+        const r = await api.post<{ email: string; emailSent: boolean; verifyUrl?: string }>(
+          "/api/v1/register",
+          { name: name.trim(), email: email.trim(), password },
+        );
+        setDone(r);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registrierung fehlgeschlagen.");
       setPending(false);
     }
+  }
+
+  if (done) {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-md bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+          {done.emailSent
+            ? `Fast geschafft! Wir haben einen Bestätigungslink an ${done.email} geschickt. Bitte bestätige deine E-Mail und melde dich dann an.`
+            : `Konto angelegt. Bitte bestätige deine E-Mail über den folgenden Link, dann kannst du dich anmelden:`}
+        </p>
+        {!done.emailSent && done.verifyUrl && (
+          <a
+            href={done.verifyUrl}
+            className="block break-all rounded-md border border-brand/40 bg-brand-tint/30 dark:bg-brand/10 px-3 py-2 text-xs text-brand hover:underline"
+          >
+            {done.verifyUrl}
+          </a>
+        )}
+        <a href="/login" className="block text-center text-sm text-brand hover:underline">
+          Zur Anmeldung
+        </a>
+      </div>
+    );
   }
 
   return (

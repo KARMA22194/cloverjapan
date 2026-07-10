@@ -68,7 +68,9 @@ Ort: Vercel → Projekt `cloverjapan` → **Settings → Environment Variables**
 
 ## 5. Leute einladen
 - In der App → **Mitglieder** → E-Mail eingeben → **Einladen**.
-- **Hat schon ein Konto:** tritt sofort der Reise bei.
+- **Hat schon ein Konto:** bekommt eine Einladung, die die Person selbst **bestätigen**
+  muss (unter *Mitglieder → „Einladungen an dich" → Beitreten*). Sie wird also nicht mehr
+  ungefragt in die Reise verschoben.
 - **Hat noch keins:** bekommt eine **E-Mail mit Registrierungs-Link** (14 Tage gültig),
   legt sich selbst ein Konto an und ist danach dabei. Der Link wird zusätzlich in der
   App zum Kopieren angezeigt. Solange die Person noch nicht beigetreten ist, erscheint

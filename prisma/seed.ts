@@ -105,8 +105,9 @@ async function main() {
   for (const u of usersData) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { name: u.name, role: u.role },
-      create: { email: u.email, name: u.name, passwordHash, role: u.role },
+      update: { name: u.name, role: u.role, emailVerified: new Date() },
+      // Demo-Konten gelten als bestätigt (sonst Login durch E-Mail-Gate gesperrt).
+      create: { email: u.email, name: u.name, passwordHash, role: u.role, emailVerified: new Date() },
     });
 
     // Assignments (steuern buchbare Projekte).
