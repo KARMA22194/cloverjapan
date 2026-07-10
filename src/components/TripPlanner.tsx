@@ -115,11 +115,13 @@ export function TripPlanner() {
       if (cancelled || !mapEl.current || mapRef.current) return;
       LRef.current = L;
       const map = L.map(mapEl.current).setView(JAPAN_CENTER, 5);
-      // Wikimedia „osm-intl": internationale/lateinische Beschriftungen
-      // (z. B. „Tokyo" statt „東京") — keyfrei. (Fallback wäre Esri World Street Map.)
-      L.tileLayer("https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap-Mitwirkende · Wikimedia",
-        maxZoom: 19,
+      // CARTO „Voyager": keyfrei, CDN-schnell, erlaubt Fremd-Domains und zeigt
+      // überwiegend lateinische Beschriftung (z. B. „Tokyo" statt „東京").
+      // (Wikimedia-Tiles blockieren Fremd-Domains mit 403 → leere Karte.)
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        subdomains: "abcd",
+        attribution: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
+        maxZoom: 20,
       }).addTo(map);
       markersRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
