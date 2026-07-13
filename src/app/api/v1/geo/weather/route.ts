@@ -17,22 +17,43 @@ export function GET(req: NextRequest) {
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lng));
     url.searchParams.set("current", "temperature_2m,precipitation,weather_code");
+    url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min");
+    url.searchParams.set("forecast_days", "5");
     url.searchParams.set("timezone", "auto");
 
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new ApiError(502, "Wetterdienst nicht erreichbar.");
     const data = (await res.json()) as {
       current?: { temperature_2m: number; precipitation: number; weather_code: number };
+      daily?: {
+        time: string[];
+        weather_code: number[];
+        temperature_2m_max: number[];
+        temperature_2m_min: number[];
+      };
     };
     if (!data.current) throw new ApiError(502, "Kein Wetter verfügbar.");
 
     const info = weatherInfo(data.current.weather_code);
+    const daily = (data.daily?.time ?? []).map((date, i) => {
+      const di = weatherInfo(data.daily!.weather_code[i]);
+      return {
+        date,
+        max: Math.round(data.daily!.temperature_2m_max[i]),
+        min: Math.round(data.daily!.temperature_2m_min[i]),
+        code: data.daily!.weather_code[i],
+        text: di.text,
+        emoji: di.emoji,
+      };
+    });
+
     return ok({
       tempC: Math.round(data.current.temperature_2m),
       precipitation: data.current.precipitation,
       code: data.current.weather_code,
       text: info.text,
       emoji: info.emoji,
+      daily,
     });
   });
 }
