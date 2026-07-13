@@ -46,7 +46,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 shadow-sm">
         <div className="mb-6">
           <Logo height={40} priority />
-          <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">Zeiterfassung</h1>
+          <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">Clover Japan</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Bitte melde dich an.</p>
         </div>
 

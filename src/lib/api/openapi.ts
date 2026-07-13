@@ -24,25 +24,13 @@ export function buildOpenApiDocument() {
   });
 
   // Response-DTOs
-  const Project = registry.register("Project", S.projectSchema);
-  registry.register("ProjectMeta", S.projectMetaSchema);
-  const TimeEntry = registry.register("TimeEntry", S.timeEntrySchema);
   const User = registry.register("User", S.userSchema);
   const Me = registry.register("Me", S.meSchema);
-  const MonthReport = registry.register("MonthReport", S.monthReportSchema);
-  const YearReport = registry.register("YearReport", S.yearReportSchema);
-  const Note = registry.register("Note", S.noteSchema);
   const ErrorModel = registry.register("Error", S.errorSchema);
 
   // Request-Bodies
-  const TimeEntryCreate = registry.register("TimeEntryCreate", S.timeEntryCreateBody);
-  const TimeEntryUpdate = registry.register("TimeEntryUpdate", S.timeEntryUpdateBody);
-  const ProjectCreate = registry.register("ProjectCreate", S.projectCreateBody);
-  const ProjectUpdate = registry.register("ProjectUpdate", S.projectUpdateBody);
   const UserCreate = registry.register("UserCreate", S.userCreateBody);
   const UserUpdate = registry.register("UserUpdate", S.userUpdateBody);
-  const NoteCreate = registry.register("NoteCreate", S.noteCreateBody);
-  const NoteUpdate = registry.register("NoteUpdate", S.noteUpdateBody);
 
   const security = [{ sessionCookie: [] }];
   const errContent = { "application/json": { schema: ErrorModel } };
@@ -68,100 +56,6 @@ export function buildOpenApiDocument() {
     summary: "Aktueller Nutzer",
     security,
     responses: { 200: jsonRes("Der angemeldete Nutzer", Me), 401: err("Nicht angemeldet") },
-  });
-
-  /* ---------------- Time Entries ---------------- */
-  registry.registerPath({
-    method: "get",
-    path: "/api/v1/time-entries",
-    tags: ["Time Entries"],
-    summary: "Einträge eines Tages (aktueller Nutzer)",
-    security,
-    request: { query: z.object({ date: S.dateParamSchema }) },
-    responses: {
-      200: jsonRes("Liste der Einträge", z.array(TimeEntry)),
-      ...common,
-    },
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/api/v1/time-entries",
-    tags: ["Time Entries"],
-    summary: "Eintrag anlegen",
-    security,
-    request: { body: jsonBody(TimeEntryCreate) },
-    responses: { 201: jsonRes("Angelegter Eintrag", TimeEntry), ...common },
-  });
-  registry.registerPath({
-    method: "patch",
-    path: "/api/v1/time-entries/{id}",
-    tags: ["Time Entries"],
-    summary: "Eigenen Eintrag ändern",
-    security,
-    request: {
-      params: z.object({ id: z.string() }),
-      body: jsonBody(TimeEntryUpdate),
-    },
-    responses: {
-      200: jsonRes("Aktualisierter Eintrag", TimeEntry),
-      404: err("Eintrag nicht gefunden"),
-      ...common,
-    },
-  });
-  registry.registerPath({
-    method: "delete",
-    path: "/api/v1/time-entries/{id}",
-    tags: ["Time Entries"],
-    summary: "Eigenen Eintrag löschen",
-    security,
-    request: { params: z.object({ id: z.string() }) },
-    responses: {
-      200: jsonRes("Gelöscht", z.object({ id: z.string(), deleted: z.literal(true) })),
-      404: err("Eintrag nicht gefunden"),
-      ...common,
-    },
-  });
-
-  /* ---------------- Projects ---------------- */
-  registry.registerPath({
-    method: "get",
-    path: "/api/v1/projects",
-    tags: ["Projects"],
-    summary: "Projekte auflisten",
-    description:
-      "scope=bookable (Default): buchbare Projekte des Nutzers. scope=all: alle inkl. archivierter (nur ADMIN).",
-    security,
-    request: { query: z.object({ scope: z.enum(["bookable", "all"]).optional() }) },
-    responses: { 200: jsonRes("Projektliste", z.array(Project)), ...adminOnly },
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/api/v1/projects",
-    tags: ["Projects"],
-    summary: "Projekt anlegen (nur ADMIN)",
-    security,
-    request: { body: jsonBody(ProjectCreate) },
-    responses: {
-      201: jsonRes("Angelegtes Projekt", Project),
-      409: err("Projekt-Kürzel bereits vergeben"),
-      ...adminOnly,
-    },
-  });
-  registry.registerPath({
-    method: "patch",
-    path: "/api/v1/projects/{id}",
-    tags: ["Projects"],
-    summary: "Projekt archivieren/reaktivieren (nur ADMIN)",
-    security,
-    request: {
-      params: z.object({ id: z.string() }),
-      body: jsonBody(ProjectUpdate),
-    },
-    responses: {
-      200: jsonRes("Aktualisiertes Projekt", Project),
-      404: err("Projekt nicht gefunden"),
-      ...adminOnly,
-    },
   });
 
   /* ---------------- Users ---------------- */
@@ -204,100 +98,20 @@ export function buildOpenApiDocument() {
     },
   });
 
-  /* ---------------- Reports ---------------- */
-  registry.registerPath({
-    method: "get",
-    path: "/api/v1/reports/month",
-    tags: ["Reports"],
-    summary: "Monatsbericht (Tag × Projekt)",
-    security,
-    request: {
-      query: z.object({
-        year: z.coerce.number().int().openapi({ example: 2026 }),
-        month: z.coerce.number().int().openapi({ example: 7, description: "1–12" }),
-      }),
-    },
-    responses: { 200: jsonRes("Monatsmatrix", MonthReport), ...common },
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/api/v1/reports/year",
-    tags: ["Reports"],
-    summary: "Jahresbericht (Monat × Projekt)",
-    security,
-    request: {
-      query: z.object({ year: z.coerce.number().int().openapi({ example: 2026 }) }),
-    },
-    responses: { 200: jsonRes("Jahresmatrix", YearReport), ...common },
-  });
-
-  /* ---------------- Notes ---------------- */
-  registry.registerPath({
-    method: "get",
-    path: "/api/v1/notes",
-    tags: ["Notes"],
-    summary: "Notizen eines Tages (aktueller Nutzer)",
-    security,
-    request: { query: z.object({ date: S.dateParamSchema }) },
-    responses: { 200: jsonRes("Liste der Notizen", z.array(Note)), ...common },
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/api/v1/notes",
-    tags: ["Notes"],
-    summary: "Notiz anlegen",
-    security,
-    request: { body: jsonBody(NoteCreate) },
-    responses: { 201: jsonRes("Angelegte Notiz", Note), ...common },
-  });
-  registry.registerPath({
-    method: "patch",
-    path: "/api/v1/notes/{id}",
-    tags: ["Notes"],
-    summary: "Eigene Notiz ändern (Inhalt und/oder Kategorie)",
-    security,
-    request: {
-      params: z.object({ id: z.string() }),
-      body: jsonBody(NoteUpdate),
-    },
-    responses: {
-      200: jsonRes("Aktualisierte Notiz", Note),
-      404: err("Notiz nicht gefunden"),
-      ...common,
-    },
-  });
-  registry.registerPath({
-    method: "delete",
-    path: "/api/v1/notes/{id}",
-    tags: ["Notes"],
-    summary: "Eigene Notiz löschen",
-    security,
-    request: { params: z.object({ id: z.string() }) },
-    responses: {
-      200: jsonRes("Gelöscht", z.object({ id: z.string(), deleted: z.literal(true) })),
-      404: err("Notiz nicht gefunden"),
-      ...common,
-    },
-  });
-
   const generator = new OpenApiGeneratorV31(registry.definitions);
   return generator.generateDocument({
     openapi: "3.1.0",
     info: {
-      title: "Time Tracker API",
+      title: "Clover Japan API",
       version: "1.0.0",
       description:
-        "REST-API der Zeiterfassung. Alle Endpunkte sind same-origin und nutzen die " +
-        "NextAuth-Session (Cookie). Das Frontend spricht ausschließlich über diese API.",
+        "REST-API. Alle Endpunkte sind same-origin und nutzen die NextAuth-Session " +
+        "(Cookie). Das Frontend spricht ausschließlich über diese API.",
     },
     servers: [{ url: "", description: "Diese Instanz (relativ zur aktuellen Origin)" }],
     tags: [
       { name: "Session", description: "Angemeldeter Nutzer" },
-      { name: "Time Entries", description: "Zeiteinträge erfassen/ändern/löschen" },
-      { name: "Projects", description: "Projekte (Lesen für alle, Schreiben nur ADMIN)" },
       { name: "Users", description: "Nutzerverwaltung (nur ADMIN)" },
-      { name: "Reports", description: "Monats- und Jahresauswertungen" },
-      { name: "Notes", description: "Tagesnotizen (Google-Keep-Stil) mit Kategorien" },
     ],
   });
 }

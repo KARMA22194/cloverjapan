@@ -12,12 +12,9 @@ export function listUsers() {
       role: true,
       active: true,
       createdAt: true,
-      _count: { select: { timeEntries: true } },
     },
   });
 }
-
-const userCount = { _count: { select: { timeEntries: true } } } as const;
 
 export async function createUser(input: {
   name: string;
@@ -35,7 +32,6 @@ export async function createUser(input: {
       // Admin-angelegte Konten gelten als bestätigt (keine Selbst-Registrierung).
       emailVerified: new Date(),
     },
-    include: userCount,
   });
 }
 
@@ -56,7 +52,7 @@ export async function setUserPassword(userId: string, password: string) {
 }
 
 export function setUserActive(id: string, active: boolean) {
-  return db.user.update({ where: { id }, data: { active }, include: userCount });
+  return db.user.update({ where: { id }, data: { active } });
 }
 
 export async function getUserImage(userId: string): Promise<string | null> {

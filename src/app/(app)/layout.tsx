@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TopNav } from "@/components/TopNav";
 import { BiometricLock } from "@/components/BiometricLock";
-import { todayParam } from "@/lib/time";
 
 export default async function AppLayout({
   children,
@@ -11,22 +10,10 @@ export default async function AppLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const today = todayParam();
-  const [year, month] = today.split("-");
   const isAdmin = session.user.role === "ADMIN";
 
-  // Ausklappbare Kategorien in der oberen Leiste.
+  // Ausklappbare Kategorien in der oberen Leiste (nur noch Japan-Bereich + Verwaltung).
   const groups = [
-    {
-      label: "Timetracker",
-      items: [
-        { href: `/day/${today}`, label: "Tag", match: "/day" },
-        { href: `/month/${year}/${Number(month)}`, label: "Monat", match: "/month" },
-        { href: `/year/${year}`, label: "Jahr", match: "/year" },
-        { href: `/calendar/${year}/${Number(month)}`, label: "Kalender", match: "/calendar" },
-        ...(isAdmin ? [{ href: "/admin", label: "Admin", match: "/admin" }] : []),
-      ],
-    },
     {
       label: "Japan",
       items: [
@@ -37,6 +24,13 @@ export default async function AppLayout({
         { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
         { href: "/checkliste", label: "Checkliste", match: "/checkliste" },
         { href: "/mitglieder", label: "Mitglieder", match: "/mitglieder" },
+      ],
+    },
+    {
+      label: "Mehr",
+      items: [
+        ...(isAdmin ? [{ href: "/admin", label: "Admin", match: "/admin" }] : []),
+        { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
       ],
     },
   ];

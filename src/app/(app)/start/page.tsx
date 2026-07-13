@@ -3,9 +3,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { todayParam } from "@/lib/time";
 
-export const metadata: Metadata = { title: "Übersicht – Time Tracker" };
+export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
 interface Tile {
   href: string;
@@ -19,22 +18,7 @@ export default async function StartPage() {
   if (!session?.user) redirect("/login");
   const isAdmin = session.user.role === "ADMIN";
 
-  const today = todayParam();
-  const [y, m] = today.split("-");
-  const year = Number(y);
-  const month = Number(m);
-
   const groups: { title: string; hint: string; tiles: Tile[] }[] = [
-    {
-      title: "Zeiterfassung",
-      hint: "Arbeitszeiten erfassen und auswerten",
-      tiles: [
-        { href: `/day/${today}`, label: "Tag", desc: "Zeiten erfassen, bearbeiten, Notizen", emoji: "🗓️" },
-        { href: `/month/${year}/${month}`, label: "Monat", desc: "Matrix Tag × Projekt", emoji: "📊" },
-        { href: `/year/${year}`, label: "Jahr", desc: "Jahresübersicht Monat × Projekt", emoji: "📈" },
-        { href: `/calendar/${year}/${month}`, label: "Kalender", desc: "Monatskalender mit Notizen", emoji: "📅" },
-      ],
-    },
     {
       title: "Japan",
       hint: "Alles für den Japan-Trip",
@@ -50,11 +34,11 @@ export default async function StartPage() {
     },
     {
       title: "Mehr",
-      hint: "Verwaltung & Schnittstellen",
+      hint: "Konto & Schnittstellen",
       tiles: [
         { href: "/profil", label: "Profil", desc: "Profilbild festlegen", emoji: "🙂" },
         ...(isAdmin
-          ? [{ href: "/admin", label: "Admin", desc: "Projekte & Mitarbeiter", emoji: "⚙️" }]
+          ? [{ href: "/admin", label: "Admin", desc: "Nutzerverwaltung", emoji: "⚙️" }]
           : []),
         { href: "/api-docs", label: "API-Dokumentation", desc: "Interaktive Swagger UI", emoji: "🧩" },
       ],
