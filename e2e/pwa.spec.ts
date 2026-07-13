@@ -34,17 +34,12 @@ test.describe("PWA (mobil)", () => {
     }
   });
 
-  test("Service-Worker registriert und aktiviert sich", async ({ page }) => {
-    await page.goto("/login");
-    const active = await page.evaluate(async () => {
-      if (!("serviceWorker" in navigator)) return false;
-      const reg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise((r) => setTimeout(() => r(null), 10000)),
-      ]);
-      return !!(reg && (reg as ServiceWorkerRegistration).active);
-    });
-    expect(active).toBeTruthy();
+  test("Service-Worker-Datei ist auslieferbar (Prod-installierbar)", async ({ request }) => {
+    // In der Entwicklung wird der SW bewusst NICHT registriert (kein veralteter Cache);
+    // die Datei muss aber vorhanden sein, damit die PWA in Produktion installierbar ist.
+    const res = await request.get("/sw.js");
+    expect(res.ok()).toBeTruthy();
+    expect(await res.text()).toContain("addEventListener");
   });
 
   test("Login funktioniert mobil und zeigt die App-Navigation", async ({ page }) => {
@@ -53,7 +48,7 @@ test.describe("PWA (mobil)", () => {
     await page.getByLabel("Passwort").fill("password123");
     await page.getByRole("button", { name: "Anmelden", exact: true }).click();
 
-    await page.waitForURL(/\/(start|day)/, { timeout: 20000 });
-    await expect(page.getByRole("button", { name: /Timetracker/ })).toBeVisible();
+    await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 20000 });
+    await expect(page.getByRole("button", { name: /Japan/ })).toBeVisible();
   });
 });

@@ -10,13 +10,11 @@ Alles Wichtige zum Projekt in einer Datei. Ergänzende Detail-Dokus:
 ---
 
 ## 1. Was ist das?
-Eine Web-App mit zwei Bereichen, mobil installierbar (PWA) und als native
-Android-App (Capacitor) vorbereitet:
-
-1. **Timetracker** — Arbeitszeiterfassung (Login, Buchen auf Projekte, Auswertung
-   Tag/Monat/Jahr/Kalender).
-2. **Japan** — gemeinsamer Reise-Workspace (Reiseplaner mit Karte, Ausgabenrechner,
-   Tagesplaner, Checkliste), den mehrere eingeladene Mitglieder zusammen bearbeiten.
+Eine Web-App für die **gemeinsame Japan-Reise**, mobil installierbar (PWA) und als
+native Android-App (Capacitor) vorbereitet. Mehrere eingeladene Mitglieder bearbeiten
+eine gemeinsame Reise (Trip): Reiseplaner mit Karte, Flüge, Ausgaben (¥→€),
+Zollrechner, Tagesplaner, Checkliste, Wetter und eine druckbare Reiseübersicht.
+(Die ursprüngliche Arbeitszeiterfassung wurde entfernt; `ADMIN` verwaltet nur noch Nutzer.)
 
 ---
 
@@ -37,68 +35,64 @@ Android-App (Capacitor) vorbereitet:
 
 ## 3. Funktionen (vollständig)
 
-### Timetracker
+### Anmeldung & Konten
 - **Login** (Passwort oder **Fingerabdruck/Passkey**).
-- **Tagesansicht** `/day/[date]`: Zeiten erfassen/bearbeiten/löschen, Tagessumme,
-  **Live-Timer** (Start/Stop → bucht die Dauer), **Notizen** (Google-Keep-Stil).
-- **Monat** `/month`, **Jahr** `/year`: Matrix Tag/Monat × Projekt mit Summen,
-  **CSV-Export**.
-- **Kalender** `/calendar`: Monatsraster, Tagessumme als Heatmap, Notiztage in
-  Kategorie-Farbe + Vorschau, **Farb-Legende**; Klick → Tagesansicht.
-- **Notizen** mit **Kategorien** (Arbeit/Schule/Urlaub/Wochenende) — Kategorie färbt
-  die Karte; **automatisch nach Wochentag** (Sa/So→Wochenende, Mo→Schule, Di in
-  gerader KW→Schule, sonst Arbeit).
-- **Admin** `/admin` (nur ADMIN): Projekte + Mitarbeiter verwalten.
+- **Offene Selbst-Registrierung** (`/register`) mit **E-Mail-Verifikation** (`/verify`);
+  **Passwort-Reset** (`/forgot` → `/reset`).
+- **Admin** `/admin` (nur ADMIN): **Nutzerverwaltung** (anlegen, aktiv/inaktiv).
 
 ### Japan (gemeinsamer Reise-Workspace)
 - **Reiseplaner** `/reiseplaner`:
   - Ort eingeben → **Geocoding** (Japan) → Marker auf **Leaflet-Karte** (romanisierte
     Labels; Marker tragen deutsch bevorzugten Namen).
   - **Beste Route** (OSRM-Trip, optimale Reihenfolge) als Linie + Distanz/Dauer.
-  - **Zugverbindungen** je Etappe (mit Umstieg-Umschalter): echte Daten mit
-    `GOOGLE_MAPS_API_KEY`, sonst **distanzbasierte Schätzung**; Button „In Rechner".
-  - **Wetter** je Stopp (Open-Meteo, keyfrei).
-  - **Ort aus Link/Text** einfügen (Google-Maps-Link → exakte Koordinaten; Text/Caption
-    → Geocoding). *Instagram-Videos liefern keinen auslesbaren Standort.*
-- **Ausgaben** `/ausgaben`: Beträge in **¥**, live nach **€**; Kategorien mit Summen;
-  **Budget-Bar** + **Donut**-Auswertung; Zugfahrten landen als „Transport" hier.
-- **Tagesplaner** `/tagesplaner`: Aufgaben je Tag (Uhrzeit + Text), abhaken;
-  **Erinnerung 1 h vorher** (nativ auch bei geschlossener App; Web solange offen).
-- **Checkliste** `/checkliste`: eigene Punkte, abhaken, „Erledigte löschen".
-- **Mitglieder** `/mitglieder`: Leute **per E-Mail einladen**. Bestehendes Konto →
-  tritt sofort bei; **kein Konto** → **Registrierungs-Link** (`/register?token=…`,
-  7 Tage gültig) per E-Mail und/oder zum Kopieren, über den sich die Person selbst
-  registriert und automatisch beitritt. Alle bearbeiten die Japan-Tools gemeinsam;
-  jeder Eintrag zeigt **„von <Name>"**.
+  - **Zugverbindungen** je Etappe: echte Daten mit `GOOGLE_MAPS_API_KEY`, sonst
+    **distanzbasierte Schätzung**; zusätzlich **„In Google Maps öffnen (ÖPNV)"**-Link
+    (keyfrei, zeigt die volle Verbindung in Google Maps).
+  - **Wetter** je Stopp; **Reisetag** je Stopp zuweisbar (erscheint im Tagesplaner).
+  - **Ort aus Link/Text** einfügen (Google-Maps-Link → exakte Koordinaten; SSRF-geschützt).
+- **Flüge** `/fluege`: per **Flugnummer** abrufen (AeroDataBox, optional) oder manuell;
+  Flugdauer, Hin-/Rückflug-Erkennung, Preis fließt als Ausgabe (Transport) in den Rechner.
+- **Ausgaben** `/ausgaben`: Beträge in **¥**, live nach **€**; Kategorien, **Budget-Bar**
+  + **Donut**.
+- **Zollrechner** `/zoll`: dt. Reisezoll (Freimenge, Pauschalsatz, EUSt).
+- **Tagesplaner** `/tagesplaner`: Aufgaben je Tag, abhaken; **Erinnerung 1 h vorher**;
+  Ort per Knopf in den Reiseplaner übernehmen; zeigt „Orte an diesem Tag".
+- **Checkliste** `/checkliste` · **Wetter** `/wetter` (mehrere Städte + Vorhersage) ·
+  **Reiseübersicht** `/uebersicht` (druckbar / als PDF).
+- **Mitglieder** `/mitglieder`: **per E-Mail einladen** (14 Tage gültig). Konto-lose
+  Person → Registrierungs-Link; **bestehendes Konto → muss die Einladung selbst
+  bestätigen** („Einladungen an dich"). Jeder Eintrag zeigt **„von <Name>"**.
 
 ### App-weit
 - **Übersicht/Start** `/start`: kategorisierte Kachel-Hub (Home = `/`).
-- **Profil** `/profil`: **Profilbild** (Upload → 128×128) oder Initialen-Avatar;
-  **Passkey einrichten**.
-- **Dark/Light-Mode** (Umschalter, kein FOUC), **Kleeblatt-Branding**.
-- **Obere Leiste**: Kategorien als Dropdowns (Timetracker/Japan); aktiver Link
-  hervorgehoben.
+- **Profil** `/profil`: **Profilbild** oder Initialen-Avatar; **Passkey einrichten**.
+- **Dark/Light-Mode**, **Kleeblatt-Branding**, **Tokio-Wetter-Seitenleiste** (Desktop).
+- **Obere Leiste**: Dropdowns **Japan** + **Mehr** (Admin/API-Doku).
 
 ---
 
 ## 4. REST-API & Swagger
 - Frontend-**Mutationen ausschließlich** über `/api/v1/*`; **Reads** SSR über dieselbe
   Service-Schicht.
-- Dokumentierte Ressourcen (OpenAPI): `me`, `time-entries`, `projects`, `users`,
-  `reports/month|year`, `notes`. **Swagger UI:** `/api-docs`, Spec `/api/v1/openapi`.
-- Weitere (utility, nicht in OpenAPI): `geo/search|route|transit|weather|resolve`,
-  `fx/rate`, `trip-stops`, `expenses`, `planner-tasks`, `checklist`, `trip/members`,
-  `passkey/*`.
+- Dokumentierte Ressourcen (OpenAPI): `me`, `users`. **Swagger UI:** `/api-docs`,
+  Spec `/api/v1/openapi`.
+- Weitere (utility, nicht in OpenAPI): `register`, `verify`, `password/forgot|reset`,
+  `invite/[token]`, `geo/search|route|transit|weather|resolve`, `fx/rate`,
+  `trip-stops` (+`from-text`), `expenses`, `flights` (+`[id]`, `lookup`),
+  `planner-tasks`, `checklist`, `trip/members` (+`invitations`), `passkey/*`.
 - Auth: NextAuth-Session-Cookie; Rollen-/Ownership-Checks in jedem Handler.
 
 ---
 
 ## 5. Datenmodell (Prisma)
-`User` · `Project` · `Assignment` · `TimeEntry` · `Note` · `Credential` (Passkeys) ·
-`Trip` · `TripMember` · `TripStop` · `Expense` · `PlannerTask` · `ChecklistItem`.
-- Zeiten: `minutes` als Int, `date` als `@db.Date` (zeitzonenfeste Aggregation).
+`User` · `Credential` (Passkeys) · `Token` (Verify/Reset) · `RateLimit` ·
+`Trip` · `TripMember` · `TripInvitation` · `TripStop` · `Expense` · `Flight` ·
+`PlannerTask` · `ChecklistItem`.
 - Japan-Tools hängen an einer **`Trip`**; Nutzer sind über `TripMember`
   (userId @unique) Mitglied genau einer Reise; Einträge tragen `createdByName`.
+- `User.emailVerified` (null = Login gesperrt); `Expense.flightId` koppelt einen
+  Flugpreis; `TripStop.date` = optionaler Reisetag; Flug-/Stopp-Zeiten UTC-naiv.
 
 ---
 
@@ -139,7 +133,8 @@ docker compose exec app npx playwright test              # E2E (mobil)
 | `APP_TIMEZONE` | App-Zeitzone (Europe/Berlin) |
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS-Domain) |
 | `GOOGLE_MAPS_API_KEY` | optional: echte Zugverbindungen |
-| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL` | optional: Einladungs-E-Mails |
+| `AERODATABOX_API_KEY` | optional: automatischer Flug-Abruf per Flugnummer |
+| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL` | E-Mails (Einladung/Verifikation/Reset) |
 | `CAP_SERVER_URL` | Capacitor: URL der gehosteten App |
 
 ---
@@ -152,12 +147,8 @@ docker compose exec app npx playwright test              # E2E (mobil)
 ---
 
 ## 10. Demo-Zugänge (Passwort `password123`)
-| Rolle | E-Mail | aktiv |
-|---|---|---|
-| Admin | admin@clover.japan | ja |
-| Employee | employee@clover.japan | ja |
-| Employee | clara@clover.japan | ja |
-| (Employee/Manager) | anna@/ben@/manager@clover.japan | **inaktiv** |
+Seed legt 6 bestätigte, aktive Nutzer an: `admin@`, `manager@`, `employee@`,
+`anna@`, `ben@`, `clara@clover.japan`.
 
 ---
 
@@ -166,10 +157,11 @@ docker compose exec app npx playwright test              # E2E (mobil)
   **Installations-Dialog** laufen nur auf deinem Gerät — nicht in dieser Umgebung
   testbar.
 - **Produktion braucht HTTPS-Hosting** (für Passkeys, PWA und die Capacitor-URL).
-- **Einladen** funktioniert auch für Personen **ohne Konto** (Registrierungs-Link);
-  freie Selbstregistrierung ohne Einladung gibt es weiterhin nicht.
-- **E-Mail-Versand** nur mit konfiguriertem SMTP — ohne SMTP wird der
-  Registrierungs-Link in der App angezeigt (kopieren & selbst teilen).
+- **Selbst-Registrierung** ist offen (jeder mit der URL) — mit E-Mail-Verifikation;
+  Einladungen sind **14 Tage** gültig, bestehende Konten bestätigen selbst.
+- **E-Mail-Versand** nur mit konfiguriertem SMTP — ohne SMTP wird der Registrierungs-/
+  Verify-Link in der App/Antwort angezeigt (kopieren & selbst teilen).
+- **Flug-Auto-Abruf** nur mit `AERODATABOX_API_KEY` (sonst manuelle Eingabe).
 - **Web-Erinnerungen** feuern nur bei offener App; „auch geschlossen" nur nativ.
 - Karten-Tile-Labels für Japan sind **romanisiert** (kein vollständiges Deutsch —
   fehlende `name:de`-Daten).
