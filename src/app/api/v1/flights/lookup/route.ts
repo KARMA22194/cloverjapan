@@ -15,8 +15,21 @@ function localToNaiveIso(s: string | undefined | null): string | null {
 interface AdbFlight {
   number?: string;
   airline?: { name?: string };
-  departure?: { airport?: { iata?: string; name?: string }; scheduledTime?: { local?: string } };
-  arrival?: { airport?: { iata?: string; name?: string }; scheduledTime?: { local?: string } };
+  departure?: {
+    airport?: { iata?: string; name?: string };
+    scheduledTime?: { local?: string; utc?: string };
+  };
+  arrival?: {
+    airport?: { iata?: string; name?: string };
+    scheduledTime?: { local?: string; utc?: string };
+  };
+}
+
+/** UTC-String von AeroDataBox ("2026-12-21 13:00Z") → ms, sonst null. */
+function utcMs(s: string | undefined | null): number | null {
+  if (!s) return null;
+  const t = Date.parse(s.replace(" ", "T"));
+  return Number.isNaN(t) ? null : t;
 }
 
 /**
@@ -64,6 +77,14 @@ export function GET(req: NextRequest) {
       throw new ApiError(404, `Kein Flug ${number} am ${date} gefunden.`);
     }
 
+    // Echte Flugdauer aus den UTC-Zeiten (lokale Wall-Clock wäre wegen Zeitzonen falsch).
+    const depUtc = utcMs(flight.departure?.scheduledTime?.utc);
+    const arrUtc = utcMs(flight.arrival?.scheduledTime?.utc);
+    const durationMin =
+      depUtc !== null && arrUtc !== null && arrUtc > depUtc
+        ? Math.round((arrUtc - depUtc) / 60000)
+        : null;
+
     return ok({
       found: true,
       flightNumber: number,
@@ -74,6 +95,7 @@ export function GET(req: NextRequest) {
       toName: flight.arrival?.airport?.name ?? "",
       departure: localToNaiveIso(flight.departure?.scheduledTime?.local),
       arrival: localToNaiveIso(flight.arrival?.scheduledTime?.local),
+      durationMin,
     });
   });
 }

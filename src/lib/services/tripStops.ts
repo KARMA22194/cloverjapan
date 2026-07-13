@@ -7,10 +7,15 @@ export function getTripStops(tripId: string) {
   return db.tripStop.findMany({ where: { tripId }, orderBy: { position: "asc" } });
 }
 
+/** Stopps, die einem bestimmten Reisetag zugeordnet sind (für den Tagesplaner). */
+export function getTripStopsForDate(tripId: string, date: string) {
+  return db.tripStop.findMany({ where: { tripId, date }, orderBy: { position: "asc" } });
+}
+
 /** Hängt einen einzelnen Stopp hinten an (z. B. Übernahme aus dem Tagesplaner). */
 export async function addTripStop(
   tripId: string,
-  stop: { label: string; lat: number; lng: number },
+  stop: { label: string; lat: number; lng: number; date?: string | null },
   createdByName: string,
 ) {
   const position = await db.tripStop.count({ where: { tripId } });
@@ -21,6 +26,7 @@ export async function addTripStop(
       label: stop.label,
       lat: stop.lat,
       lng: stop.lng,
+      date: stop.date ?? null,
       position,
       createdByName,
     },
@@ -31,7 +37,7 @@ export async function addTripStop(
  *  Ersteller-Name bleibt für bestehende ids erhalten; neue bekommen den aktuellen Nutzer. */
 export async function replaceTripStops(
   tripId: string,
-  stops: { id: string; label: string; lat: number; lng: number }[],
+  stops: { id: string; label: string; lat: number; lng: number; date?: string | null }[],
   createdByName: string,
 ) {
   const existing = await db.tripStop.findMany({
@@ -48,6 +54,7 @@ export async function replaceTripStops(
         label: s.label,
         lat: s.lat,
         lng: s.lng,
+        date: s.date ?? null,
         position: i,
         createdByName: prev.get(s.id) || createdByName,
       })),

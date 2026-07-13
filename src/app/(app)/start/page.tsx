@@ -30,6 +30,7 @@ export default async function StartPage() {
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },
         { href: "/wetter", label: "Wetter", desc: "Aktuelles Wetter in Tokio", emoji: "🌤️" },
+        { href: "/uebersicht", label: "Übersicht", desc: "Reise-Zusammenfassung (Druck/PDF)", emoji: "🧾" },
         { href: "/mitglieder", label: "Mitglieder", desc: "Leute einladen & gemeinsam bearbeiten", emoji: "👥" },
       ],
     },

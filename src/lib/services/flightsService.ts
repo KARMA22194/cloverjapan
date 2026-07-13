@@ -11,6 +11,7 @@ export interface FlightInput {
   toName?: string;
   departure?: string | null; // ISO (UTC-naive Wall-Clock)
   arrival?: string | null;
+  durationMin?: number | null;
   bookingRef?: string;
   priceYen?: number | null;
 }
@@ -74,6 +75,7 @@ function fields(input: FlightInput) {
     toName: input.toName?.trim() ?? "",
     departure: toDate(input.departure),
     arrival: toDate(input.arrival),
+    durationMin: input.durationMin ?? null,
     bookingRef: input.bookingRef?.trim() ?? "",
     priceYen: input.priceYen ?? null,
   };

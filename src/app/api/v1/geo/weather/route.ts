@@ -21,7 +21,9 @@ export function GET(req: NextRequest) {
     url.searchParams.set("forecast_days", "5");
     url.searchParams.set("timezone", "auto");
 
-    const res = await fetch(url, { cache: "no-store" });
+    // Open-Meteo-Antwort je Koordinate 15 Min server-seitig cachen (die Seitenleiste
+    // fragt sonst bei jedem Seitenwechsel 5 Städte erneut ab).
+    const res = await fetch(url, { next: { revalidate: 900 } });
     if (!res.ok) throw new ApiError(502, "Wetterdienst nicht erreichbar.");
     const data = (await res.json()) as {
       current?: { temperature_2m: number; precipitation: number; weather_code: number };

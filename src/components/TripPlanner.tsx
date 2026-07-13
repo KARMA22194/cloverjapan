@@ -12,6 +12,7 @@ interface Stop {
   label: string;
   lat: number;
   lng: number;
+  date?: string | null;
   by?: string;
 }
 
@@ -111,7 +112,13 @@ export function TripPlanner() {
   function persistStops(next: Stop[]) {
     api
       .put<Stop[]>("/api/v1/trip-stops", {
-        stops: next.map((s) => ({ id: s.id, label: s.label, lat: s.lat, lng: s.lng })),
+        stops: next.map((s) => ({
+          id: s.id,
+          label: s.label,
+          lat: s.lat,
+          lng: s.lng,
+          date: s.date ?? null,
+        })),
       })
       .then(setStops)
       .catch(() => {});
@@ -274,6 +281,13 @@ export function TripPlanner() {
     setStops(next);
     persistStops(next);
     setRoute(null);
+  }
+
+  // Reisetag eines Stopps setzen/entfernen → im Tagesplaner sichtbar.
+  function setStopDate(id: string, date: string | null) {
+    const next = stops.map((s) => (s.id === id ? { ...s, date } : s));
+    setStops(next);
+    persistStops(next);
   }
 
   function clearAll() {
@@ -479,9 +493,17 @@ export function TripPlanner() {
                       {weather[s.id].emoji} {weather[s.id].tempC}°
                     </span>
                   )}
+                  <input
+                    type="date"
+                    value={s.date ?? ""}
+                    onChange={(e) => setStopDate(s.id, e.target.value || null)}
+                    title="Reisetag zuordnen (erscheint im Tagesplaner)"
+                    className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-1 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
+                  />
                   <button
                     type="button"
                     onClick={() => removeStop(s.id)}
+                    aria-label={`Stopp „${shortLabel(s.label)}" entfernen`}
                     className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
                   >
                     ✕

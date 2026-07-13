@@ -58,7 +58,7 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
     }`;
 
   return (
-    <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+    <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 print:hidden">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-4">
           <Link href="/start" className="flex items-center gap-2.5" aria-label="Übersicht">

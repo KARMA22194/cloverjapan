@@ -14,9 +14,37 @@ interface Flight {
   toName: string;
   departure: string | null;
   arrival: string | null;
+  durationMin: number | null;
   bookingRef: string;
   priceYen: number | null;
   by?: string;
+}
+
+// Wichtige japanische Flughäfen → Richtung erkennen (Hin-/Rückflug).
+const JP_AIRPORTS = new Set([
+  "HND", "NRT", "KIX", "ITM", "CTS", "FUK", "NGO", "OKA", "KOJ", "SDJ",
+  "HIJ", "KMJ", "KMQ", "OKJ", "TAK", "MYJ", "AXT", "AOJ", "KIJ", "ISG",
+]);
+function directionLabel(fromCode: string, toCode: string): string | null {
+  const f = JP_AIRPORTS.has(fromCode.toUpperCase());
+  const t = JP_AIRPORTS.has(toCode.toUpperCase());
+  if (t && !f) return "Hinflug";
+  if (f && !t) return "Rückflug";
+  return null;
+}
+function fmtDuration(min: number | null): string | null {
+  if (!min || min <= 0) return null;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h} h${m ? ` ${m} min` : ""}`;
+}
+/** Kalendertage zwischen Ab- und Ankunft (für „+1 Tag") aus den UTC-naiven ISO-Werten. */
+function overnightDays(dep: string | null, arr: string | null): number {
+  if (!dep || !arr) return 0;
+  const d = dep.slice(0, 10);
+  const a = arr.slice(0, 10);
+  if (a <= d) return 0;
+  return Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 86400000);
 }
 
 type Currency = "EUR" | "JPY";
@@ -59,6 +87,8 @@ export function FlightPlanner() {
   const [lookupDate, setLookupDate] = useState("");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState<Currency>("EUR");
+  // Echte Flugdauer (nur aus dem Auto-Abruf; bei manueller Eingabe null).
+  const [durationMin, setDurationMin] = useState<number | null>(null);
   const [lookupPending, setLookupPending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +118,7 @@ export function FlightPlanner() {
     setForm({ ...emptyForm });
     setPrice("");
     setCurrency("EUR");
+    setDurationMin(null);
     setLookupDate("");
     setEditingId(null);
     setError(null);
@@ -106,6 +137,7 @@ export function FlightPlanner() {
       arrival: isoToLocal(f.arrival),
       bookingRef: f.bookingRef,
     });
+    setDurationMin(f.durationMin);
     // Bereits gespeicherter Preis ist in Yen → zum Bearbeiten in ¥ anzeigen.
     setPrice(f.priceYen ? String(f.priceYen) : "");
     setCurrency("JPY");
@@ -134,6 +166,7 @@ export function FlightPlanner() {
         toName: string;
         departure: string | null;
         arrival: string | null;
+        durationMin: number | null;
       }>(`/api/v1/flights/lookup?number=${encodeURIComponent(number)}&date=${d}`);
       setForm((f) => ({
         ...f,
@@ -145,6 +178,7 @@ export function FlightPlanner() {
         departure: isoToLocal(r.departure) || f.departure,
         arrival: isoToLocal(r.arrival) || f.arrival,
       }));
+      setDurationMin(r.durationMin ?? null);
       setInfo("Flugdaten übernommen — Preis ergänzen und speichern.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Abruf fehlgeschlagen.");
@@ -172,6 +206,7 @@ export function FlightPlanner() {
       ...form,
       departure: localToIso(form.departure),
       arrival: localToIso(form.arrival),
+      durationMin,
       priceYen,
     };
     setSaving(true);
@@ -337,15 +372,26 @@ export function FlightPlanner() {
               <li key={f.id} className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0">
                 <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">✈</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">
                     {f.flightNumber}
-                    {f.airline && <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">· {f.airline}</span>}
+                    {f.airline && <span className="font-normal text-slate-500 dark:text-slate-400">· {f.airline}</span>}
+                    {directionLabel(f.fromCode, f.toCode) && (
+                      <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand">
+                        {directionLabel(f.fromCode, f.toCode)}
+                      </span>
+                    )}
                   </p>
                   <p className="truncate text-sm text-slate-600 dark:text-slate-300">
                     {(f.fromCode || f.fromName || "?")}{f.fromName && f.fromCode ? ` ${f.fromName}` : ""} → {(f.toCode || f.toName || "?")}{f.toName && f.toCode ? ` ${f.toName}` : ""}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {fmtDate(f.departure)} → {fmtDate(f.arrival)}
+                    {overnightDays(f.departure, f.arrival) > 0 && (
+                      <span className="ml-1 text-amber-600 dark:text-amber-400">
+                        (+{overnightDays(f.departure, f.arrival)} Tag{overnightDays(f.departure, f.arrival) > 1 ? "e" : ""})
+                      </span>
+                    )}
+                    {fmtDuration(f.durationMin) && ` · ${fmtDuration(f.durationMin)} Flugzeit`}
                     {f.bookingRef && ` · Buchung ${f.bookingRef}`}
                   </p>
                   {f.by && <p className="text-[11px] text-slate-400 dark:text-slate-500">von {f.by}</p>}

@@ -134,8 +134,9 @@ model TripStop {
   lat           Float
   lng           Float
   position      Int
-  createdByName String @default("")
-  trip          Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date          String? // optionaler Reisetag (YYYY-MM-DD) → Verknüpfung mit Tagesplaner
+  createdByName String  @default("")
+  trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
 }
@@ -169,8 +170,9 @@ model Flight {
   fromName      String    @default("")
   toCode        String    @default("") // IATA, z. B. HND
   toName        String    @default("")
-  departure     DateTime? // Abflug (lokal, als Zeitpunkt)
-  arrival       DateTime? // Ankunft
+  departure     DateTime? // Abflug (lokale Wall-Clock, als UTC-naiv gespeichert)
+  arrival       DateTime? // Ankunft (dito)
+  durationMin   Int? // echte Flugdauer (aus UTC-Zeiten beim Abruf; manuell null)
   bookingRef    String    @default("")
   priceYen      Int? // Preis in Yen (Eingabe €/¥ wird clientseitig umgerechnet)
   createdByName String    @default("")

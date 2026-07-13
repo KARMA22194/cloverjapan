@@ -21,6 +21,7 @@ export const flightBody = z.object({
   toName: z.string().max(100).optional().default(""),
   departure: isoOrNull,
   arrival: isoOrNull,
+  durationMin: z.number().int().positive().max(6000).nullish(),
   bookingRef: z.string().max(40).optional().default(""),
   priceYen: z.number().int().positive().max(100_000_000).nullish(),
 });
@@ -35,6 +36,7 @@ export const toFlightDto = (f: Flight) => ({
   toName: f.toName,
   departure: f.departure?.toISOString() ?? null,
   arrival: f.arrival?.toISOString() ?? null,
+  durationMin: f.durationMin,
   bookingRef: f.bookingRef,
   priceYen: f.priceYen,
   by: f.createdByName,

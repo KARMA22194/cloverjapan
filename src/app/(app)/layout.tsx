@@ -25,6 +25,7 @@ export default async function AppLayout({
         { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
         { href: "/checkliste", label: "Checkliste", match: "/checkliste" },
         { href: "/wetter", label: "Wetter", match: "/wetter" },
+        { href: "/uebersicht", label: "Übersicht", match: "/uebersicht" },
         { href: "/mitglieder", label: "Mitglieder", match: "/mitglieder" },
       ],
     },
@@ -48,7 +49,7 @@ export default async function AppLayout({
           <div className="lg:flex lg:items-start lg:gap-6">
             <div className="min-w-0 flex-1">{children}</div>
             {/* Tokio-Wetter: nur auf Laptop/PC (auf dem Handy gibt es die /wetter-Seite). */}
-            <aside className="hidden w-64 shrink-0 lg:block">
+            <aside className="hidden w-64 shrink-0 lg:block print:hidden">
               <div className="sticky top-6">
                 <WeatherWidget />
               </div>

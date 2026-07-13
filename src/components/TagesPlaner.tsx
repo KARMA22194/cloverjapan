@@ -29,6 +29,16 @@ export function TagesPlaner() {
   const [remindersOn, setRemindersOn] = useState(false);
   // Status der Ort-Übernahme in den Reiseplaner, je Aufgabe.
   const [toTrip, setToTrip] = useState<Record<string, "pending" | "done" | "none">>({});
+  // Reiseplaner-Stopps, die diesem Tag zugeordnet sind.
+  const [dayStops, setDayStops] = useState<{ id: string; label: string }[]>([]);
+
+  function refreshDayStops(d: string) {
+    if (!d) return;
+    api
+      .get<{ id: string; label: string }[]>(`/api/v1/trip-stops?date=${d}`)
+      .then(setDayStops)
+      .catch(() => setDayStops([]));
+  }
 
   useEffect(() => {
     setDate(todayISO());
@@ -59,6 +69,14 @@ export function TagesPlaner() {
       })
       .catch(() => {
         if (!cancelled) setTasks([]);
+      });
+    api
+      .get<{ id: string; label: string }[]>(`/api/v1/trip-stops?date=${date}`)
+      .then((s) => {
+        if (!cancelled) setDayStops(s);
+      })
+      .catch(() => {
+        if (!cancelled) setDayStops([]);
       });
     return () => {
       cancelled = true;
@@ -93,8 +111,10 @@ export function TagesPlaner() {
     if (toTrip[task.id] === "pending" || toTrip[task.id] === "done") return;
     setToTrip((s) => ({ ...s, [task.id]: "pending" }));
     try {
-      await api.post("/api/v1/trip-stops/from-text", { q: task.text });
+      // Mit dem aktuellen Reisetag verknüpfen → erscheint gleich unter „Orte an diesem Tag".
+      await api.post("/api/v1/trip-stops/from-text", { q: task.text, date });
       setToTrip((s) => ({ ...s, [task.id]: "done" }));
+      refreshDayStops(date);
     } catch {
       setToTrip((s) => ({ ...s, [task.id]: "none" }));
     }
@@ -249,8 +269,26 @@ export function TagesPlaner() {
         )}
       </div>
 
+      {dayStops.length > 0 && (
+        <div className="mt-4 rounded-lg border border-brand/30 bg-brand-tint/20 dark:bg-brand/5">
+          <div className="border-b border-brand/20 px-4 py-2 text-sm font-medium text-brand-dark dark:text-brand-tint">
+            📍 Orte an diesem Tag ({dayStops.length})
+          </div>
+          {dayStops.map((s) => (
+            <p
+              key={s.id}
+              className="truncate border-b border-brand/10 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 last:border-b-0"
+              title={s.label}
+            >
+              {s.label.split(",").slice(0, 2).join(", ")}
+            </p>
+          ))}
+        </div>
+      )}
+
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-        Wird in deinem Konto gespeichert (pro Tag, gerätesynchron).
+        Wird in deinem Konto gespeichert (pro Tag, gerätesynchron). Orte ordnest du im
+        Reiseplaner einem Datum zu — sie erscheinen dann hier.
       </p>
     </div>
   );
