@@ -53,6 +53,18 @@ function shortLabel(label: string): string {
   return label.split(",").slice(0, 2).join(", ");
 }
 
+/**
+ * Deep-Link in Google Maps (offizielles Maps-URL-Schema, keyfrei). Öffnet die
+ * ÖPNV-Route zwischen zwei Punkten — dort zeigt Maps die volle Verbindung mit
+ * Umstiegen, Linien und Zeiten (in der App bzw. auf maps.google.com).
+ */
+function mapsTransitUrl(from: { lat: number; lng: number }, to: { lat: number; lng: number }): string {
+  return (
+    `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}` +
+    `&destination=${to.lat},${to.lng}&travelmode=transit`
+  );
+}
+
 function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
   return L.divIcon({
     className: "",
@@ -569,6 +581,14 @@ export function TripPlanner() {
                     ) : (
                       <div className="text-amber-600 dark:text-amber-400">{leg.error}</div>
                     )}
+                    <a
+                      href={mapsTransitUrl(leg.from, leg.to)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 transition hover:border-brand hover:text-brand"
+                    >
+                      🗺️ In Google Maps öffnen (ÖPNV)
+                    </a>
                   </li>
                 ))}
               </ul>
