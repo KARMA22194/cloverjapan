@@ -52,7 +52,14 @@ export function GET(req: NextRequest) {
     if (!res.ok) throw new ApiError(502, "Flugdaten-Dienst nicht erreichbar.");
 
     const data = (await res.json()) as AdbFlight[] | AdbFlight;
-    const flight = Array.isArray(data) ? data[0] : data;
+    const list = Array.isArray(data) ? data : [data];
+    // AeroDataBox liefert für ein Datum oft ZWEI Instanzen zurück: die an dem Tag
+    // abfliegt UND die an dem Tag ankommt (Vortags-Abflug). Wir wollen die, deren
+    // *Abflugdatum* dem angefragten Datum entspricht.
+    const flight =
+      list.find((f) => f.departure?.scheduledTime?.local?.slice(0, 10) === date) ??
+      list.find((f) => f.departure) ??
+      list[0];
     if (!flight?.departure && !flight?.arrival) {
       throw new ApiError(404, `Kein Flug ${number} am ${date} gefunden.`);
     }
