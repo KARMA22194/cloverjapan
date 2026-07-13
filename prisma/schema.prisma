@@ -160,6 +160,7 @@ model Trip {
   members        TripMember[]
   tripStops      TripStop[]
   expenses       Expense[]
+  flights        Flight[]
   plannerTasks   PlannerTask[]
   checklistItems ChecklistItem[]
   invitations    TripInvitation[]
@@ -217,6 +218,34 @@ model Expense {
   createdByName String   @default("")
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // Optional an einen Flug gekoppelt: der Flugpreis erscheint als Ausgabe und wird
+  // beim Löschen des Flugs mitgelöscht (Cascade).
+  flightId      String?  @unique
+  flight        Flight?  @relation(fields: [flightId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
+// Ein hinterlegter Flug (pro Reise, mit Mitgliedern geteilt). Details werden per
+// Flugnummer automatisch befüllt (falls API-Key gesetzt) oder manuell eingegeben;
+// der Preis (in Yen gespeichert) fließt als verknüpfte Ausgabe in den Rechner.
+model Flight {
+  id            String    @id @default(cuid())
+  tripId        String
+  flightNumber  String
+  airline       String    @default("")
+  fromCode      String    @default("") // IATA, z. B. FRA
+  fromName      String    @default("")
+  toCode        String    @default("") // IATA, z. B. HND
+  toName        String    @default("")
+  departure     DateTime? // Abflug (lokal, als Zeitpunkt)
+  arrival       DateTime? // Ankunft
+  bookingRef    String    @default("")
+  priceYen      Int? // Preis in Yen (Eingabe €/¥ wird clientseitig umgerechnet)
+  createdByName String    @default("")
+  createdAt     DateTime  @default(now())
+  trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  expense       Expense?
 
   @@index([tripId])
 }

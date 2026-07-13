@@ -31,6 +31,7 @@ export default async function AppLayout({
       label: "Japan",
       items: [
         { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
+        { href: "/fluege", label: "Flüge", match: "/fluege" },
         { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
         { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
         { href: "/checkliste", label: "Checkliste", match: "/checkliste" },

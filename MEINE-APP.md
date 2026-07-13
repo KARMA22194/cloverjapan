@@ -60,6 +60,7 @@ Ort: Vercel → Projekt `cloverjapan` → **Settings → Environment Variables**
 | `SMTP_USER` | `kk485790@gmail.com` |
 | `SMTP_PASS` | Gmail-**App-Passwort** (kein normales Passwort!) |
 | `SMTP_FROM` | `Clover Japan <kk485790@gmail.com>` |
+| `AERODATABOX_API_KEY` | *(optional)* Key für den automatischen Flug-Abruf per Flugnummer (AeroDataBox über RapidAPI). Ohne Key funktioniert die Flüge-Seite trotzdem — dann werden Flüge **manuell** erfasst. Zum Aktivieren: bei RapidAPI kostenlos für „AeroDataBox" anmelden, Key hier eintragen, Redeploy. |
 
 > Wenn sich die Live-Adresse je ändert, müssen `WEBAUTHN_RP_ID`,
 > `WEBAUTHN_ORIGIN` und `APP_URL` angepasst und neu deployt werden.
