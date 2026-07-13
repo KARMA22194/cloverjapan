@@ -40,6 +40,7 @@ export default async function StartPage() {
       hint: "Alles für den Japan-Trip",
       tiles: [
         { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
+        { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", emoji: "✈️" },
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },

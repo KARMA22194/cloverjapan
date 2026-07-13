@@ -8,12 +8,19 @@ import type { NextConfig } from "next";
 //  - 'unsafe-inline' bei script/style ist nötig für das FOUC-vermeidende Inline-Theme-Script
 //    und Leaflet/Swagger-Inline-Styles. Ein nonce-basiertes Script-Setup wäre die strengere
 //    Ausbaustufe; XSS-Vektoren werden bereits an der Quelle entschärft (siehe TripPlanner).
+// Next.js braucht im Dev-Modus eval() (React Fast Refresh / webpack-HMR) sowie
+// WebSocket für HMR — daher dort 'unsafe-eval' + ws:. In Produktion bleibt script-src
+// streng ohne 'unsafe-eval'.
+const isDev = process.env.NODE_ENV !== "production";
+const scriptSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])].join(" ");
+const connectSrc = ["'self'", "https:", ...(isDev ? ["ws:"] : [])].join(" ");
+
 const CSP = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
-  "connect-src 'self' https:",
+  `script-src ${scriptSrc}`,
+  `connect-src ${connectSrc}`,
   "font-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
