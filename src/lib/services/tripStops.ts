@@ -1,8 +1,30 @@
+import { randomUUID } from "node:crypto";
+
 import { db } from "@/lib/db";
 
 /** Reiseplaner-Stopps eines Users, in Reihenfolge. */
 export function getTripStops(tripId: string) {
   return db.tripStop.findMany({ where: { tripId }, orderBy: { position: "asc" } });
+}
+
+/** Hängt einen einzelnen Stopp hinten an (z. B. Übernahme aus dem Tagesplaner). */
+export async function addTripStop(
+  tripId: string,
+  stop: { label: string; lat: number; lng: number },
+  createdByName: string,
+) {
+  const position = await db.tripStop.count({ where: { tripId } });
+  return db.tripStop.create({
+    data: {
+      id: randomUUID(),
+      tripId,
+      label: stop.label,
+      lat: stop.lat,
+      lng: stop.lng,
+      position,
+      createdByName,
+    },
+  });
 }
 
 /** Ersetzt die komplette Stopp-Liste (client-ids bleiben stabil).

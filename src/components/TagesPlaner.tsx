@@ -27,6 +27,8 @@ export function TagesPlaner() {
   const [time, setTime] = useState("");
   const [text, setText] = useState("");
   const [remindersOn, setRemindersOn] = useState(false);
+  // Status der Ort-Übernahme in den Reiseplaner, je Aufgabe.
+  const [toTrip, setToTrip] = useState<Record<string, "pending" | "done" | "none">>({});
 
   useEffect(() => {
     setDate(todayISO());
@@ -84,6 +86,18 @@ export function TagesPlaner() {
   function remove(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     api.delete(`/api/v1/planner-tasks/${id}`).catch(() => {});
+  }
+
+  // Aufgabentext als Ort erkennen (Geocoding) und in den Reiseplaner übernehmen.
+  async function toReiseplaner(task: Task) {
+    if (toTrip[task.id] === "pending" || toTrip[task.id] === "done") return;
+    setToTrip((s) => ({ ...s, [task.id]: "pending" }));
+    try {
+      await api.post("/api/v1/trip-stops/from-text", { q: task.text });
+      setToTrip((s) => ({ ...s, [task.id]: "done" }));
+    } catch {
+      setToTrip((s) => ({ ...s, [task.id]: "none" }));
+    }
   }
 
   const sorted = [...tasks].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
@@ -201,6 +215,27 @@ export function TagesPlaner() {
                   </span>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => toReiseplaner(t)}
+                disabled={toTrip[t.id] === "pending" || toTrip[t.id] === "done"}
+                title="Ort erkennen und in den Reiseplaner übernehmen"
+                className={`shrink-0 rounded px-2 py-1 text-xs font-medium transition disabled:cursor-default ${
+                  toTrip[t.id] === "done"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : toTrip[t.id] === "none"
+                      ? "text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                      : "text-brand hover:bg-brand/10"
+                }`}
+              >
+                {toTrip[t.id] === "pending"
+                  ? "…"
+                  : toTrip[t.id] === "done"
+                    ? "✓ Im Reiseplaner"
+                    : toTrip[t.id] === "none"
+                      ? "Kein Ort ✗"
+                      : "📍 In Reiseplaner"}
+              </button>
               <button
                 type="button"
                 onClick={() => remove(t.id)}
