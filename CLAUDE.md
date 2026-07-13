@@ -1,13 +1,23 @@
-# CLAUDE.md — Time Tracker
+# CLAUDE.md — Clover Japan
 
-Projektanweisungen für Claude Code im Unterprojekt `Timetracker`.
+Projektanweisungen für Claude Code (Ordner `Timetracker`, App heißt **Clover Japan**).
 Ergänzt die übergeordnete `../CLAUDE.md` (Sprache: **immer Deutsch**; MCP: Context7).
 
 ## Projekt
 
-Zeiterfassung für Mitarbeiter: Login, Buchung von Stunden auf Projekte,
-Auswertung als **Tages-, Monats- und Jahresansicht**. Rollen: `EMPLOYEE`,
-`MANAGER`, `ADMIN`.
+**Kollaborativer Reiseplaner für eine Japan-Reise.** Nutzer melden sich an (oder
+registrieren sich selbst / per Einladung), gehören einer geteilten **Reise (`Trip`)**
+an und planen gemeinsam:
+
+- **Reiseplaner** — Orte auf einer Karte, beste Route, Zugverbindungen (Deep-Link zu Google Maps)
+- **Flüge** — per Flugnummer abrufen oder manuell; Preis fließt in die Ausgaben
+- **Ausgaben** — Yen→Euro, Kategorien, Budget
+- **Zollrechner** — Einfuhrabgaben für Waren aus Japan (dt. Reisezoll)
+- **Tagesplaner** — Aufgaben je Tag (Ort per Knopfdruck in den Reiseplaner übernehmbar)
+- **Checkliste** · **Mitglieder** (einladen, gemeinsam bearbeiten)
+
+Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerverwaltung**
+(`/admin`). (Die ursprüngliche Zeiterfassung wurde vollständig entfernt.)
 
 ## Tech-Stack
 
@@ -18,11 +28,14 @@ Auswertung als **Tages-, Monats- und Jahresansicht**. Rollen: `EMPLOYEE`,
   zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`,
   `Credential`-Tabelle; Challenge im httpOnly-Cookie; Config in `src/lib/webauthn.ts`,
   ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS)
+- **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
+  `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
 - **OpenAPI/Swagger:** `@asteasolutions/zod-to-openapi` (Spec aus Zod) +
   `swagger-ui-dist` (self-hosted UI unter `/api-docs`)
-- **Karten (Reiseplaner):** `leaflet` + OSM/Wikimedia-Tiles; Geocoding
-  **Nominatim**, Routing **OSRM** (server-seitig, keyfrei)
+- **Karten (Reiseplaner):** `leaflet` + OSM/CARTO-Tiles; Geocoding **Nominatim**,
+  Routing **OSRM** (server-seitig, keyfrei)
+- **Flüge:** **AeroDataBox** über RapidAPI (optional, `AERODATABOX_API_KEY`)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
 
 Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-66478**),
@@ -36,11 +49,24 @@ Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-6647
 - `node_modules` liegt in einem **Container-Volume** (nicht im Bind-Mount) →
   linux-Binaries für `next-swc` und `prisma`-Engine. Quellcode per Bind-Mount.
 - **Corporate-Proxy „Cato Networks" mit TLS-Interception:** ausgehendes TLS wird
-  MITMt (self-signed cert in chain). Node-`https`-Downloads (z. B. Prisma-Engines
-  von `binaries.prisma.sh`) scheitern sonst. **Lösung (sauber, keine
-  Prüfungs-Deaktivierung):** Proxy-Root-CA liegt in `certs/proxy-ca.pem` und wird
-  via `NODE_EXTRA_CA_CERTS=/app/certs/proxy-ca.pem` (in `docker-compose.yml`)
-  getrusted. `Dockerfile.dev` installiert zusätzlich `openssl` (von Prisma benötigt).
+  MITMt (self-signed cert in chain). Node-`https`-Downloads (z. B. Prisma-Engines)
+  scheitern sonst. **Lösung (sauber, keine Prüfungs-Deaktivierung):** Proxy-Root-CA
+  in `certs/proxy-ca.pem`, via `NODE_EXTRA_CA_CERTS=/app/certs/proxy-ca.pem`
+  (in `docker-compose.yml`) getrusted. `Dockerfile.dev` installiert `openssl`.
+
+### ⚠️ Dev-Server-Fallen (kosten sonst lange Fehlersuche)
+
+1. **Nach `npm run build` immer `docker compose restart app`.** Der Prod-Build
+   überschreibt den **geteilten `.next`-Ordner** des laufenden `next dev` → danach
+   404 auf `/_next/static/chunks/*.js` (als `text/plain`), **keine Hydration**
+   (Buttons/Menüs tot). Neustart regeneriert den Dev-Build.
+2. **CSP erlaubt `eval` nur in der Entwicklung.** `next dev` braucht `'unsafe-eval'`
+   (React Fast Refresh/HMR) + `ws:`. In `next.config.ts` env-abhängig gelöst; Prod
+   bleibt streng. Fehlt es im Dev → EvalError, kein Client-JS.
+3. **Nach `prisma migrate`/`generate` den Dev-Server neu starten** (sonst alter
+   Prisma-Client im Speicher → neue Modelle `undefined`).
+4. **Diagnose** am schnellsten per **headless Playwright** im Container
+   (`page.on('console'/'pageerror')`): zeigt CSP-EvalError bzw. 404/`text/plain`-Chunks.
 
 ## Setup & Befehle (alles über Docker)
 
@@ -48,215 +74,210 @@ Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-6647
 docker compose up -d db                                   # Postgres starten
 docker compose run --rm app npm install                   # Deps (in Volume)
 docker compose run --rm app npx prisma migrate dev --name init   # Schema + Client
-docker compose run --rm app npx prisma db seed            # Demo-Daten
+docker compose run --rm app npx prisma db seed            # Demo-Nutzer
 docker compose up -d app                                  # App → http://localhost:3000
 
 docker compose logs -f app                                # Logs
-docker compose run --rm app npm run build                 # Prod-Build / Typecheck
+docker compose run --rm app npm run build                 # Prod-Build / Typecheck (→ danach restart!)
 docker compose down                                       # Stoppen (Daten bleiben)
 docker compose down -v                                    # Stoppen + Daten löschen
 ```
 
-Neue npm-Pakete: **im Container** installieren
-(`docker compose run --rm app npm install <pkg>`), nicht auf dem Host.
+Neue npm-Pakete **im Container** installieren (`docker compose run --rm app npm install <pkg>`).
 
-**Wichtig:** Nach `prisma migrate`/`generate` den **laufenden Dev-Server neu starten**
-(`docker compose restart app`) — sonst nutzt er den alten Prisma-Client im Speicher
-(neue Modelle sind dann `undefined`).
+**Migrationen:** `prisma migrate dev` bricht **non-interaktiv** ab, sobald eine
+Warnung/ein Datenverlust ansteht (z. B. Unique-Constraint, DROP). Dann die
+`migration.sql` **manuell** unter `prisma/migrations/<ts>_<name>/` schreiben und mit
+`prisma migrate deploy` anwenden (danach `prisma generate` + `restart app`).
 
 ## Mobile (PWA) & E2E-Tests
 
 - **PWA:** installierbar via `public/manifest.webmanifest` + Service-Worker
-  `public/sw.js` (network-first, `/api` nicht gecacht), registriert in
-  `src/components/PwaRegister.tsx` (Root-Layout). Icons `public/icon-192.png` /
-  `icon-512.png` (Kleeblatt). `start_url=/start`, `display=standalone`.
+  `public/sw.js`. **Wichtig:** der SW wird **nur in Produktion** registriert
+  (`src/components/PwaRegister.tsx`); in der Entwicklung wird ein alter SW samt Cache
+  aktiv entfernt (sonst veraltetes Bundle). SW cacht nur statische Assets, nie
+  Navigations-/API-Responses. `start_url=/start`, `display=standalone`.
 - **Playwright** (im Container): einmalig
   `docker compose exec app npx playwright install --with-deps chromium`, dann
-  `docker compose exec app npx playwright test`. Tests in `e2e/` laufen gegen den
-  Dev-Server (mobiles Gerät); Config `playwright.config.ts` (`--no-sandbox`, da root).
+  `docker compose exec app npx playwright test` bzw. eigene `node e2e/<script>.mjs`.
+  Config `playwright.config.ts` (`--no-sandbox`, da root).
 - **Native Store-App (Capacitor):** WebView auf die gehostete App
-  (`capacitor.config.ts`, `server.url`), da Server-App (kein statischer Export).
-  **Fingerabdruck-Lock** `src/components/BiometricLock.tsx` (nur nativ, sonst No-Op),
-  eingehängt im `(app)`-Layout. Native Build/Toolchains laufen **auf dem Host** (nicht
-  im Container) — siehe `CAPACITOR.md`. `ios/`/`android/` sind gitignored.
+  (`capacitor.config.ts`, `server.url`). **Fingerabdruck-Lock**
+  `src/components/BiometricLock.tsx` (nur nativ, sonst No-Op), im `(app)`-Layout.
+  Native Builds laufen **auf dem Host** — siehe `CAPACITOR.md`. `ios/`/`android/` gitignored.
 
 ## Architektur
 
 **REST-API als kanonische Schnittstelle.** Das Frontend spricht für **Mutationen
-ausschließlich** über die REST-API (`/api/v1/*`), nie mehr über Server Actions für
-Daten. Reads bleiben aus Performance-Gründen **SSR** — aber über *dieselbe*
-Service-Schicht, die auch die API nutzt. Es gibt also genau **einen** kanonischen
+ausschließlich** über die REST-API (`/api/v1/*`), nie über Server Actions für Daten.
+Reads bleiben **SSR** — aber über *dieselbe* Service-Schicht. Genau **ein** kanonischer
 Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 - **API-Kern** (`src/lib/api/`):
   - `http.ts` — `ApiError` + `handle()`-Wrapper (fängt ApiError/Zod/Prisma-Fehler,
-    einheitliche Fehlerhülle `{ error: { message, details? } }`; mappt P2002→409,
-    P2025→404). Route-Handler behalten native Next-Signatur (kein Signatur-Wrapper).
-  - `session.ts` — `requireUser()`/`requireAdmin()` (NextAuth-Session-Cookie → 401/403).
-  - `schemas.ts` — **Zod = Single Source of Truth** für Request-Validierung UND
-    OpenAPI (via `@asteasolutions/zod-to-openapi`, `extendZodWithOpenApi`).
-  - `dto.ts` — Prisma-Objekte → schlanke Response-DTOs (nie rohes Prisma zurückgeben,
-    z. B. **kein** `passwordHash`!).
-  - `openapi.ts` — baut das OpenAPI-3.1-Dokument (Pfade + Komponenten aus schemas.ts).
-  - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`); von den
-    Client-Components exklusiv genutzt. Nach Writes: **`router.refresh()`** rendert
-    die SSR-Seite mit frischen Daten neu (ersetzt `revalidatePath`).
+    einheitliche Hülle `{ error: { message, details? } }`; P2002→409, P2025→404).
+  - `session.ts` — `requireUser()`/`requireAdmin()`. **`requireUser` liest bei jeder
+    Anfrage `active`/`role`/`emailVerified` frisch aus der DB** (Session-Revocation:
+    deaktivierte/unbestätigte Konten werden sofort abgewiesen, nicht erst nach Token-Ablauf).
+  - `schemas.ts` — **Zod = Single Source of Truth** für Request-Validierung UND OpenAPI.
+  - `dto.ts` — Prisma → schlanke Response-DTOs (nie rohes Prisma; **kein** `passwordHash`).
+  - `openapi.ts` — OpenAPI-3.1-Dokument (nur Session + Users registriert).
+  - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`). Nach Writes:
+    **`router.refresh()`** rendert die SSR-Seite neu.
 - **Route-Handler:** `src/app/api/v1/**/route.ts` — dünn: `requireUser/Admin` →
-  Zod-`parse` → Service → DTO → `ok()`. **Ownership** weiterhin via
-  `updateMany`/`deleteMany` mit `where: { id, userId }` (Fremdzugriff auf DB-Ebene
-  verhindert). Endpunkte: `me`, `time-entries` (+`[id]`), `projects` (+`[id]`),
-  `users` (+`[id]`), `reports/month`, `reports/year`, `notes` (+`[id]`), `openapi`.
-- **API-Docs:** OpenAPI-JSON unter `/api/v1/openapi`, interaktive **Swagger UI**
-  unter **`/api-docs`** (self-hosted `swagger-ui-dist`, dynamischer Client-Import →
-  kein SSR-`window`-Problem; `withCredentials` sendet das Session-Cookie bei
-  „Try it out“). Middleware schützt `/api*` **nicht** — Auth passiert in jedem
-  Handler (Docs & Spec sind bewusst öffentlich).
-- **Login/Logout bleiben NextAuth-Server-Actions** (`src/app/actions/auth.ts`):
-  Authentifizierung ist ein Framework-Belang (Cookie-Handling), **kein** Teil der
-  REST-Ressourcen-API. `/api/auth/*` ist der NextAuth-Flow.
+  Zod-`parse` → Service → DTO → `ok()`. **Ownership** via `updateMany`/`deleteMany`
+  mit `where { id, userId }` bzw. `{ id, tripId }`.
 - **Auth Split-Config** (Edge-Kompatibilität):
-  - `src/auth.config.ts` — **edge-safe** (keine Prisma-/bcrypt-Importe!), enthält
-    `authorized`/`jwt`/`session`-Callbacks. Von der Middleware genutzt.
-  - `src/auth.ts` — volle Instanz mit Credentials-Provider (Prisma + bcrypt),
-    nur Node-Runtime.
-  - `src/middleware.ts` — eigene NextAuth-Instanz aus `authConfig` für den Route-Schutz.
-- **Rollen-Gating doppelt:** Middleware (Seiten-Routen) **und** in jeder Page bzw.
-  jedem API-Handler (`session.user.role` / `requireAdmin`), nie nur im UI.
-- Rolle/ID sind im JWT und in der Session (Typ-Augmentation in
-  `src/types/next-auth.d.ts`). Im `session`-Callback nötiger Cast, da der Callback
-  den nicht-augmentierten `@auth/core/jwt`-Typ nutzt.
+  - `src/auth.config.ts` — **edge-safe** (keine Prisma/bcrypt!), `authorized`/`jwt`/
+    `session`-Callbacks + `session.maxAge` (12 h). Öffentliche Routen: `/login`,
+    `/register`, `/verify`, `/forgot`, `/reset`.
+  - `src/auth.ts` — volle Instanz (Credentials + Passkey; Prisma + bcrypt; Node-Runtime).
+    Login prüft `active` **und** `emailVerified`; Brute-Force-Rate-Limit pro E-Mail.
+  - `src/middleware.ts` — eigene NextAuth-Instanz aus `authConfig` für Route-Schutz.
+- **Login/Logout** bleiben NextAuth-Server-Actions (`src/app/actions/auth.ts`).
+  `/api/auth/*` ist der NextAuth-Flow.
+- **Rollen-Gating doppelt:** Middleware (Seiten) **und** in jeder Page/jedem Handler.
+- **API-Docs:** `/api/v1/openapi` (JSON) + Swagger UI unter `/api-docs` (self-hosted,
+  dynamischer Client-Import). Middleware schützt `/api*` **nicht** — Auth pro Handler.
+
+### Sicherheit (nach Audit umgesetzt)
+
+- **Rate-Limiting** (`src/lib/rate.ts` + `RateLimit`-Modell, Postgres-basiert,
+  serverless-tauglich): Registrierung (5/h/IP), Login (10/15 min/E-Mail), Einladungen
+  (20/h), Passwort-forgot (5/h), Flug-Lookup (30/h), Geocode-Übernahme (30/min).
+- **Security-Header** (`next.config.ts`): CSP, HSTS, X-Frame-Options, nosniff,
+  Referrer-/Permissions-Policy. `script-src` bekommt `'unsafe-eval'`/`ws:` **nur im Dev**.
+- **SSRF-Schutz** (`src/lib/net.ts`, `safeFetch`): nutzergesteuerte Fetches
+  (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele + folgen
+  Redirects manuell.
+- **XSS:** Leaflet-Popups/Tooltips als DOM-Element (`textContent`), nie HTML-String.
+- **Einmal-Token** (`Token`-Modell, `src/lib/services/tokens.ts`) für E-Mail-Verifikation
+  und Passwort-Reset (atomar entwertet).
+- **WebAuthn Fail-Fast** in Produktion (`assertWebauthnConfig()`), zur Laufzeit (nicht
+  beim Build).
 
 ### Datenmodell (`prisma/schema.prisma`)
 
-`User` · `Project` · `Assignment` · `TimeEntry` · `Note` · `Trip` · `TripMember`
-· `TripStop` · `Expense` · `PlannerTask` · `ChecklistItem`. Kern-Entscheidungen:
-- `TimeEntry.minutes` als **Int** (nicht Float-Stunden) → keine Rundungsfehler.
-  UI zeigt Stunden, speichert Minuten (`src/lib/time.ts`: `hoursToMinutes`/`minutesToHours`).
-- `TimeEntry.date` als **`@db.Date`** (ohne Uhrzeit) → tagesbasiert,
-  zeitzonenfeste Aggregation. Datumsarithmetik in **UTC**.
-- Index `@@index([userId, date])` trägt Daily/Monthly/Yearly-Queries.
-- `Assignment` = welche Projekte ein User buchen darf. Leer = alle aktiven Projekte
-  (`getBookableProjects`).
-- Aggregation: Monat via Prisma `groupBy`, Jahr via `$queryRaw` (`EXTRACT(MONTH …)`).
-  Siehe `src/lib/services/reports.ts`.
-- `Note` = Freitext-Notizen im Google-Keep-Stil, tagesbezogen (`@db.Date`). Enum
-  `NoteCategory` (ARBEIT/SCHULE/URLAUB/WOCHENENDE) — Kategorie **färbt die Karte**
-  (Farb-/Label-Mapping zentral in `src/lib/notes.ts`, von UI + API genutzt).
-  Ownership wie TimeEntry (`updateMany`/`deleteMany where { id, userId }`).
+`User` · `Credential` · `Token` · `RateLimit` · `Trip` · `TripMember` · `TripInvitation`
+· `TripStop` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem`. Kern:
+- `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
+  Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
+- **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
+  (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
+  Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig
+  auf → Komponenten bleiben tenant-agnostisch.
+- `Expense.yen` als **Int** (Yen); `Expense.flightId` (unique, `onDelete: Cascade`) koppelt
+  optional einen Flugpreis als Ausgabe (Kategorie „TRANSPORT").
+- `Flight` — Details + `priceYen`; Zeiten als **UTC-naive Wall-Clock** gespeichert und
+  immer in UTC formatiert (kein Zeitzonen-Verschieben).
+- `TripInvitation` — Token-Link, 14 Tage gültig; `createInvitation`/`acceptInvitation`
+  atomar; bestehende Konten werden **nicht** zwangsverschoben (Zustimmung nötig, s. u.).
+- Datums-Felder (`@db.Date`) in **UTC**; `src/lib/time.ts` (`parseDateParam`/`toDateParam`/
+  `todayParam`) — vom Tagesplaner genutzt.
 
 ### Views / Routen
 
-- `/login` — Credentials-Login (Client, `useActionState`)
-- `/day/[date]` — Tagesansicht: Zeiten erfassen/bearbeiten/löschen, Tagessumme
-  **+ Notizen** (Keep-Karten mit Kategorien, `src/components/DayNotes.tsx`)
-- `/calendar/[year]/[month]` — Monatskalender (Raster Mo–So), Tagessumme als
-  Heatmap, Klick → Tagesansicht (SSR via `getMonthReport.perDay`)
-- `/month/[year]/[month]` — Matrix Tag × Projekt mit Summen
-- `/year/[year]` — Matrix Monat × Projekt mit Summen
-- `/admin` — Projekte- + Nutzer-Verwaltung (**nur ADMIN**)
-- `/reiseplaner` — **Japan-Reiseplaner** mit Karte (eigener Nav-Bereich)
-- `/ausgaben` — **Ausgabenrechner** Yen→Euro mit Kategorien (Reiseplaner-Bereich)
-- `/tagesplaner` · `/checkliste` · `/mitglieder` — **Japan**-Bereich (Tagesaufgaben,
-  Checkliste, Mitglieder/Einladen)
-- `/api-docs` — interaktive **Swagger UI** (Spec: `/api/v1/openapi`)
-- `/profil` — **Profilbild** setzen (Upload → client-seitig auf 128×128 verkleinert,
-  als Data-URL in `User.image`; `PATCH /api/v1/me`). Fallback: Initialen-Avatar
-  (`src/components/Avatar.tsx`). Avatare in TopNav, Mitgliederliste.
-- `/start` — **kategorisierte Übersicht** (Kacheln je Bereich); Logo verlinkt hierhin
-- `/` → Redirect auf `/start`
+Auth (öffentlich): `/login` · `/register` (offene Selbst-Registrierung + Invite-Modus
+mit `?token=`) · `/verify?token=` (E-Mail bestätigen) · `/forgot` · `/reset?token=`.
 
-Die Nav ist in zwei Bereiche getrennt (`TopNav`: `links` = **Zeiterfassung**,
-`secondaryLinks` = **Reiseplaner**).
+App (`(app)`-Layout, TopNav-Gruppen **Japan** + **Mehr**):
+- `/start` — kategorisierte Kachel-Übersicht; `/` → Redirect hierhin
+- `/reiseplaner` — Karte, Route, Zugverbindungen (s. u.)
+- `/fluege` — Flüge (Auto-Abruf/manuell), Preis → Ausgaben
+- `/ausgaben` — Ausgabenrechner Yen→Euro
+- `/zoll` — Zollrechner (dt. Reisezoll)
+- `/tagesplaner` · `/checkliste` · `/mitglieder`
+- `/profil` — Profilbild (client-seitig auf 128×128, Data-URL in `User.image`, `PATCH /api/v1/me`)
+- `/admin` — **Nutzerverwaltung** (nur ADMIN)
+- `/api-docs` — Swagger UI
+
+**API-Endpunkte:** `me`, `users` (+`[id]`), `register`, `password/forgot`,
+`password/reset`, `invite/[token]`, `trip/members` (+`[userId]`),
+`trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `expenses`,
+`flights` (+`[id]`, +`lookup`), `planner-tasks` (+`[id]`), `checklist`, `geo/*`,
+`fx/rate`, `openapi`. (Trip-basierte Endpunkte sind nicht in OpenAPI registriert.)
+
+### Auth-Flows
+
+- **Offene Selbst-Registrierung** (`POST /api/v1/register`) → Konto **unbestätigt** +
+  eigene Solo-Reise; Verify-Mail mit Token. Ohne SMTP: Verify-Link in der Antwort
+  (Dev-Fallback). Login erst nach `/verify`.
+- **Passwort-Reset:** `/forgot` (generische Antwort, keine Enumeration) → Reset-Token →
+  `/reset`.
+- **Einladung (`/mitglieder`):** Person **ohne** Konto → Registrierungs-Link (14 Tage);
+  Person **mit** Konto → **ausstehende Einladung**, die sie unter „Einladungen an dich"
+  selbst **annimmt/ablehnt** (kein Force-Move). Ausstehende Einladungen sind dort
+  sichtbar (Restlaufzeit) und widerrufbar.
 
 ### Reiseplaner (`/reiseplaner`)
 
-Notiz-artige Oberfläche: Ort eingeben → Marker auf **Leaflet/OSM-Karte**, beste
-Route zwischen allen Orten. Externe Dienste laufen **server-seitig** über die API
-(Container hat Proxy-CA + kann sauberen User-Agent setzen), nur die Karten-Tiles
-lädt der Browser:
-- `GET /api/v1/geo/search?q=` — Geocoding via **Nominatim** (auf Japan begrenzt,
-  romanisierte Labels via `accept-language`).
-- `GET /api/v1/geo/route?points=` — beste Route via **OSRM-Trip** (optimiert die
-  Besuchsreihenfolge).
-- Karte: `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`).
-  Tiles **Wikimedia „osm-intl"** (internationale/lateinische Beschriftung).
-- Stopps in der **DB** pro Reise (`TripStop`, PUT-Replace-Endpoint `/api/v1/trip-stops`).
-- **Zugverbindungen**: `GET /api/v1/geo/transit?from=&to=&mode=direct|any`.
-  Mit `GOOGLE_MAPS_API_KEY` (.env) → echte Verbindung via **Google Directions**
-  (Transit); ohne Key (oder wenn Google scheitert) → **distanzbasierte Schätzung**
-  (`estimated=true`, Shinkansen-Modell). UI zeigt je Etappe Dauer/Umstiege/Linien/
-  Preis; Preis für JP über Google oft nicht verfügbar.
-- **Karten-Labels:** Tiles romanisiert (Wikimedia); zusätzlich tragen die Marker
-  ein **dauerhaftes Tooltip** mit dem deutsch bevorzugten Ortsnamen (Nominatim
-  `accept-language=de`). Vollständig deutsche Tile-Beschriftung gibt es für Japan
-  nicht (fehlende `name:de`-Daten).
-- **Ort aus Link/Text** (`GET /api/v1/geo/resolve?q=`): Google-/Apple-Maps-Links
-  (auch Kurzlinks, folgt Redirect) → exakte Koordinaten (`@lat,lng` / `!3d!4d` /
-  `q=`/`ll=`); sonst Text/Caption → Nominatim (Japan). Instagram liefert **keinen**
-  Standort (kein öffentliches API, JS-Hülle) → klare 422-Meldung.
+`TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`). Externe
+Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles lädt der Browser.
+- `GET /api/v1/geo/search?q=` — Geocoding via **Nominatim** (Japan, romanisiert).
+- `GET /api/v1/geo/route?points=` — beste Route via **OSRM-Trip**.
+- `GET /api/v1/geo/resolve?q=` — Maps-Link/Text → Koordinaten (SSRF-geschützt).
+- `GET /api/v1/geo/transit?from=&to=&mode=` — mit `GOOGLE_MAPS_API_KEY` echte
+  Zugverbindung (Google Directions), sonst distanzbasierte **Schätzung**.
+- **Google-Maps-Deep-Link je Etappe** (`travelmode=transit`, keyfrei) — öffnet die volle
+  ÖPNV-Timeline in Google Maps.
+- Stopps in der **DB** pro Reise (`TripStop`, PUT-Replace; `from-text` hängt einen
+  einzelnen geocodeten Ort an).
 
-**Ausgabenrechner** (`/ausgaben`, `ExpenseCalculator.tsx`): Yen→Euro live via
-`GET /api/v1/fx/rate` (open.er-api.com, keyfrei, server-seitig; Fallback-Rate).
-Kategorien mit Summen + Auswertung (Budget-Bar + Donut). Ausgaben liegen in der
-**DB** pro Reise (`/api/v1/expenses`); nur das Budget bleibt lokal.
+### Flüge (`/fluege`)
 
-**Geteilte Reise (Kollaboration, Japan-only):** Alle Japan-Tools (Stopps, Ausgaben,
-Tagesplaner, Checkliste) gehören einem **`Trip`**; Nutzer sind über **`TripMember`**
-(userId @unique → genau eine Reise) Mitglied. `getActiveTripId(userId)` legt beim
-ersten Zugriff eine Solo-Reise an. Routen lösen die Reise serverseitig auf →
-Komponenten bleiben tenant-agnostisch. Einladen per E-Mail unter `/mitglieder`
-(`/api/v1/trip/members`); Eingeladene **wechseln** in die Reise (ihre alte bleibt
-bestehen). Endpunkte trip-basiert: `trip-stops` (PUT), `expenses`, `planner-tasks`,
-`checklist`, `trip/members` — nicht in OpenAPI registriert (wie geo/fx/weather).
-Jeder Eintrag trägt `createdByName` (Anzeige „von X"); bei PUT-Replace
-(Stopps/Checkliste) bleibt der ursprüngliche Ersteller je id erhalten.
+`FlightPlanner.tsx`. Auto-Abruf `GET /api/v1/flights/lookup?number=&date=` via
+**AeroDataBox** (nur mit `AERODATABOX_API_KEY`, sonst 422 → manuell). Es wird die
+Instanz mit **passendem Abflugdatum** gewählt (AeroDataBox liefert für ein Datum oft
+zwei). Preis (€/¥, clientseitig nach Yen) → verknüpfte **Ausgabe** (Kategorie TRANSPORT),
+Update/Delete synchron (Cascade).
 
-Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
+### Ausgaben & Zoll
+
+- **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro live via `GET /api/v1/fx/rate`
+  (open.er-api.com, keyfrei). Kategorien + Budget + Donut. Ausgaben in der **DB** pro Reise.
+- **Zollrechner** (`/zoll`, `CustomsCalculator.tsx`): dt. Reisezoll — Freimenge 430 €/Person,
+  Pauschalsatz 17,5 % bis 700 €, sonst Zoll + 19 % EUSt. Rein rechnerisch (keine DB),
+  optional Warenwert aus den Ausgaben übernehmen.
+
+### Tagesplaner → Reiseplaner
+
+Aufgabentext per Knopf zu einem Ort auflösen (`POST /api/v1/trip-stops/from-text` →
+`geocodeJapan`, Nominatim/Japan) und als Stopp anhängen. „teamLab Planets" → Ort;
+Freitext ohne Ort → 422.
 
 ### Branding (Clover Japan)
 
-UI nutzt ein eigenes Corporate Design — alle Assets
-**self-hosted** (kein Google-Fonts-/CDN-Runtime-Fetch, passt zum Docker/Proxy-Setup):
-- **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`,
-  Dateien in `public/fonts/`.
-- **Farben:** als Tailwind-v4-`@theme`-Tokens in `globals.css` → Utilities
-  `brand` (`#009BC9`), `brand-dark` (`#0A314C`), `brand-tint` (`#B9E7F7`),
-  `accent` (`#F87805`), `danger` (`#E2001A`). Primär-Akzent statt Tailwind-`blue-*`.
-- **Logo:** Kleeblatt-Silhouette `public/brand/clover.png` — via CSS-Maske in
-  `src/components/Logo.tsx` themenabhängig eingefärbt (dunkel/hell). (Altes
-  `logo-etikett.png` bleibt ungenutzt liegen.)
-- **Favicon:** `src/app/icon.png` = Kleeblatt auf Schwarz (`public/brand/clover-icon.png`).
-- **Dark-Mode:** klassenbasiert via Tailwind-v4 `@custom-variant dark (&:where(.dark,
-  .dark *))` in `globals.css`. Umschalter `src/components/ThemeToggle.tsx` (Persistenz
-  in `localStorage`, in TopNav + Login). Ein **Inline-Script** im Root-Layout setzt
-  `.dark` am `<html>` **vor** dem ersten Paint (kein FOUC); `<html suppressHydrationWarning>`.
-  Neue farbige UI daher immer mit `dark:`-Variante gestalten.
+Eigenes Corporate Design, alle Assets **self-hosted** (kein CDN-Runtime-Fetch):
+- **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`, `public/fonts/`.
+- **Farben:** Tailwind-v4-`@theme`-Tokens → `brand` (`#009BC9`), `brand-dark` (`#0A314C`),
+  `brand-tint` (`#B9E7F7`), `accent` (`#F87805`), `danger` (`#E2001A`).
+- **Logo/Favicon:** Kleeblatt (`public/brand/clover*.png`, `src/components/Logo.tsx` via CSS-Maske).
+- **Dark-Mode:** klassenbasiert (`@custom-variant dark …`), Umschalter `ThemeToggle.tsx`;
+  Inline-Script im Root-Layout setzt `.dark` vor dem ersten Paint (kein FOUC).
+  Neue farbige UI immer mit `dark:`-Variante.
+
+Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
 
 ## Demo-Daten & Zugänge
 
-Seed (`prisma/seed.ts`) ist **deterministisch** (mulberry32-PRNG) → reproduzierbar.
-Erzeugt 5 buchende Mitarbeiter + Admin, 5 Projekte (WEB, TOOLS, SUPPORT, MOBILE,
-DESIGN), Werktags-Buchungen vom Jahresanfang bis **heute** (keine Zukunftszeiten).
+Seed (`prisma/seed.ts`) legt nur die 6 Demo-Nutzer an (bestätigt). Passwort: `password123`.
 
-Alle Passwörter: `password123`
-
-| Rolle    | E-Mail               |
-|----------|----------------------|
-| Admin    | admin@clover.japan     |
-| Manager  | manager@clover.japan   |
-| Employee | employee@clover.japan  |
-| Employee | anna@clover.japan      |
-| Employee | ben@clover.japan       |
-| Employee | clara@clover.japan     |
+| Rolle    | E-Mail                |
+|----------|-----------------------|
+| Admin    | admin@clover.japan    |
+| Manager  | manager@clover.japan  |
+| Employee | employee@clover.japan |
+| Employee | anna@clover.japan     |
+| Employee | ben@clover.japan      |
+| Employee | clara@clover.japan    |
 
 ## Arbeitsweise (projektspezifisch)
 
-- **Best Practices, keine Workarounds** (siehe globale Anweisung). Ursachen beheben
-  — z. B. Proxy-CA vertrauen statt TLS-Prüfung abschalten.
-- Nach nicht-trivialen Änderungen: `npm run build` im Container grün halten und den
-  betroffenen Flow real durchspielen (Login → View → Erfassen).
+- **Best Practices, keine Workarounds** (siehe globale Anweisung). Ursachen beheben.
+- Nach nicht-trivialen Änderungen: `npm run build` im Container grün halten, **danach
+  `restart app`**, und den betroffenen Flow real durchspielen (gern headless per Playwright).
 
-## Offen / Phase 2
+## Offen / Ideen
 
-CSV/Excel-Export · Charts-Dashboard (Recharts) · projektübergreifende
-Manager-Auswertung · Genehmigungs-Workflow (`status: pending/approved`).
+CSV/Export · Charts · Alkohol/Tabak-Mengengrenzen im Zollrechner · Ort-Vorschlag beim
+Tippen im Tagesplaner · getrennte Preview-/Prod-DB bei Vercel.

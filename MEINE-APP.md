@@ -7,8 +7,8 @@ Alles Wichtige zu meiner **live laufenden** App an einem Ort.
 
 ## 1. Die App im Überblick
 - **Live-Adresse:** https://cloverjapan.vercel.app
-- **Was es ist:** Web-App mit zwei Bereichen — **Timetracker** (Zeiterfassung) und
-  **Japan** (Reiseplaner, Ausgaben, Tagesplaner, Checkliste, Mitglieder).
+- **Was es ist:** Web-App für die **Japan-Reise** — Reiseplaner (Karte), Flüge,
+  Ausgaben (Yen→Euro), Zollrechner, Tagesplaner, Checkliste, Mitglieder.
 - **Aufs Handy:** als **PWA** installiert (kein Play Store) — Icon „Clover Japan".
 - **Login:** `acexruffy12@gmail.com` + mein selbst gesetztes Passwort (Rolle **ADMIN**).
   Zusätzlich **Fingerabdruck/Passkey** pro Gerät möglich (unter *Profil*).
