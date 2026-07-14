@@ -76,6 +76,77 @@ function mapsTransitUrl(from: { lat: number; lng: number }, to: { lat: number; l
   );
 }
 
+// Reihenfolge: Pin (!3d!4d) > q/ll/coordinate > Kartenzentrum (@). Wie serverseitig
+// in geo/resolve — erlaubt, Koordinaten direkt aus einem Maps-Link zu lesen (kein Netz).
+const COORD_PATTERNS = [
+  /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+  /[?&](?:q|ll|sll|coordinate)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/,
+  /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+];
+
+function parseLatLng(s: string): { lat: number; lng: number } | null {
+  for (const p of COORD_PATTERNS) {
+    const m = s.match(p);
+    if (m) {
+      const lat = Number(m[1]);
+      const lng = Number(m[2]);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) return { lat, lng };
+    }
+  }
+  return null;
+}
+
+/** Eine CSV-Zeile in Felder zerlegen (quote-aware, "" = escaptes Anführungszeichen). */
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQuotes = false;
+      } else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") {
+      out.push(cur);
+      cur = "";
+    } else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Google-Takeout-CSV („Gespeichert") → Zeilen {title, url}. Erkennt die Kopfzeile. */
+function parseTakeoutCsv(text: string): { title: string; url: string }[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const rows = lines.map(splitCsvLine);
+
+  let titleIdx = 0;
+  let urlIdx = -1;
+  let start = 0;
+  const head = rows[0].map((h) => h.trim().toLowerCase());
+  if (head.includes("url") || head.includes("title")) {
+    start = 1;
+    const ti = head.indexOf("title");
+    if (ti >= 0) titleIdx = ti;
+    urlIdx = head.indexOf("url");
+  }
+
+  const out: { title: string; url: string }[] = [];
+  for (let i = start; i < rows.length; i++) {
+    const f = rows[i];
+    const url = (urlIdx >= 0 ? f[urlIdx] : f.find((x) => /^https?:\/\//.test(x.trim()))) ?? "";
+    const title = (f[titleIdx] ?? "").trim();
+    if (title || url.trim()) out.push({ title, url: url.trim() });
+  }
+  return out;
+}
+
 function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
   return L.divIcon({
     className: "",
@@ -124,6 +195,11 @@ export function TripPlanner() {
   const [hotelQuery, setHotelQuery] = useState("");
   const [hotelAdding, setHotelAdding] = useState(false);
   const [hotelError, setHotelError] = useState<string | null>(null);
+
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ added: number; failed: string[] } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
@@ -291,6 +367,84 @@ export function TripPlanner() {
     } finally {
       setPastePending(false);
     }
+  }
+
+  // Google-Takeout-CSV importieren: Koordinaten stehen teils direkt im Link (kein
+  // Netz), der Rest wird über geo/resolve aufgelöst — mit Takt (Rate-Limit 30/min)
+  // und einem Wiederholversuch je Zeile. Live-Fortschritt, Fehlliste am Ende.
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const RESOLVE_GAP_MS = 2200; // unter 30/min bleiben (nur echte Netz-Aufrufe zählen)
+
+  async function resolveOnce(q: string): Promise<GeoResult | null> {
+    try {
+      return await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
+    } catch {
+      await sleep(3000); // z. B. Rate-Limit → kurz warten, ein Wiederholversuch
+      try {
+        return await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  async function importCsv(file: File) {
+    setImportError(null);
+    setImportSummary(null);
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setImportError("Datei konnte nicht gelesen werden.");
+      return;
+    }
+    const rows = parseTakeoutCsv(text).slice(0, 200); // Obergrenze gegen Ausreißer
+    if (rows.length === 0) {
+      setImportError("Keine Orte in der CSV gefunden (erwartet Google-Takeout-Format).");
+      return;
+    }
+
+    setImporting(true);
+    setImportProgress({ done: 0, total: rows.length });
+    const resolved: Stop[] = [];
+    const failed: string[] = [];
+    let usedNetwork = false;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const coords = parseLatLng(r.url);
+      let hit: { label: string; lat: number; lng: number } | null = null;
+
+      if (coords) {
+        hit = { label: r.title || `${coords.lat}, ${coords.lng}`, lat: coords.lat, lng: coords.lng };
+      } else {
+        if (usedNetwork) await sleep(RESOLVE_GAP_MS);
+        usedNetwork = true;
+        const primary = r.title || r.url;
+        hit = await resolveOnce(primary);
+        if (!hit && r.url && r.url !== primary) {
+          await sleep(RESOLVE_GAP_MS);
+          hit = await resolveOnce(r.url);
+        }
+      }
+
+      if (hit) {
+        resolved.push({ id: crypto.randomUUID(), label: hit.label, lat: hit.lat, lng: hit.lng });
+      } else {
+        failed.push(r.title || r.url || `Zeile ${i + 1}`);
+      }
+      setImportProgress({ done: i + 1, total: rows.length });
+    }
+
+    if (resolved.length > 0) {
+      const next = [...stops, ...resolved];
+      setStops(next);
+      persistStops(next);
+      setRoute(null);
+    }
+    setImporting(false);
+    setImportProgress(null);
+    setImportSummary({ added: resolved.length, failed });
   }
 
   async function loadWeather() {
@@ -535,6 +689,64 @@ export function TripPlanner() {
             </button>
           </div>
         </form>
+
+        {/* Google-Maps-Liste per Takeout-CSV importieren. */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <label
+            htmlFor="csv-input"
+            className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300"
+          >
+            📥 Google-Maps-Liste importieren (Takeout-CSV)
+          </label>
+          <input
+            id="csv-input"
+            type="file"
+            accept=".csv,text/csv"
+            disabled={importing}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = ""; // gleiche Datei erneut wählbar
+              if (f) importCsv(f);
+            }}
+            className="block w-full text-xs text-slate-600 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand-dark disabled:opacity-60 dark:text-slate-300"
+          />
+          <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+            Bei Google Takeout „Gespeichert" exportieren. Orte werden bestmöglich aufgelöst und als
+            Stopps ergänzt (kann bei vielen Orten einen Moment dauern).
+          </p>
+          {importing && importProgress && (
+            <p className="mt-2 text-xs text-brand">
+              Importiere… {importProgress.done}/{importProgress.total}
+            </p>
+          )}
+          {importError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{importError}</p>
+          )}
+          {importSummary && !importing && (
+            <div className="mt-2 text-xs">
+              <p className="text-green-600 dark:text-green-400">
+                {importSummary.added} Orte hinzugefügt.
+              </p>
+              {importSummary.failed.length > 0 && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-slate-500 dark:text-slate-400">
+                    {importSummary.failed.length} nicht gefunden
+                  </summary>
+                  <ul className="mt-1 list-disc pl-4 text-slate-400 dark:text-slate-500">
+                    {importSummary.failed.slice(0, 20).map((f, i) => (
+                      <li key={i} className="truncate" title={f}>
+                        {f}
+                      </li>
+                    ))}
+                    {importSummary.failed.length > 20 && (
+                      <li>… und {importSummary.failed.length - 20} weitere</li>
+                    )}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
