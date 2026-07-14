@@ -32,6 +32,17 @@ interface GeoResult {
   lng: number;
 }
 
+// Eine Zeile der importierten CSV nach der Auflösung (für die Prüf-Vorschau).
+interface ImportItem {
+  key: string;
+  title: string;
+  resolvedLabel: string; // aufgelöste Bezeichnung (zeigt die Lage → falsche erkennbar)
+  lat: number;
+  lng: number;
+  found: boolean;
+  selected: boolean;
+}
+
 interface RouteInfo {
   geometry: [number, number][];
   distanceKm: number;
@@ -198,7 +209,8 @@ export function TripPlanner() {
 
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
-  const [importSummary, setImportSummary] = useState<{ added: number; failed: string[] } | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportItem[] | null>(null);
+  const [importSummary, setImportSummary] = useState<{ added: number; skipped: number } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
   // Stopps aus der (geteilten) Reise laden.
@@ -369,17 +381,25 @@ export function TripPlanner() {
     }
   }
 
-  // Google-Takeout-CSV importieren: Koordinaten stehen teils direkt im Link (kein
-  // Netz), der Rest wird über geo/resolve aufgelöst — mit Takt (Rate-Limit 30/min)
-  // und einem Wiederholversuch je Zeile. Live-Fortschritt, Fehlliste am Ende.
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const RESOLVE_GAP_MS = 2200; // unter 30/min bleiben (nur echte Netz-Aufrufe zählen)
+  // CSV-Import: Erst die Zeilen auflösen (Link zuerst → exakt, Name nur als Fallback),
+  // dann als Prüf-Vorschau zeigen. Erst nach Bestätigung landen die gewählten Orte auf
+  // der Karte. Netz-Aufrufe im Takt (Rate-Limit 30/min), ein Wiederholversuch je Aufruf.
+  const sleepRef = useRef(0); // Zeitpunkt des letzten Netz-Aufrufs (Pacing)
+  const RESOLVE_GAP_MS = 2200;
 
-  async function resolveOnce(q: string): Promise<GeoResult | null> {
+  function sleep(ms: number) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  async function pacedResolve(q: string): Promise<GeoResult | null> {
+    const wait = Math.max(0, RESOLVE_GAP_MS - (Date.now() - sleepRef.current));
+    if (wait > 0) await sleep(wait);
+    sleepRef.current = Date.now();
     try {
       return await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
     } catch {
       await sleep(3000); // z. B. Rate-Limit → kurz warten, ein Wiederholversuch
+      sleepRef.current = Date.now();
       try {
         return await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
       } catch {
@@ -388,9 +408,26 @@ export function TripPlanner() {
     }
   }
 
+  // Eine Zeile zu Koordinaten auflösen. Priorität: Koordinaten direkt im Link →
+  // Link serverseitig auflösen (folgt Weiterleitungen, exakt) → Ortsname (ungenau).
+  async function resolveRow(r: { title: string; url: string }): Promise<GeoResult | null> {
+    const c = parseLatLng(r.url);
+    if (c) return { label: r.title || `${c.lat}, ${c.lng}`, lat: c.lat, lng: c.lng };
+    if (r.url) {
+      const viaUrl = await pacedResolve(r.url);
+      if (viaUrl) return viaUrl;
+    }
+    if (r.title) {
+      const viaTitle = await pacedResolve(r.title);
+      if (viaTitle) return viaTitle;
+    }
+    return null;
+  }
+
   async function importCsv(file: File) {
     setImportError(null);
     setImportSummary(null);
+    setImportPreview(null);
     let text: string;
     try {
       text = await file.text();
@@ -406,45 +443,65 @@ export function TripPlanner() {
 
     setImporting(true);
     setImportProgress({ done: 0, total: rows.length });
-    const resolved: Stop[] = [];
-    const failed: string[] = [];
-    let usedNetwork = false;
-
+    sleepRef.current = 0;
+    const items: ImportItem[] = [];
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const coords = parseLatLng(r.url);
-      let hit: { label: string; lat: number; lng: number } | null = null;
-
-      if (coords) {
-        hit = { label: r.title || `${coords.lat}, ${coords.lng}`, lat: coords.lat, lng: coords.lng };
-      } else {
-        if (usedNetwork) await sleep(RESOLVE_GAP_MS);
-        usedNetwork = true;
-        const primary = r.title || r.url;
-        hit = await resolveOnce(primary);
-        if (!hit && r.url && r.url !== primary) {
-          await sleep(RESOLVE_GAP_MS);
-          hit = await resolveOnce(r.url);
-        }
-      }
-
-      if (hit) {
-        resolved.push({ id: crypto.randomUUID(), label: hit.label, lat: hit.lat, lng: hit.lng });
-      } else {
-        failed.push(r.title || r.url || `Zeile ${i + 1}`);
-      }
+      const hit = await resolveRow(r);
+      items.push({
+        key: `${i}`,
+        title: r.title || r.url || `Zeile ${i + 1}`,
+        resolvedLabel: hit ? shortLabel(hit.label) : "",
+        lat: hit?.lat ?? 0,
+        lng: hit?.lng ?? 0,
+        found: !!hit,
+        selected: !!hit, // gefundene sind vorausgewählt
+      });
       setImportProgress({ done: i + 1, total: rows.length });
     }
 
-    if (resolved.length > 0) {
-      const next = [...stops, ...resolved];
+    setImporting(false);
+    setImportProgress(null);
+    setImportPreview(items);
+  }
+
+  function toggleImportItem(key: string) {
+    setImportPreview((prev) =>
+      prev ? prev.map((it) => (it.key === key ? { ...it, selected: !it.selected } : it)) : prev,
+    );
+  }
+
+  function setAllImportSelected(sel: boolean) {
+    setImportPreview((prev) =>
+      prev ? prev.map((it) => (it.found ? { ...it, selected: sel } : it)) : prev,
+    );
+  }
+
+  // Nur die angehakten (gefundenen) Orte übernehmen.
+  function confirmImport() {
+    const preview = importPreview;
+    if (!preview) return;
+    const chosen = preview.filter((it) => it.found && it.selected);
+    if (chosen.length > 0) {
+      const next = [
+        ...stops,
+        ...chosen.map((it) => ({
+          id: crypto.randomUUID(),
+          label: it.title,
+          lat: it.lat,
+          lng: it.lng,
+        })),
+      ];
       setStops(next);
       persistStops(next);
       setRoute(null);
     }
-    setImporting(false);
-    setImportProgress(null);
-    setImportSummary({ added: resolved.length, failed });
+    setImportSummary({ added: chosen.length, skipped: preview.length - chosen.length });
+    setImportPreview(null);
+  }
+
+  function cancelImport() {
+    setImportPreview(null);
   }
 
   async function loadWeather() {
@@ -716,34 +773,97 @@ export function TripPlanner() {
           </p>
           {importing && importProgress && (
             <p className="mt-2 text-xs text-brand">
-              Importiere… {importProgress.done}/{importProgress.total}
+              Orte werden aufgelöst… {importProgress.done}/{importProgress.total}
             </p>
           )}
           {importError && (
             <p className="mt-2 text-sm text-red-600 dark:text-red-400">{importError}</p>
           )}
-          {importSummary && !importing && (
-            <div className="mt-2 text-xs">
-              <p className="text-green-600 dark:text-green-400">
-                {importSummary.added} Orte hinzugefügt.
+          {importSummary && !importing && !importPreview && (
+            <p className="mt-2 text-xs text-green-600 dark:text-green-400">
+              {importSummary.added} Orte übernommen
+              {importSummary.skipped > 0 && `, ${importSummary.skipped} übersprungen`}.
+            </p>
+          )}
+
+          {/* Prüf-Vorschau: gefundene Orte anhaken, dann übernehmen. */}
+          {importPreview && !importing && (
+            <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-2">
+              <div className="mb-1 flex items-center justify-between text-xs">
+                <span className="font-medium text-slate-700 dark:text-slate-200">
+                  Vorschau ({importPreview.filter((it) => it.selected).length}/
+                  {importPreview.filter((it) => it.found).length} gewählt)
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAllImportSelected(true)}
+                    className="text-brand hover:underline"
+                  >
+                    Alle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllImportSelected(false)}
+                    className="text-slate-500 hover:underline dark:text-slate-400"
+                  >
+                    Keine
+                  </button>
+                </span>
+              </div>
+              <ul className="max-h-56 overflow-y-auto rounded border border-slate-100 dark:border-slate-800">
+                {importPreview.map((it) => (
+                  <li
+                    key={it.key}
+                    className="flex items-center gap-2 border-b border-slate-100 px-2 py-1.5 last:border-b-0 dark:border-slate-800"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={it.selected}
+                      disabled={!it.found}
+                      onChange={() => toggleImportItem(it.key)}
+                      className="shrink-0 accent-brand disabled:opacity-40"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-slate-700 dark:text-slate-200" title={it.title}>
+                        {it.title}
+                      </p>
+                      {it.found ? (
+                        <p
+                          className="truncate text-[11px] text-slate-400 dark:text-slate-500"
+                          title={it.resolvedLabel}
+                        >
+                          → {it.resolvedLabel}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-red-500 dark:text-red-400">
+                          nicht gefunden — bitte manuell per Maps-Link
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                Prüfe die Lage (→ Zeile). Falsche einfach abwählen.
               </p>
-              {importSummary.failed.length > 0 && (
-                <details className="mt-1">
-                  <summary className="cursor-pointer text-slate-500 dark:text-slate-400">
-                    {importSummary.failed.length} nicht gefunden
-                  </summary>
-                  <ul className="mt-1 list-disc pl-4 text-slate-400 dark:text-slate-500">
-                    {importSummary.failed.slice(0, 20).map((f, i) => (
-                      <li key={i} className="truncate" title={f}>
-                        {f}
-                      </li>
-                    ))}
-                    {importSummary.failed.length > 20 && (
-                      <li>… und {importSummary.failed.length - 20} weitere</li>
-                    )}
-                  </ul>
-                </details>
-              )}
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={confirmImport}
+                  disabled={importPreview.every((it) => !it.selected)}
+                  className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {importPreview.filter((it) => it.selected).length} übernehmen
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelImport}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Abbrechen
+                </button>
+              </div>
             </div>
           )}
         </div>
