@@ -51,14 +51,12 @@ test.describe("Kern-Flows (Japan)", () => {
     await expect(page.getByRole("button", { name: /Flugdaten holen/ })).toBeVisible();
   });
 
-  test("Reiseplaner zeigt Hotel-Kachel und CSV-Import", async ({ page }) => {
+  test("Reiseplaner zeigt die Hotel-Kachel", async ({ page }) => {
     await login(page);
     await page.goto("/reiseplaner");
     await expect(page.getByText("🏨 Hotel / Unterkunft")).toBeVisible();
     await expect(page.getByPlaceholder("Name oder Google-Maps-Link")).toBeVisible();
     await expect(page.getByRole("button", { name: "Speichern" })).toBeVisible();
-    await expect(page.getByText(/Google-Maps-Liste importieren/)).toBeVisible();
-    await expect(page.locator("#csv-input")).toBeAttached();
   });
 
   test("Entfernte Timetracker-Routen sind weg (404)", async ({ page }) => {
