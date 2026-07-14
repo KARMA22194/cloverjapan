@@ -16,6 +16,16 @@ interface Stop {
   by?: string;
 }
 
+interface Hotel {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  by?: string;
+}
+
 interface GeoResult {
   label: string;
   lat: number;
@@ -75,6 +85,16 @@ function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
   });
 }
 
+/** Eigener Marker für Unterkünfte (Akzentfarbe + Bett-Symbol), klar von Stopps unterscheidbar. */
+function hotelIcon(L: typeof Leaflet): Leaflet.DivIcon {
+  return L.divIcon({
+    className: "",
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#f87805;color:#fff;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">🏨</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
 export function TripPlanner() {
   const mapEl = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
@@ -100,11 +120,20 @@ export function TripPlanner() {
   const [weather, setWeather] = useState<Record<string, { emoji: string; tempC: number; text: string }>>({});
   const [weatherLoading, setWeatherLoading] = useState(false);
 
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelQuery, setHotelQuery] = useState("");
+  const [hotelAdding, setHotelAdding] = useState(false);
+  const [hotelError, setHotelError] = useState<string | null>(null);
+
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
     api
       .get<Stop[]>("/api/v1/trip-stops")
       .then(setStops)
+      .catch(() => {});
+    api
+      .get<Hotel[]>("/api/v1/trip-hotels")
+      .then(setHotels)
       .catch(() => {});
   }, []);
 
@@ -184,6 +213,18 @@ export function TripPlanner() {
         .bindPopup(popupEl);
     });
 
+    // Unterkünfte als eigene Marker (🏨) — nicht Teil der Route.
+    hotels.forEach((h) => {
+      const tooltipEl = document.createElement("span");
+      tooltipEl.textContent = shortLabel(h.label);
+      const popupEl = document.createElement("div");
+      popupEl.textContent = `🏨 ${shortLabel(h.label)}`;
+      L.marker([h.lat, h.lng], { icon: hotelIcon(L) })
+        .addTo(layer)
+        .bindTooltip(tooltipEl, { direction: "right", offset: [14, 0], opacity: 0.9 })
+        .bindPopup(popupEl);
+    });
+
     if (routeRef.current) {
       routeRef.current.remove();
       routeRef.current = null;
@@ -201,7 +242,7 @@ export function TripPlanner() {
     } else {
       map.setView(JAPAN_CENTER, 5);
     }
-  }, [stops, route, ready]);
+  }, [stops, hotels, route, ready]);
 
   async function addStop(e: React.FormEvent) {
     e.preventDefault();
@@ -283,17 +324,76 @@ export function TripPlanner() {
     setRoute(null);
   }
 
-  // Reisetag eines Stopps setzen/entfernen → im Tagesplaner sichtbar.
-  function setStopDate(id: string, date: string | null) {
-    const next = stops.map((s) => (s.id === id ? { ...s, date } : s));
-    setStops(next);
-    persistStops(next);
-  }
-
   function clearAll() {
     setStops([]);
     persistStops([]);
     setRoute(null);
+  }
+
+  // Unterkunft auflösen (Google-Maps-Link → exakte Koordinaten, sonst Name → geschätzt)
+  // und in der Reise speichern. Nutzt denselben Resolver wie „Ort aus Link/Text".
+  async function addHotel(e: React.FormEvent) {
+    e.preventDefault();
+    const q = hotelQuery.trim();
+    if (q.length < 2) return;
+    setHotelAdding(true);
+    setHotelError(null);
+    try {
+      const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
+      const hotel = await api.post<Hotel>("/api/v1/trip-hotels", {
+        label: r.label,
+        lat: r.lat,
+        lng: r.lng,
+      });
+      setHotels((prev) => [...prev, hotel]);
+      setHotelQuery("");
+    } catch (err) {
+      setHotelError(err instanceof Error ? err.message : "Konnte keine Unterkunft ermitteln.");
+    } finally {
+      setHotelAdding(false);
+    }
+  }
+
+  // Maßgeblichen Hotel-Stand neu laden (Rollback nach fehlgeschlagener Mutation).
+  function reloadHotels() {
+    api
+      .get<Hotel[]>("/api/v1/trip-hotels")
+      .then(setHotels)
+      .catch(() => {});
+  }
+
+  function setHotelDates(id: string, patch: { checkIn?: string | null; checkOut?: string | null }) {
+    setHotels((prev) => prev.map((h) => (h.id === id ? { ...h, ...patch } : h)));
+    api.patch<Hotel>(`/api/v1/trip-hotels/${id}`, patch).catch((err) => {
+      setHotelError(
+        err instanceof Error ? err.message : "Änderung konnte nicht gespeichert werden.",
+      );
+      reloadHotels(); // optimistische Änderung verwerfen, echten Stand zeigen
+    });
+  }
+
+  function removeHotel(id: string) {
+    const snapshot = hotels;
+    setHotels((prev) => prev.filter((h) => h.id !== id));
+    api.delete(`/api/v1/trip-hotels/${id}`).catch((err) => {
+      setHotelError(err instanceof Error ? err.message : "Löschen fehlgeschlagen.");
+      setHotels(snapshot); // Zeile wiederherstellen
+    });
+  }
+
+  // Unterkunft als Stopp in den Reiseplaner übernehmen (wird Teil der Route).
+  // „(Hotel)" wird ans erste Label-Segment gehängt (bleibt so auch nach shortLabel
+  // sichtbar), das vollständige Label bleibt erhalten — Kürzung erst beim Rendern.
+  function hotelToStop(h: Hotel) {
+    const comma = h.label.indexOf(",");
+    const label =
+      comma === -1
+        ? `${h.label} (Hotel)`
+        : `${h.label.slice(0, comma)} (Hotel)${h.label.slice(comma)}`;
+    const next = [...stops, { id: crypto.randomUUID(), label, lat: h.lat, lng: h.lng }];
+    setStops(next);
+    persistStops(next);
+    setRoute(null); // Route veraltet, sobald sich die Stopps ändern
   }
 
   async function computeRoute() {
@@ -436,6 +536,105 @@ export function TripPlanner() {
           </div>
         </form>
 
+        {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <form onSubmit={addHotel}>
+            <label
+              htmlFor="hotel-input"
+              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300"
+            >
+              🏨 Hotel / Unterkunft
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="hotel-input"
+                value={hotelQuery}
+                onChange={(e) => setHotelQuery(e.target.value)}
+                placeholder="Name oder Google-Maps-Link"
+                className={inputClass}
+              />
+              <button
+                type="submit"
+                disabled={hotelAdding || hotelQuery.trim().length < 2}
+                className="shrink-0 rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {hotelAdding ? "…" : "Speichern"}
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+              Maps-Link = exaktes Hotel · Name = geschätzt (bei gleichnamigen ggf. falsch)
+            </p>
+            {hotelError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{hotelError}</p>
+            )}
+          </form>
+
+          {hotels.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {hotels.map((h) => (
+                <li
+                  key={h.id}
+                  className="rounded-md border border-slate-100 dark:border-slate-800 p-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-base leading-none">🏨</span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-sm text-slate-700 dark:text-slate-200"
+                        title={h.label}
+                      >
+                        {shortLabel(h.label)}
+                      </p>
+                      {h.by && (
+                        <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                          von {h.by}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => hotelToStop(h)}
+                      title="Als Stopp in die Route übernehmen"
+                      aria-label={`Unterkunft „${shortLabel(h.label)}" zu den Stopps hinzufügen`}
+                      className="shrink-0 rounded border border-brand px-2 py-1 text-xs font-medium text-brand transition hover:bg-brand hover:text-white"
+                    >
+                      + Stopp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeHotel(h.id)}
+                      aria-label={`Unterkunft „${shortLabel(h.label)}" entfernen`}
+                      className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="mt-1.5 space-y-1 pl-7 text-[11px] text-slate-500 dark:text-slate-400">
+                    <label className="flex items-center gap-2">
+                      <span className="w-16 shrink-0">Check-in</span>
+                      <input
+                        type="date"
+                        value={h.checkIn ?? ""}
+                        onChange={(e) => setHotelDates(h.id, { checkIn: e.target.value || null })}
+                        className="min-w-0 flex-1 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <span className="w-16 shrink-0">Check-out</span>
+                      <input
+                        type="date"
+                        value={h.checkOut ?? ""}
+                        onChange={(e) => setHotelDates(h.id, { checkOut: e.target.value || null })}
+                        className="min-w-0 flex-1 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
+                      />
+                    </label>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -470,44 +669,54 @@ export function TripPlanner() {
               {stops.map((s, i) => (
                 <li
                   key={s.id}
-                  className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
+                  className="border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
-                      {shortLabel(s.label)}
-                    </p>
-                    {s.by && (
-                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
-                        von {s.by}
-                      </p>
-                    )}
-                  </div>
-                  {weather[s.id] && (
-                    <span
-                      className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
-                      title={weather[s.id].text}
-                    >
-                      {weather[s.id].emoji} {weather[s.id].tempC}°
+                  {/* Zeile 1: Nummer, Name/„von", Löschen */}
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+                      {i + 1}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
+                        {shortLabel(s.label)}
+                      </p>
+                      {s.by && (
+                        <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                          von {s.by}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeStop(s.id)}
+                      aria-label={`Stopp „${shortLabel(s.label)}" entfernen`}
+                      className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {/* Zeile 2: Wetter + Reisetag — nur zeigen, wenn Wetter geladen ist
+                      oder dem Stopp (über den Tagesplaner) ein Reisetag zugeordnet wurde. */}
+                  {(weather[s.id] || s.date) && (
+                    <div className="mt-1.5 flex items-center gap-2 pl-8">
+                      {weather[s.id] && (
+                        <span
+                          className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
+                          title={weather[s.id].text}
+                        >
+                          {weather[s.id].emoji} {weather[s.id].tempC}°
+                        </span>
+                      )}
+                      {s.date && (
+                        <span
+                          title="Reisetag (im Tagesplaner zugeordnet)"
+                          className="shrink-0 rounded bg-brand-tint/60 px-1.5 py-0.5 text-xs text-brand-dark dark:bg-brand/20 dark:text-brand-tint"
+                        >
+                          📅 {s.date.split("-").reverse().join(".")}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  <input
-                    type="date"
-                    value={s.date ?? ""}
-                    onChange={(e) => setStopDate(s.id, e.target.value || null)}
-                    title="Reisetag zuordnen (erscheint im Tagesplaner)"
-                    className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-1 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeStop(s.id)}
-                    aria-label={`Stopp „${shortLabel(s.label)}" entfernen`}
-                    className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
-                  >
-                    ✕
-                  </button>
                 </li>
               ))}
             </ol>
@@ -563,8 +772,7 @@ export function TripPlanner() {
             )}
             {transitLegs.some((l) => l.conn?.estimated) && (
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Schätzung (kein Google-Key hinterlegt). Für echte Verbindungen{" "}
-                <code>GOOGLE_MAPS_API_KEY</code> in <code>.env</code> setzen.
+                Angaben sind eine Schätzung.
               </p>
             )}
             {transitLegs.length > 0 && (

@@ -1,5 +1,5 @@
-// Prisma-Schema für den Time Tracker.
-// Datenmodell laut Plan: User / Project / Assignment / TimeEntry.
+// Prisma-Schema für Clover Japan (kollaborativer Japan-Reiseplaner).
+// Kern: User / Trip / TripMember / TripStop / TripHotel / Expense / Flight / …
 
 generator client {
   provider = "prisma-client-js"
@@ -90,6 +90,7 @@ model Trip {
 
   members        TripMember[]
   tripStops      TripStop[]
+  tripHotels     TripHotel[]
   expenses       Expense[]
   flights        Flight[]
   plannerTasks   PlannerTask[]
@@ -135,6 +136,24 @@ model TripStop {
   lng           Float
   position      Int
   date          String? // optionaler Reisetag (YYYY-MM-DD) → Verknüpfung mit Tagesplaner
+  createdByName String  @default("")
+  trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, position])
+}
+
+// Unterkunft der Reise (Hotel/Ryokan). Eigenes Modell statt Stopp, damit Hotels
+// nicht in die Routenoptimierung einfließen und auf der Karte eigen markiert sind.
+// Mehrere möglich (z. B. je Stadt), mit optionalem Check-in/Check-out-Datum.
+model TripHotel {
+  id            String  @id @default(cuid())
+  tripId        String
+  label         String
+  lat           Float
+  lng           Float
+  checkIn       String? // YYYY-MM-DD
+  checkOut      String? // YYYY-MM-DD
+  position      Int
   createdByName String  @default("")
   trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
