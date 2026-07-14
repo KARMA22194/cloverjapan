@@ -4,6 +4,15 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Schutz: Der Seed legt Demo-Konten mit öffentlich dokumentiertem Passwort an.
+  // In Produktion darf das nur mit explizitem Opt-in laufen (ALLOW_PROD_SEED=true).
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_SEED !== "true") {
+    throw new Error(
+      "Seed in Produktion blockiert (Demo-Konten mit Trivial-Passwort). " +
+        "Zum Erzwingen ALLOW_PROD_SEED=true setzen.",
+    );
+  }
+
   const passwordHash = await bcrypt.hash("password123", 10);
 
   // Demo-Konten (gelten als bestätigt → Login nicht durch E-Mail-Gate gesperrt).

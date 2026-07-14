@@ -21,13 +21,15 @@ export async function requireUser(): Promise<ApiUser> {
   const { id, name, email } = session.user;
 
   // Session-Revocation: JWT trägt Rolle/ID vom Login-Zeitpunkt. Deaktiviert ein
-  // Admin den Nutzer (oder ändert dessen Rolle), muss das sofort greifen — daher
-  // active/role bei jeder Anfrage frisch aus der DB lesen (statt aus dem Token).
+  // Admin den Nutzer (oder ändert dessen Rolle/E-Mail-Status), muss das sofort
+  // greifen — daher active/role/emailVerified bei jeder Anfrage frisch aus der DB
+  // lesen (statt aus dem Token).
   const fresh = await db.user.findUnique({
     where: { id },
-    select: { active: true, role: true },
+    select: { active: true, role: true, emailVerified: true },
   });
   if (!fresh || !fresh.active) throw unauthorized("Konto deaktiviert oder nicht vorhanden.");
+  if (!fresh.emailVerified) throw unauthorized("E-Mail-Adresse nicht bestätigt.");
 
   return { id, name: name ?? "", email: email ?? "", role: fresh.role };
 }

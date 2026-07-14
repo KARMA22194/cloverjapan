@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 import { safeFetch } from "@/lib/net";
 
 const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
@@ -22,7 +23,9 @@ interface Resolved {
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    await requireUser();
+    const user = await requireUser();
+    // Server-seitiger Fetch beliebiger URLs → drosseln (Outbound-/Scanning-Vektor).
+    await enforceRateLimit(`resolve:${user.id}`, 30, 60 * 1000);
     const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
     if (q.length < 2) throw badRequest("Bitte einen Ortsnamen oder Link einfügen.");
     if (q.length > 2000) throw badRequest("Eingabe zu lang.");

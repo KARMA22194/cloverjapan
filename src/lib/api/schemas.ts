@@ -24,7 +24,7 @@ export const dateParamSchema = z
 export const userCreateBody = z.object({
   name: z.string().min(2, "Name zu kurz.").max(100).openapi({ example: "Erika Mustermann" }),
   email: z.string().email("Ungültige E-Mail.").openapi({ example: "erika@clover.japan" }),
-  password: z.string().min(6, "Passwort mind. 6 Zeichen.").openapi({ example: "password123" }),
+  password: z.string().min(8, "Passwort mind. 8 Zeichen.").max(200).openapi({ example: "password123" }),
   role: roleSchema.openapi({ example: "EMPLOYEE" }),
 });
 

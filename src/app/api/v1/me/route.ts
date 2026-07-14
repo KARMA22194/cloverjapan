@@ -19,6 +19,8 @@ const patchBody = z.object({
     .string()
     .startsWith("data:image/", "Nur Bild-Data-URLs erlaubt.")
     .max(300_000, "Bild zu groß.")
+    // SVG kann eingebettetes Script enthalten (XSS beim Anzeigen) → nur Rasterformate.
+    .refine((s) => !/^data:image\/svg\+xml/i.test(s), "SVG-Bilder sind nicht erlaubt.")
     .nullable(),
 });
 

@@ -83,6 +83,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             expectedChallenge,
             expectedOrigin: origin,
             expectedRPID: rpID,
+            // Alleiniger Login-Faktor → tatsächliche Nutzer-Verifikation erzwingen.
+            requireUserVerification: true,
             authenticator: {
               credentialID: isoBase64URL.toBuffer(cred.id),
               credentialPublicKey: new Uint8Array(cred.publicKey),

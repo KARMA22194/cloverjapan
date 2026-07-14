@@ -9,7 +9,8 @@ export function GET() {
     assertWebauthnConfig();
     const options = await generateAuthenticationOptions({
       rpID,
-      userVerification: "preferred",
+      // Passkey ist alleiniger Login-Faktor → Nutzer-Verifikation (PIN/Biometrie) verpflichtend.
+      userVerification: "required",
       allowCredentials: [],
     });
 

@@ -3,17 +3,19 @@ import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { dateStr } from "@/lib/api/dates";
 import { getActiveTripId } from "@/lib/services/trip";
 import { getTripStops, getTripStopsForDate, replaceTripStops } from "@/lib/services/tripStops";
 
-const dateStr = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Datum muss YYYY-MM-DD sein.")
-  .nullish();
-
 const stopSchema = z.object({
   id: z.string().min(1).max(100),
-  label: z.string().min(1).max(200),
+  // Lange Geocoder-Labels kürzen statt ablehnen (siehe trip-hotels/schema.ts).
+  label: z
+    .string()
+    .trim()
+    .min(1)
+    .max(5000)
+    .transform((s) => s.slice(0, 300)),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   date: dateStr,
