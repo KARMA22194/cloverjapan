@@ -4,7 +4,7 @@ import { handle, notFound, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
 import { deleteFlightOwned, updateFlightOwned } from "@/lib/services/flightsService";
-import { flightBody, toFlightDto } from "../route";
+import { flightBody, toFlightDto } from "../schema";
 
 type Ctx = { params: Promise<{ id: string }> };
 
