@@ -8,6 +8,14 @@ export function getPlannerTasks(tripId: string, dateParam: string) {
   });
 }
 
+/** Alle Aufgaben der Reise (für den Tages-Ablauf), chronologisch. */
+export function getAllPlannerTasks(tripId: string) {
+  return db.plannerTask.findMany({
+    where: { tripId },
+    orderBy: [{ date: "asc" }, { time: "asc" }, { createdAt: "asc" }],
+  });
+}
+
 export function createPlannerTask(
   tripId: string,
   input: { dateParam: string; time: string; text: string },

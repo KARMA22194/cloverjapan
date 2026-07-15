@@ -28,6 +28,7 @@ export default async function StartPage() {
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
         { href: "/zoll", label: "Zollrechner", desc: "Einfuhrabgaben für Waren aus Japan", emoji: "🛃" },
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
+        { href: "/ablauf", label: "Reiseablauf", desc: "Flüge, Orte & Aufgaben Tag für Tag", emoji: "📆" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },
         { href: "/wetter", label: "Wetter", desc: "Aktuelles Wetter in Tokio", emoji: "🌤️" },
         { href: "/uebersicht", label: "Übersicht", desc: "Reise-Zusammenfassung (Druck/PDF)", emoji: "🧾" },
