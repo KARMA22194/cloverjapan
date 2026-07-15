@@ -338,6 +338,17 @@ export function TripPlanner() {
     setRoute(null);
   }
 
+  // Stopp in der Liste nach oben/unten verschieben (manuelle Reihenfolge).
+  function moveStop(index: number, dir: -1 | 1) {
+    const j = index + dir;
+    if (j < 0 || j >= stops.length) return;
+    const next = [...stops];
+    [next[index], next[j]] = [next[j], next[index]];
+    setStops(next);
+    persistStops(next);
+    setRoute(null); // Route veraltet bei geänderter Reihenfolge
+  }
+
   function clearAll() {
     setStops([]);
     persistStops([]);
@@ -730,6 +741,26 @@ export function TripPlanner() {
                           von {s.by}
                         </p>
                       )}
+                    </div>
+                    <div className="flex shrink-0 flex-col leading-none">
+                      <button
+                        type="button"
+                        onClick={() => moveStop(i, -1)}
+                        disabled={i === 0}
+                        aria-label={`„${shortLabel(s.label)}" nach oben`}
+                        className="rounded px-1 text-[10px] text-slate-400 transition hover:text-brand disabled:opacity-30 dark:text-slate-500"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveStop(i, 1)}
+                        disabled={i === stops.length - 1}
+                        aria-label={`„${shortLabel(s.label)}" nach unten`}
+                        className="rounded px-1 text-[10px] text-slate-400 transition hover:text-brand disabled:opacity-30 dark:text-slate-500"
+                      >
+                        ▼
+                      </button>
                     </div>
                     <button
                       type="button"
