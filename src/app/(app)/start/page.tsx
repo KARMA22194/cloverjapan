@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { TripDashboard } from "@/components/TripDashboard";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -60,6 +61,8 @@ export default async function StartPage() {
           Wähle einen Bereich.
         </p>
       </div>
+
+      <TripDashboard />
 
       {groups.map((group) => (
         <details key={group.title} open className="group/section">
