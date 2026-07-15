@@ -158,7 +158,7 @@ export function TripDashboard() {
       </Link>
 
       {/* Budget */}
-      <Link href="/ausgaben" className={`${card} transition hover:border-brand`}>
+      <Link href="/geld?tab=ausgaben" className={`${card} transition hover:border-brand`}>
         <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           Ausgaben
         </p>

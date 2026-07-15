@@ -24,7 +24,7 @@ test.describe("Kern-Flows (Japan)", () => {
     await login(page);
     await page.goto("/start");
     await expect(page.getByText("Reiseplaner")).toBeVisible();
-    await expect(page.getByText("Zollrechner")).toBeVisible();
+    await expect(page.getByText("Geld", { exact: true })).toBeVisible();
     await expect(page.getByText("Flüge", { exact: true })).toBeVisible();
   });
 
