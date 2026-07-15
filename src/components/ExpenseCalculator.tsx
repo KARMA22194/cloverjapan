@@ -76,6 +76,7 @@ export function ExpenseCalculator() {
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState<ExpenseCategoryValue>("ESSEN");
   const [budget, setBudget] = useState("");
+  const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
 
   const [members, setMembers] = useState<{ id: string; name: string; isMe: boolean }[]>([]);
   const [paidById, setPaidById] = useState("");
@@ -130,10 +131,24 @@ export function ExpenseCalculator() {
     try {
       const b = localStorage.getItem("japan-budget");
       if (b) setBudget(b);
+      const cb = localStorage.getItem("japan-cat-budgets");
+      if (cb) setCatBudgets(JSON.parse(cb));
     } catch {
       /* ignore */
     }
   }, []);
+
+  function setCatBudget(cat: string, val: string) {
+    setCatBudgets((prev) => {
+      const next = { ...prev, [cat]: val };
+      try {
+        localStorage.setItem("japan-cat-budgets", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   const parsedYen = Number(yenInput.replace(",", "."));
   const validYen = Number.isFinite(parsedYen) && parsedYen > 0;
@@ -470,19 +485,58 @@ export function ExpenseCalculator() {
                 </span>
               </div>
             </div>
-            <ul className="min-w-[200px] flex-1 space-y-1.5">
-              {catBreakdown.map((c) => (
-                <li key={c.value} className="flex items-center gap-2 text-sm">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm border border-black/10"
-                    style={{ backgroundColor: c.color }}
-                  />
-                  <span className="text-slate-700 dark:text-slate-200">{c.label}</span>
-                  <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">
-                    {eurFmt.format(c.eur)} · {Math.round(c.frac * 100)}%
-                  </span>
-                </li>
-              ))}
+            <ul className="min-w-[240px] flex-1 space-y-2">
+              {catBreakdown.map((c) => {
+                const cBudget = Math.max(
+                  0,
+                  Math.round(Number((catBudgets[c.value] ?? "").replace(",", ".")) || 0),
+                );
+                const cPct = cBudget > 0 ? Math.round((c.yen / cBudget) * 100) : 0;
+                const cOver = cBudget > 0 && c.yen > cBudget;
+                return (
+                  <li key={c.value} className="text-sm">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-sm border border-black/10"
+                        style={{ backgroundColor: c.color }}
+                      />
+                      <span className="text-slate-700 dark:text-slate-200">{c.label}</span>
+                      <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">
+                        {eurFmt.format(c.eur)} · {Math.round(c.frac * 100)}%
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 pl-5">
+                      <input
+                        value={catBudgets[c.value] ?? ""}
+                        onChange={(e) => setCatBudget(c.value, e.target.value)}
+                        inputMode="decimal"
+                        placeholder="Budget ¥"
+                        aria-label={`Budget für ${c.label} (¥)`}
+                        className="w-24 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs outline-none focus:border-brand"
+                      />
+                      {cBudget > 0 && (
+                        <div className="flex flex-1 items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div
+                              className={`h-full rounded-full ${cOver ? "bg-danger" : "bg-brand"}`}
+                              style={{ width: `${Math.min(cPct, 100)}%` }}
+                            />
+                          </div>
+                          <span
+                            className={`shrink-0 text-[11px] tabular-nums ${
+                              cOver
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-slate-400 dark:text-slate-500"
+                            }`}
+                          >
+                            {cPct}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
