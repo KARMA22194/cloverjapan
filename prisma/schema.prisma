@@ -99,6 +99,7 @@ model Trip {
   invitations    TripInvitation[]
   settlements    Settlement[]
   bookings       Booking[]
+  wishlist       WishlistItem[]
 }
 
 // Einladung für eine Person OHNE Konto: Token-Link zum Selbst-Registrieren.
@@ -269,6 +270,22 @@ model Settlement {
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId])
+}
+
+// Einkaufs-/Souvenir-Wunschliste (pro Reise geteilt). Preis in Yen; Summe kann als
+// Warenwert in den Zollrechner übernommen werden.
+model WishlistItem {
+  id            String   @id @default(cuid())
+  tripId        String
+  label         String
+  priceYen      Int?
+  bought        Boolean  @default(false)
+  position      Int
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, position])
 }
 
 model ChecklistItem {

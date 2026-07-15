@@ -30,6 +30,7 @@ export default async function StartPage() {
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
         { href: "/abrechnung", label: "Abrechnung", desc: "Wer schuldet wem (gleichmäßig geteilt)", emoji: "🧮" },
         { href: "/zoll", label: "Zollrechner", desc: "Einfuhrabgaben für Waren aus Japan", emoji: "🛃" },
+        { href: "/wunschliste", label: "Wunschliste", desc: "Einkäufe planen, Summe → Zoll", emoji: "🛍️" },
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/ablauf", label: "Reiseablauf", desc: "Flüge, Orte & Aufgaben Tag für Tag", emoji: "📆" },
         { href: "/checkliste", label: "Checkliste", desc: "Eigene Punkte abhaken", emoji: "✅" },

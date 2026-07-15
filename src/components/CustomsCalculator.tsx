@@ -83,6 +83,23 @@ export function CustomsCalculator() {
     }
   }
 
+  async function prefillFromWishlist() {
+    setPrefillNote(null);
+    try {
+      const items = await api.get<{ priceYen: number | null }[]>("/api/v1/wishlist");
+      const yen = items.reduce((s, i) => s + (i.priceYen ?? 0), 0);
+      if (yen <= 0) {
+        setPrefillNote("Keine Wunschliste mit Preisen gefunden.");
+        return;
+      }
+      setCurrency("JPY");
+      setValueInput(String(yen));
+      setPrefillNote("Warenwert aus der Wunschliste übernommen.");
+    } catch {
+      setPrefillNote("Konnte Wunschliste nicht laden.");
+    }
+  }
+
   const inputClass =
     "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
   const labelClass = "mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300";
@@ -150,13 +167,22 @@ export function CustomsCalculator() {
           </select>
         </div>
 
-        <button
-          type="button"
-          onClick={prefillFromExpenses}
-          className="rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20"
-        >
-          Warenwert aus Ausgaben übernehmen
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={prefillFromExpenses}
+            className="rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20"
+          >
+            Aus Ausgaben übernehmen
+          </button>
+          <button
+            type="button"
+            onClick={prefillFromWishlist}
+            className="rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20"
+          >
+            Aus Wunschliste übernehmen
+          </button>
+        </div>
         {prefillNote && (
           <p className="text-xs text-slate-500 dark:text-slate-400">{prefillNote}</p>
         )}
