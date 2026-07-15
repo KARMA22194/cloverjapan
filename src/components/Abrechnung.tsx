@@ -14,6 +14,14 @@ interface Expense {
   paidById?: string | null;
   shared?: boolean;
 }
+interface Settlement {
+  id: string;
+  fromId: string;
+  toId: string;
+  fromName: string;
+  toName: string;
+  yen: number;
+}
 
 const yenFmt = new Intl.NumberFormat("de-DE", {
   style: "currency",
@@ -25,13 +33,16 @@ const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EU
 export function Abrechnung() {
   const [members, setMembers] = useState<Member[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [rate, setRate] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api.get<{ members: Member[] }>("/api/v1/trip/members").then((r) => setMembers(r.members)),
       api.get<Expense[]>("/api/v1/expenses").then(setExpenses),
+      api.get<Settlement[]>("/api/v1/settlements").then(setSettlements),
     ])
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -40,6 +51,24 @@ export function Abrechnung() {
       .then((r) => setRate(r.rate))
       .catch(() => {});
   }, []);
+
+  // Betrag als bezahlt verbuchen (Zahlung from→to) bzw. rückgängig machen.
+  async function markPaid(t: { fromId: string; toId: string; fromName: string; toName: string; yen: number }) {
+    setBusy(true);
+    try {
+      const s = await api.post<Settlement>("/api/v1/settlements", t);
+      setSettlements((prev) => [...prev, s]);
+    } catch {
+      /* ignore */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undoSettlement(id: string) {
+    setSettlements((prev) => prev.filter((s) => s.id !== id));
+    api.delete(`/api/v1/settlements/${id}`).catch(() => {});
+  }
 
   const calc = useMemo(() => {
     const memberIds = new Set(members.map((m) => m.id));
@@ -59,29 +88,45 @@ export function Abrechnung() {
     for (const e of counted) paid.set(e.paidById!, (paid.get(e.paidById!) ?? 0) + e.yen);
 
     const balances = members.map((m) => ({
+      id: m.id,
       name: m.name,
       isMe: m.isMe,
       paid: paid.get(m.id) ?? 0,
       balance: (paid.get(m.id) ?? 0) - share,
     }));
 
+    // Verbuchte Zahlungen anrechnen: from zahlt to → from-Schuld sinkt, to-Guthaben sinkt.
+    const byId = new Map(balances.map((b) => [b.id, b]));
+    for (const s of settlements) {
+      const f = byId.get(s.fromId);
+      const t = byId.get(s.toId);
+      if (f) f.balance += s.yen;
+      if (t) t.balance -= s.yen;
+    }
+
     // Ausgleich (greedy): Schuldner zahlen an Gläubiger.
     const debtors = balances
       .filter((b) => b.balance < -0.5)
-      .map((b) => ({ name: b.name, amt: -b.balance }))
+      .map((b) => ({ id: b.id, name: b.name, amt: -b.balance }))
       .sort((a, b) => b.amt - a.amt);
     const creditors = balances
       .filter((b) => b.balance > 0.5)
-      .map((b) => ({ name: b.name, amt: b.balance }))
+      .map((b) => ({ id: b.id, name: b.name, amt: b.balance }))
       .sort((a, b) => b.amt - a.amt);
 
-    const transfers: { from: string; to: string; yen: number }[] = [];
+    const transfers: { fromId: string; toId: string; fromName: string; toName: string; yen: number }[] = [];
     let i = 0;
     let j = 0;
     while (i < debtors.length && j < creditors.length) {
       const amt = Math.min(debtors[i].amt, creditors[j].amt);
       if (Math.round(amt) > 0) {
-        transfers.push({ from: debtors[i].name, to: creditors[j].name, yen: Math.round(amt) });
+        transfers.push({
+          fromId: debtors[i].id,
+          toId: creditors[j].id,
+          fromName: debtors[i].name,
+          toName: creditors[j].name,
+          yen: Math.round(amt),
+        });
       }
       debtors[i].amt -= amt;
       creditors[j].amt -= amt;
@@ -90,7 +135,7 @@ export function Abrechnung() {
     }
 
     return { total, share, balances, transfers, unassigned, personal };
-  }, [members, expenses]);
+  }, [members, expenses, settlements]);
 
   const eur = (yen: number) => (rate ? eurFmt.format(yen * rate) : null);
 
@@ -181,25 +226,63 @@ export function Abrechnung() {
                 key={i}
                 className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0 text-sm"
               >
-                <span className="text-slate-800 dark:text-slate-100">
-                  <span className="text-red-600 dark:text-red-400">{t.from}</span> → {" "}
-                  <span className="text-green-600 dark:text-green-400">{t.to}</span>
+                <span className="min-w-0 text-slate-800 dark:text-slate-100">
+                  <span className="text-red-600 dark:text-red-400">{t.fromName}</span> →{" "}
+                  <span className="text-green-600 dark:text-green-400">{t.toName}</span>
                 </span>
-                <span className="shrink-0 text-right">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {yenFmt.format(t.yen)}
-                  </span>
-                  {eur(t.yen) && (
-                    <span className="ml-1 text-[11px] text-slate-400 dark:text-slate-500">
-                      ≈ {eur(t.yen)}
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="text-right">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {yenFmt.format(t.yen)}
                     </span>
-                  )}
+                    {eur(t.yen) && (
+                      <span className="ml-1 text-[11px] text-slate-400 dark:text-slate-500">
+                        ≈ {eur(t.yen)}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => markPaid(t)}
+                    className="shrink-0 rounded-md border border-brand px-2 py-1 text-xs font-medium text-brand transition hover:bg-brand hover:text-white disabled:opacity-50"
+                  >
+                    Bezahlt
+                  </button>
                 </span>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {/* Verbuchte Zahlungen (mit Undo) */}
+      {settlements.length > 0 && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+            Beglichen
+          </div>
+          <ul>
+            {settlements.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0 text-sm"
+              >
+                <span className="min-w-0 text-slate-500 line-through dark:text-slate-400">
+                  {s.fromName} → {s.toName} · {yenFmt.format(s.yen)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => undoSettlement(s.id)}
+                  className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                >
+                  rückgängig
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <p className="text-xs text-slate-400 dark:text-slate-500">
         Gleichmäßige Aufteilung aller zugeordneten Ausgaben unter allen Mitgliedern. Den Zahler
