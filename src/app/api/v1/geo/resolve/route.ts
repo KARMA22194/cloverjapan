@@ -12,6 +12,40 @@ interface Resolved {
   lat: number;
   lng: number;
   source: "maps" | "text" | "url";
+  // true = aufgelöster Treffer ist ein Gebiet (Stadt/Stadtteil/Verwaltungsgrenze),
+  // kein konkreter Ort/Betrieb. Genutzt, um z. B. „Tokyo" nicht als Hotel zuzulassen.
+  area?: boolean;
+  // true = Beherbergungsbetrieb (Hotel/Ryokan/Hostel …) — für die Hotel-Prüfung.
+  lodging?: boolean;
+  // true = klare Sehenswürdigkeit (Museum/Attraktion/Park/…), kein Beherbergungsort.
+  attraction?: boolean;
+}
+
+// OSM-Klassen/-Typen, die ein Gebiet (keinen konkreten Punkt) bezeichnen.
+function isAreaResult(cls?: string, addresstype?: string): boolean {
+  if (cls === "place" || cls === "boundary") return true;
+  const areaTypes = new Set([
+    "city", "town", "village", "hamlet", "suburb", "state", "region",
+    "province", "county", "municipality", "country", "postcode",
+    "district", "quarter", "neighbourhood",
+  ]);
+  return !!addresstype && areaTypes.has(addresstype);
+}
+
+// OSM-Typen, die eine Unterkunft bezeichnen (class=tourism/building).
+const LODGING_TYPES = new Set([
+  "hotel", "motel", "guest_house", "hostel", "apartment", "apartments",
+  "chalet", "alpine_hut", "wilderness_hut", "love_hotel", "resort", "ryokan",
+]);
+function isLodgingResult(cls?: string, type?: string): boolean {
+  if (!type) return false;
+  return (cls === "tourism" || cls === "building") && LODGING_TYPES.has(type);
+}
+
+// Klare Sehenswürdigkeit (Museum, Attraktion, Park, Denkmal …) — kein Hotel.
+function isAttractionResult(cls?: string, type?: string): boolean {
+  if (cls === "tourism") return !!type && !LODGING_TYPES.has(type);
+  return cls === "leisure" || cls === "historic";
 }
 
 /**
@@ -94,13 +128,24 @@ async function resolveMapsLink(url: string): Promise<Resolved> {
   }
   if (!coords) throw new ApiError(422, "Im Maps-Link wurden keine Koordinaten gefunden.");
 
-  // Bezeichnung: aus /place/<Name>/ oder per Reverse-Geocoding.
+  // Reverse-Geocoding: liefert Bezeichnung (Fallback) UND den Typ am Zielpunkt.
+  // Hinweis: Reverse trifft den *nächstgelegenen* Punkt — als Typ-Signal nur
+  // best-effort brauchbar (klare Sehenswürdigkeiten/Gebiete erkennen).
+  const rev = await reverseGeocode(coords.lat, coords.lng);
+
   let label: string | null = null;
   const pm = `${finalUrl}\n${url}`.match(/\/place\/([^/@]+)/);
   if (pm) label = decodeURIComponent(pm[1].replace(/\+/g, " "));
-  if (!label) label = await reverseGeocode(coords.lat, coords.lng);
+  if (!label) label = rev?.label ?? null;
 
-  return { label: label ?? `${coords.lat}, ${coords.lng}`, lat: coords.lat, lng: coords.lng, source: "maps" };
+  return {
+    label: label ?? `${coords.lat}, ${coords.lng}`,
+    lat: coords.lat,
+    lng: coords.lng,
+    source: "maps",
+    area: isAreaResult(rev?.cls, rev?.addresstype),
+    attraction: isAttractionResult(rev?.cls, rev?.type),
+  };
 }
 
 /* ---------------- Text/Caption → Geocoding ---------------- */
@@ -122,9 +167,25 @@ async function geocode(text: string, source: "text" | "url"): Promise<Resolved |
 
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) return null;
-  const data = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+  const data = (await res.json()) as {
+    display_name: string;
+    lat: string;
+    lon: string;
+    class?: string;
+    type?: string;
+    addresstype?: string;
+  }[];
   if (!data.length) return null;
-  return { label: data[0].display_name, lat: Number(data[0].lat), lng: Number(data[0].lon), source };
+  const hit = data[0];
+  return {
+    label: hit.display_name,
+    lat: Number(hit.lat),
+    lng: Number(hit.lon),
+    source,
+    area: isAreaResult(hit.class, hit.addresstype),
+    lodging: isLodgingResult(hit.class, hit.type),
+    attraction: isAttractionResult(hit.class, hit.type),
+  };
 }
 
 async function resolveGenericUrl(url: string): Promise<Resolved | null> {
@@ -143,18 +204,35 @@ async function resolveGenericUrl(url: string): Promise<Resolved | null> {
   }
 }
 
-async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+interface ReverseHit {
+  label: string | null;
+  cls?: string;
+  type?: string;
+  addresstype?: string;
+}
+
+async function reverseGeocode(lat: number, lng: number): Promise<ReverseHit | null> {
   try {
     const url = new URL("https://nominatim.openstreetmap.org/reverse");
     url.searchParams.set("lat", String(lat));
     url.searchParams.set("lon", String(lng));
     url.searchParams.set("format", "json");
     url.searchParams.set("accept-language", "de,en,ja");
-    url.searchParams.set("zoom", "16");
+    url.searchParams.set("zoom", "18");
     const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
     if (!res.ok) return null;
-    const data = (await res.json()) as { display_name?: string };
-    return data.display_name ?? null;
+    const data = (await res.json()) as {
+      display_name?: string;
+      class?: string;
+      type?: string;
+      addresstype?: string;
+    };
+    return {
+      label: data.display_name ?? null,
+      cls: data.class,
+      type: data.type,
+      addresstype: data.addresstype,
+    };
   } catch {
     return null;
   }

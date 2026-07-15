@@ -30,6 +30,10 @@ interface GeoResult {
   label: string;
   lat: number;
   lng: number;
+  source?: "maps" | "text" | "url";
+  area?: boolean; // true = Stadt/Gebiet statt konkreter Ort
+  lodging?: boolean; // true = Beherbergungsbetrieb (Hotel/Ryokan/…)
+  attraction?: boolean; // true = Sehenswürdigkeit (Museum/Park/…)
 }
 
 interface RouteInfo {
@@ -74,6 +78,16 @@ function mapsTransitUrl(from: { lat: number; lng: number }, to: { lat: number; l
     `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}` +
     `&destination=${to.lat},${to.lng}&travelmode=transit`
   );
+}
+
+/**
+ * Deep-Link nach Google Maps (keyfrei). Sucht den Ortsnamen an genau diesen
+ * Koordinaten (`/maps/search/<Name>/@lat,lng,zoom`) → Maps öffnet bei eindeutigen
+ * POIs die volle Ortskarte und bleibt durch die Koordinaten an der richtigen Stelle.
+ */
+function mapsPlaceUrl(lat: number, lng: number, label: string): string {
+  const name = label.split(",")[0].trim();
+  return `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lng},16z`;
 }
 
 function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
@@ -340,6 +354,28 @@ export function TripPlanner() {
     setHotelError(null);
     try {
       const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
+      // Kein Gebiet/keine Sehenswürdigkeit als Unterkunft zulassen.
+      if (r.area) {
+        setHotelError(
+          "Das sieht nach einer Stadt/einem Gebiet aus, keine Unterkunft. Bitte einen konkreten Hotelnamen oder einen Google-Maps-Link angeben.",
+        );
+        return;
+      }
+      if (r.source === "text") {
+        // Namenseingabe: streng — nur echte Beherbergungstypen.
+        if (!r.lodging) {
+          setHotelError(
+            "Das scheint keine Unterkunft zu sein (z. B. eine Sehenswürdigkeit). Bitte den Hotelnamen genauer angeben oder den Google-Maps-Link deiner Unterkunft einfügen.",
+          );
+          return;
+        }
+      } else if (r.attraction) {
+        // Maps-Link: klare Sehenswürdigkeit (z. B. Museum) abweisen (Best-Effort).
+        setHotelError(
+          "Dieser Ort ist eine Sehenswürdigkeit, keine Unterkunft. Bitte den Link deines Hotels verwenden.",
+        );
+        return;
+      }
       const hotel = await api.post<Hotel>("/api/v1/trip-hotels", {
         label: r.label,
         lat: r.lat,
@@ -579,12 +615,15 @@ export function TripPlanner() {
                   <div className="flex items-center gap-2">
                     <span className="shrink-0 text-base leading-none">🏨</span>
                     <div className="min-w-0 flex-1">
-                      <p
-                        className="truncate text-sm text-slate-700 dark:text-slate-200"
-                        title={h.label}
+                      <a
+                        href={mapsPlaceUrl(h.lat, h.lng, h.label)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+                        title={`${h.label} — in Google Maps öffnen`}
                       >
                         {shortLabel(h.label)}
-                      </p>
+                      </a>
                       {h.by && (
                         <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                           von {h.by}
@@ -677,9 +716,15 @@ export function TripPlanner() {
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-slate-700 dark:text-slate-200" title={s.label}>
+                      <a
+                        href={mapsPlaceUrl(s.lat, s.lng, s.label)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+                        title={`${s.label} — in Google Maps öffnen`}
+                      >
                         {shortLabel(s.label)}
-                      </p>
+                      </a>
                       {s.by && (
                         <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                           von {s.by}
