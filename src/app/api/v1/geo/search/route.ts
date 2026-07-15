@@ -29,7 +29,11 @@ export function GET(req: NextRequest) {
     url.searchParams.set("countrycodes", "jp"); // Reiseplaner für Japan
     url.searchParams.set("accept-language", "de,en,ja");
 
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+    // Geocoding ist für gleiche Suche stabil → 1 h serverseitig cachen.
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      next: { revalidate: 3600 },
+    });
     if (!res.ok) throw new ApiError(502, "Geocoding-Dienst nicht erreichbar.");
 
     const data = (await res.json()) as NominatimResult[];

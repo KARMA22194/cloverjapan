@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt, yenFmt } from "@/lib/format";
 
 interface Item {
   id: string;
@@ -12,12 +13,6 @@ interface Item {
   by?: string;
 }
 
-const yenFmt = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "JPY",
-  maximumFractionDigits: 0,
-});
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 export function Wunschliste() {
   const [items, setItems] = useState<Item[]>([]);

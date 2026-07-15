@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt, yenFmt } from "@/lib/format";
 
 interface Flight {
   id: string;
@@ -50,8 +51,6 @@ function overnightDays(dep: string | null, arr: string | null): number {
 type Currency = "EUR" | "JPY";
 
 const FALLBACK_RATE = 0.0058; // JPY→EUR
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const yenFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 // Gespeicherte Zeit ist Wall-Clock als UTC-naiv → immer in UTC formatieren (kein Verschieben).
 const dtFmt = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",

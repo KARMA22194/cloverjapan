@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { deDate, yenFmt } from "@/lib/format";
 
 interface Booking {
   id: string;
@@ -26,11 +27,6 @@ const KINDS: { value: string; label: string; emoji: string }[] = [
 ];
 const kindMeta = (v: string) => KINDS.find((k) => k.value === v) ?? KINDS[KINDS.length - 1];
 
-const yenFmt = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "JPY",
-  maximumFractionDigits: 0,
-});
 
 const inputClass =
   "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
@@ -252,7 +248,7 @@ export function BookingPlanner() {
                       </p>
                       <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                         {meta.label}
-                        {b.date && ` · ${b.date.split("-").reverse().join(".")}`}
+                        {b.date && ` · ${deDate(b.date)}`}
                         {b.time && ` · ${b.time}`}
                         {b.priceYen ? ` · ${yenFmt.format(b.priceYen)}` : ""}
                       </p>

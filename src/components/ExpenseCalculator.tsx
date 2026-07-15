@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt, yenFmt } from "@/lib/format";
 import { resizeImage } from "@/lib/image";
 import { useMembers } from "@/lib/useMembers";
 import {
@@ -17,12 +18,6 @@ const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst aus
 /** Beleg-Bild client-seitig verkleinern → JPEG-Data-URL (max. 1000 px lange Kante). */
 const resizeReceipt = (file: File) => resizeImage(file, { max: 1000, quality: 0.6 });
 
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const yenFmt = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "JPY",
-  maximumFractionDigits: 0,
-});
 
 /** Donut aus Anteilen; 2px-Lücke zwischen Segmenten (Track scheint durch). */
 function Donut({ segments }: { segments: { color: string; frac: number }[] }) {

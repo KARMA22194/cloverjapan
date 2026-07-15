@@ -35,7 +35,11 @@ export function GET(req: NextRequest) {
       `https://router.project-osrm.org/trip/v1/driving/${coordStr}` +
       `?source=first&roundtrip=false&geometries=geojson&overview=full`;
 
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+    // Route für dieselben Punkte ist stabil → 1 h serverseitig cachen.
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      next: { revalidate: 3600 },
+    });
     if (!res.ok) throw new ApiError(502, "Routing-Dienst nicht erreichbar.");
 
     const data = (await res.json()) as {

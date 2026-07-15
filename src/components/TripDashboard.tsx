@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { api } from "@/lib/api/client";
+import { yenFmt } from "@/lib/format";
 
 interface Flight {
   flightNumber: string;
@@ -23,11 +24,6 @@ interface Expense {
   yen: number;
 }
 
-const yenFmt = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "JPY",
-  maximumFractionDigits: 0,
-});
 
 /** Heutiges Datum als YYYY-MM-DD (lokal). */
 function todayStr(): string {

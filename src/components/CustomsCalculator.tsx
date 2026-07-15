@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt } from "@/lib/format";
 
 // Deutscher Reisezoll (Nicht-EU → Deutschland), Stand 2024:
 const ALLOWANCE_PER_PERSON = 430; // € Reisefreimenge für Flug-/Seereisende
@@ -11,7 +12,6 @@ const FLAT_CAP = 700; // € Obergrenze für den Pauschalsatz
 const EUST = 0.19; // Einfuhrumsatzsteuer (Regelsatz)
 const FALLBACK_RATE = 0.0058; // JPY→EUR-Fallback
 
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 // Typische Zollsätze je Warenart (Regel-/Drittlandzoll, gerundet). Nur für die
 // „regulär"-Rechnung über 700 €; im Zweifel beim Zoll prüfen.

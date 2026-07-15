@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt, yenFmt } from "@/lib/format";
 
 interface Stop {
   id: string;
@@ -31,8 +32,6 @@ interface Expense {
   yen: number;
 }
 
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const yenFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 const dtFmt = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
   month: "2-digit",

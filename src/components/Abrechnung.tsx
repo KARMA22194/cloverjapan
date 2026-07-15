@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { eurFmt, yenFmt } from "@/lib/format";
 
 interface Member {
   id: string;
@@ -23,12 +24,6 @@ interface Settlement {
   yen: number;
 }
 
-const yenFmt = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "JPY",
-  maximumFractionDigits: 0,
-});
-const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 export function Abrechnung() {
   const [members, setMembers] = useState<Member[]>([]);

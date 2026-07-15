@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 
 import { api } from "@/lib/api/client";
 import { addExpenseItem } from "@/lib/expenses";
+import { deDate } from "@/lib/format";
 
 interface Stop {
   id: string;
@@ -788,7 +789,7 @@ export function TripPlanner() {
                           title="Reisetag (im Tagesplaner zugeordnet)"
                           className="shrink-0 rounded bg-brand-tint/60 px-1.5 py-0.5 text-xs text-brand-dark dark:bg-brand/20 dark:text-brand-tint"
                         >
-                          📅 {s.date.split("-").reverse().join(".")}
+                          📅 {deDate(s.date)}
                         </span>
                       )}
                     </div>
