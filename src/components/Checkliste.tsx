@@ -11,6 +11,24 @@ interface Item {
   by?: string;
 }
 
+// Typische Punkte für eine Japan-Reise (per Knopf einfügbar).
+const JAPAN_TEMPLATE = [
+  "Reisepass (mind. 6 Monate gültig)",
+  "Visit Japan Web ausgefüllt (Einreise/Zoll)",
+  "Flugtickets / Boarding-Pässe",
+  "Hotel-Buchungsbestätigungen",
+  "Auslandskrankenversicherung",
+  "Bargeld (Yen) + Kreditkarte",
+  "Suica/PASMO (IC-Karte für Bahn)",
+  "Pocket-WiFi oder eSIM",
+  "Steckdosen-Adapter (Typ A, 100 V)",
+  "JR Pass (falls gebucht)",
+  "Powerbank",
+  "Reiseapotheke / Medikamente",
+  "Regenschirm / Regenjacke",
+  "Bequeme Schuhe",
+];
+
 export function Checkliste() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState("");
@@ -44,6 +62,17 @@ export function Checkliste() {
   const remove = (id: string) => save(items.filter((it) => it.id !== id));
   const clearDone = () => save(items.filter((it) => !it.done));
 
+  // Japan-Vorlage anhängen — nur Punkte, die (nach Text) noch nicht existieren.
+  function insertTemplate() {
+    const existing = new Set(items.map((it) => it.text.trim().toLowerCase()));
+    const additions = JAPAN_TEMPLATE.filter((t) => !existing.has(t.toLowerCase())).map((t) => ({
+      id: crypto.randomUUID(),
+      text: t,
+      done: false,
+    }));
+    if (additions.length > 0) save([...items, ...additions]);
+  }
+
   const doneCount = items.filter((it) => it.done).length;
 
   return (
@@ -72,15 +101,24 @@ export function Checkliste() {
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             {items.length === 0 ? "Checkliste" : `${doneCount}/${items.length} erledigt`}
           </span>
-          {doneCount > 0 && (
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={clearDone}
-              className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+              onClick={insertTemplate}
+              className="text-xs text-brand transition hover:underline"
             >
-              Erledigte löschen
+              🇯🇵 Japan-Vorlage einfügen
             </button>
-          )}
+            {doneCount > 0 && (
+              <button
+                type="button"
+                onClick={clearDone}
+                className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+              >
+                Erledigte löschen
+              </button>
+            )}
+          </div>
         </div>
 
         {items.length === 0 ? (
