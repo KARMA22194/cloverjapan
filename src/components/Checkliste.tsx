@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { useMembers } from "@/lib/useMembers";
 
 interface Item {
   id: string;
@@ -10,11 +11,6 @@ interface Item {
   done: boolean;
   by?: string;
   assignee?: string;
-}
-interface Member {
-  id: string;
-  name: string;
-  isMe: boolean;
 }
 
 // Typische Punkte für eine Japan-Reise (per Knopf einfügbar).
@@ -38,16 +34,12 @@ const JAPAN_TEMPLATE = [
 export function Checkliste() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState("");
-  const [members, setMembers] = useState<Member[]>([]);
+  const members = useMembers();
 
   useEffect(() => {
     api
       .get<Item[]>("/api/v1/checklist")
       .then(setItems)
-      .catch(() => {});
-    api
-      .get<{ members: Member[] }>("/api/v1/trip/members")
-      .then((r) => setMembers(r.members))
       .catch(() => {});
   }, []);
 

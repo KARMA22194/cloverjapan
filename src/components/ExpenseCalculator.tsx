@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { resizeImage } from "@/lib/image";
+import { useMembers } from "@/lib/useMembers";
 import {
   EXPENSE_CATEGORIES,
   expenseCategoryMeta,
@@ -13,29 +15,7 @@ import {
 const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst ausfällt
 
 /** Beleg-Bild client-seitig verkleinern → JPEG-Data-URL (max. 1000 px lange Kante). */
-function resizeReceipt(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    reader.onload = () => {
-      const img = document.createElement("img");
-      img.onerror = () => reject(new Error("img"));
-      img.onload = () => {
-        const max = 1000;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("ctx"));
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.6));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+const resizeReceipt = (file: File) => resizeImage(file, { max: 1000, quality: 0.6 });
 
 const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const yenFmt = new Intl.NumberFormat("de-DE", {
@@ -104,7 +84,7 @@ export function ExpenseCalculator() {
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
   const [receiptView, setReceiptView] = useState<string | null>(null);
 
-  const [members, setMembers] = useState<{ id: string; name: string; isMe: boolean }[]>([]);
+  const members = useMembers();
   const [paidById, setPaidById] = useState("");
   const [shared, setShared] = useState(true);
 
@@ -140,17 +120,13 @@ export function ExpenseCalculator() {
       .catch(() => {});
   }, []);
 
-  // Mitglieder für die Zahler-Auswahl laden; Standard = ich selbst.
+  // Standard-Zahler = ich selbst, sobald die Mitglieder geladen sind.
   useEffect(() => {
-    api
-      .get<{ members: { id: string; name: string; isMe: boolean }[] }>("/api/v1/trip/members")
-      .then((r) => {
-        setMembers(r.members);
-        const me = r.members.find((m) => m.isMe);
-        if (me) setPaidById(me.id);
-      })
-      .catch(() => {});
-  }, []);
+    if (!paidById && members.length > 0) {
+      const me = members.find((m) => m.isMe);
+      if (me) setPaidById(me.id);
+    }
+  }, [members, paidById]);
 
   // Budget bleibt lokal (einzelner Wert). Laden beim Start; Speichern im onChange.
   useEffect(() => {

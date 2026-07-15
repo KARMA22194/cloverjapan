@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { useMembers } from "@/lib/useMembers";
 import {
   hasReminderPermission,
   requestReminderPermission,
@@ -16,11 +17,6 @@ interface Task {
   done: boolean;
   by?: string;
   assignee?: string;
-}
-interface Member {
-  id: string;
-  name: string;
-  isMe: boolean;
 }
 
 function todayISO(): string {
@@ -37,7 +33,7 @@ export function TagesPlaner() {
   const [toTrip, setToTrip] = useState<Record<string, "pending" | "done" | "none">>({});
   // Reiseplaner-Stopps, die diesem Tag zugeordnet sind.
   const [dayStops, setDayStops] = useState<{ id: string; label: string }[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const members = useMembers();
 
   function refreshDayStops(d: string) {
     if (!d) return;
@@ -50,10 +46,6 @@ export function TagesPlaner() {
   useEffect(() => {
     setDate(todayISO());
     hasReminderPermission().then(setRemindersOn);
-    api
-      .get<{ members: Member[] }>("/api/v1/trip/members")
-      .then((r) => setMembers(r.members))
-      .catch(() => {});
   }, []);
 
   function assign(id: string, name: string) {

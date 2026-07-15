@@ -21,7 +21,8 @@ export function GET(req: NextRequest) {
 
     const res = await fetch(`https://open.er-api.com/v6/latest/${from}`, {
       headers: { "User-Agent": "TimeTracker/1.0" },
-      cache: "no-store",
+      // Kurs ändert sich täglich → 1 h serverseitig cachen (weniger externe Calls).
+      next: { revalidate: 3600 },
     });
     if (!res.ok) throw new ApiError(502, "Wechselkurs-Dienst nicht erreichbar.");
 

@@ -5,33 +5,10 @@ import { startRegistration } from "@simplewebauthn/browser";
 
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
+import { resizeImage } from "@/lib/image";
 
-/** Bild einlesen, quadratisch auf 128×128 zuschneiden, als JPEG-Data-URL. */
-function resize(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    reader.onload = () => {
-      const img = document.createElement("img");
-      img.onerror = () => reject(new Error("img"));
-      img.onload = () => {
-        const size = 128;
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("ctx"));
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+/** Bild quadratisch auf 128×128 zuschneiden, als JPEG-Data-URL. */
+const resize = (file: File) => resizeImage(file, { max: 128, quality: 0.85, square: true });
 
 export function ProfileForm() {
   const [name, setName] = useState("");
