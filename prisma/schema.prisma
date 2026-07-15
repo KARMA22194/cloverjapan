@@ -41,6 +41,7 @@ model User {
   tripMembership TripMember?
   credentials    Credential[]
   tokens         Token[]
+  expensesPaid   Expense[]   @relation("ExpensePaidBy")
 }
 
 // Einmal-Token für E-Mail-Bestätigung und Passwort-Reset.
@@ -169,12 +170,17 @@ model Expense {
   createdByName String   @default("")
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // Wer die Ausgabe bezahlt hat (für die Abrechnung). null = nicht zugeordnet
+  // (z. B. Altbestand oder Zahler aus der Reise entfernt → SetNull).
+  paidById      String?
+  paidBy        User?    @relation("ExpensePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
   // Optional an einen Flug gekoppelt: der Flugpreis erscheint als Ausgabe und wird
   // beim Löschen des Flugs mitgelöscht (Cascade).
   flightId      String?  @unique
   flight        Flight?  @relation(fields: [flightId], references: [id], onDelete: Cascade)
 
   @@index([tripId])
+  @@index([paidById])
 }
 
 // Ein hinterlegter Flug (pro Reise, mit Mitgliedern geteilt). Details werden per

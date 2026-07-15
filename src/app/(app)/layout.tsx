@@ -21,6 +21,7 @@ export default async function AppLayout({
         { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
         { href: "/fluege", label: "Flüge", match: "/fluege" },
         { href: "/ausgaben", label: "Ausgaben", match: "/ausgaben" },
+        { href: "/abrechnung", label: "Abrechnung", match: "/abrechnung" },
         { href: "/zoll", label: "Zollrechner", match: "/zoll" },
         { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
         { href: "/ablauf", label: "Reiseablauf", match: "/ablauf" },

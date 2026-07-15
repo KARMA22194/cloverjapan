@@ -77,6 +77,9 @@ export function ExpenseCalculator() {
   const [category, setCategory] = useState<ExpenseCategoryValue>("ESSEN");
   const [budget, setBudget] = useState("");
 
+  const [members, setMembers] = useState<{ id: string; name: string; isMe: boolean }[]>([]);
+  const [paidById, setPaidById] = useState("");
+
   // Kurs laden (mit Fallback).
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +109,18 @@ export function ExpenseCalculator() {
     api
       .get<Item[]>("/api/v1/expenses")
       .then(setItems)
+      .catch(() => {});
+  }, []);
+
+  // Mitglieder für die Zahler-Auswahl laden; Standard = ich selbst.
+  useEffect(() => {
+    api
+      .get<{ members: { id: string; name: string; isMe: boolean }[] }>("/api/v1/trip/members")
+      .then((r) => {
+        setMembers(r.members);
+        const me = r.members.find((m) => m.isMe);
+        if (me) setPaidById(me.id);
+      })
       .catch(() => {});
   }, []);
 
@@ -149,6 +164,7 @@ export function ExpenseCalculator() {
         category,
         label: label.trim(),
         yen: Math.round(parsedYen),
+        paidById: paidById || undefined,
       });
       setItems((prev) => [...prev, created]);
       setYenInput("");
@@ -244,6 +260,26 @@ export function ExpenseCalculator() {
               })}
             </div>
           </div>
+
+          {members.length > 1 && (
+            <div className="mt-2">
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                Bezahlt von
+              </label>
+              <select
+                value={paidById}
+                onChange={(e) => setPaidById(e.target.value)}
+                className={inputClass}
+              >
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {m.isMe ? " (ich)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between gap-2">
             <span className="text-sm text-slate-500 dark:text-slate-400">

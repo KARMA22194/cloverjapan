@@ -26,6 +26,7 @@ export default async function StartPage() {
         { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
         { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", emoji: "✈️" },
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
+        { href: "/abrechnung", label: "Abrechnung", desc: "Wer schuldet wem (gleichmäßig geteilt)", emoji: "🧮" },
         { href: "/zoll", label: "Zollrechner", desc: "Einfuhrabgaben für Waren aus Japan", emoji: "🛃" },
         { href: "/tagesplaner", label: "Tagesplaner", desc: "Aufgaben je Tag mit Uhrzeit", emoji: "🗒️" },
         { href: "/ablauf", label: "Reiseablauf", desc: "Flüge, Orte & Aufgaben Tag für Tag", emoji: "📆" },

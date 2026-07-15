@@ -10,6 +10,7 @@ const createBody = z.object({
   category: z.string().min(1).max(40),
   label: z.string().max(200).optional().default(""),
   yen: z.number().int().positive().max(100_000_000),
+  paidById: z.string().max(40).nullish(),
 });
 
 const toDto = (e: {
@@ -19,6 +20,7 @@ const toDto = (e: {
   yen: number;
   createdByName: string;
   createdAt: Date;
+  paidById: string | null;
 }) => ({
   id: e.id,
   category: e.category,
@@ -26,6 +28,7 @@ const toDto = (e: {
   yen: e.yen,
   by: e.createdByName,
   createdAt: e.createdAt.toISOString(),
+  paidById: e.paidById,
 });
 
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */
@@ -43,7 +46,9 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = createBody.parse(await readJson(req));
-    return ok(toDto(await createExpense(tripId, body, user.name)), 201);
+    // Standard-Zahler = der/die Erfassende, falls nicht anders angegeben.
+    const paidById = body.paidById ?? user.id;
+    return ok(toDto(await createExpense(tripId, { ...body, paidById }, user.name)), 201);
   });
 }
 
