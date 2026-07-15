@@ -15,6 +15,12 @@ interface Task {
   text: string;
   done: boolean;
   by?: string;
+  assignee?: string;
+}
+interface Member {
+  id: string;
+  name: string;
+  isMe: boolean;
 }
 
 function todayISO(): string {
@@ -31,6 +37,7 @@ export function TagesPlaner() {
   const [toTrip, setToTrip] = useState<Record<string, "pending" | "done" | "none">>({});
   // Reiseplaner-Stopps, die diesem Tag zugeordnet sind.
   const [dayStops, setDayStops] = useState<{ id: string; label: string }[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
 
   function refreshDayStops(d: string) {
     if (!d) return;
@@ -43,7 +50,16 @@ export function TagesPlaner() {
   useEffect(() => {
     setDate(todayISO());
     hasReminderPermission().then(setRemindersOn);
+    api
+      .get<{ members: Member[] }>("/api/v1/trip/members")
+      .then((r) => setMembers(r.members))
+      .catch(() => {});
   }, []);
+
+  function assign(id: string, name: string) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, assignee: name } : t)));
+    api.patch(`/api/v1/planner-tasks/${id}`, { assigneeName: name }).catch(() => {});
+  }
 
   // Erinnerungen (1 h vorher) neu planen, wenn sich Aufgaben/Datum/Freigabe ändern.
   useEffect(() => {
@@ -234,7 +250,28 @@ export function TagesPlaner() {
                     · {t.by}
                   </span>
                 )}
+                {t.assignee && (
+                  <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
+                    👤 {t.assignee}
+                  </span>
+                )}
               </div>
+              {members.length > 1 && (
+                <select
+                  value={t.assignee ?? ""}
+                  onChange={(e) => assign(t.id, e.target.value)}
+                  aria-label="Zuweisen"
+                  className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1 py-0.5 text-xs text-slate-500 dark:text-slate-400 outline-none focus:border-brand"
+                >
+                  <option value="">— niemand</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                      {m.isMe ? " (ich)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 onClick={() => toReiseplaner(t)}

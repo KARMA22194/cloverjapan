@@ -9,6 +9,12 @@ interface Item {
   text: string;
   done: boolean;
   by?: string;
+  assignee?: string;
+}
+interface Member {
+  id: string;
+  name: string;
+  isMe: boolean;
 }
 
 // Typische Punkte für eine Japan-Reise (per Knopf einfügbar).
@@ -32,23 +38,38 @@ const JAPAN_TEMPLATE = [
 export function Checkliste() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState("");
+  const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     api
       .get<Item[]>("/api/v1/checklist")
       .then(setItems)
       .catch(() => {});
+    api
+      .get<{ members: Member[] }>("/api/v1/trip/members")
+      .then((r) => setMembers(r.members))
+      .catch(() => {});
   }, []);
 
   // Optimistisch aktualisieren + komplette Liste speichern (PUT-Replace).
+  // Zuweisung als assigneeName mitsenden (der Server erwartet dieses Feld).
   function save(next: Item[]) {
     setItems(next);
-    // Antwort enthält den Ersteller-Namen (by) → State damit auffrischen.
     api
-      .put<Item[]>("/api/v1/checklist", { items: next })
+      .put<Item[]>("/api/v1/checklist", {
+        items: next.map((it) => ({
+          id: it.id,
+          text: it.text,
+          done: it.done,
+          assigneeName: it.assignee ?? "",
+        })),
+      })
       .then(setItems)
       .catch(() => {});
   }
+
+  const assign = (id: string, name: string) =>
+    save(items.map((it) => (it.id === id ? { ...it, assignee: name } : it)));
 
   function add(e: React.FormEvent) {
     e.preventDefault();
@@ -148,11 +169,30 @@ export function Checkliste() {
                   {it.text}
                 </span>
                 {it.by && (
-                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">
-                    · {it.by}
+                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">· {it.by}</span>
+                )}
+                {it.assignee && (
+                  <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
+                    👤 {it.assignee}
                   </span>
                 )}
               </div>
+              {members.length > 1 && (
+                <select
+                  value={it.assignee ?? ""}
+                  onChange={(e) => assign(it.id, e.target.value)}
+                  aria-label="Zuweisen"
+                  className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1 py-0.5 text-xs text-slate-500 dark:text-slate-400 outline-none focus:border-brand"
+                >
+                  <option value="">— niemand</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                      {m.isMe ? " (ich)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 onClick={() => remove(it.id)}

@@ -246,6 +246,7 @@ model PlannerTask {
   text          String
   done          Boolean  @default(false)
   createdByName String   @default("")
+  assigneeName  String   @default("") // zugewiesenes Mitglied (Namens-Schnappschuss)
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
@@ -277,6 +278,7 @@ model ChecklistItem {
   done          Boolean  @default(false)
   position      Int
   createdByName String   @default("")
+  assigneeName  String   @default("") // zugewiesenes Mitglied (Namens-Schnappschuss)
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 

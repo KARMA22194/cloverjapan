@@ -18,7 +18,7 @@ export function getAllPlannerTasks(tripId: string) {
 
 export function createPlannerTask(
   tripId: string,
-  input: { dateParam: string; time: string; text: string },
+  input: { dateParam: string; time: string; text: string; assigneeName?: string },
   createdByName: string,
 ) {
   return db.plannerTask.create({
@@ -28,6 +28,7 @@ export function createPlannerTask(
       time: input.time,
       text: input.text.trim(),
       createdByName,
+      assigneeName: input.assigneeName ?? "",
     },
   });
 }
@@ -39,7 +40,7 @@ export function getOwnedPlannerTask(id: string, tripId: string) {
 export async function updatePlannerTaskOwned(
   id: string,
   tripId: string,
-  data: { done?: boolean; text?: string; time?: string },
+  data: { done?: boolean; text?: string; time?: string; assigneeName?: string },
 ) {
   const res = await db.plannerTask.updateMany({ where: { id, tripId }, data });
   return res.count;

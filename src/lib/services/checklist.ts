@@ -8,7 +8,7 @@ export function getChecklist(tripId: string) {
 /** Ersetzt die komplette Checkliste; Ersteller-Name bleibt je id erhalten. */
 export async function replaceChecklist(
   tripId: string,
-  items: { id: string; text: string; done: boolean }[],
+  items: { id: string; text: string; done: boolean; assigneeName?: string }[],
   createdByName: string,
 ) {
   const existing = await db.checklistItem.findMany({
@@ -26,6 +26,7 @@ export async function replaceChecklist(
         done: it.done,
         position: i,
         createdByName: prev.get(it.id) || createdByName,
+        assigneeName: it.assigneeName ?? "",
       })),
     }),
   ]);

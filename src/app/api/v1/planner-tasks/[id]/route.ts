@@ -18,10 +18,16 @@ const patchBody = z
     done: z.boolean().optional(),
     text: z.string().min(1).max(300).optional(),
     time: z.string().max(5).optional(),
+    assigneeName: z.string().max(100).optional(),
   })
-  .refine((d) => d.done !== undefined || d.text !== undefined || d.time !== undefined, {
-    message: "Nichts zu ändern.",
-  });
+  .refine(
+    (d) =>
+      d.done !== undefined ||
+      d.text !== undefined ||
+      d.time !== undefined ||
+      d.assigneeName !== undefined,
+    { message: "Nichts zu ändern." },
+  );
 
 /** PATCH /api/v1/planner-tasks/{id} — Aufgabe ändern (done/text/time). */
 export function PATCH(req: NextRequest, ctx: Ctx) {
@@ -41,6 +47,7 @@ export function PATCH(req: NextRequest, ctx: Ctx) {
       text: t.text,
       done: t.done,
       by: t.createdByName,
+      assignee: t.assigneeName,
     });
   });
 }

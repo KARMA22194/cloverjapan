@@ -10,14 +10,22 @@ const itemSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1).max(300),
   done: z.boolean(),
+  assigneeName: z.string().max(100).optional().default(""),
 });
 const putBody = z.object({ items: z.array(itemSchema).max(500) });
 
-const toDto = (i: { id: string; text: string; done: boolean; createdByName: string }) => ({
+const toDto = (i: {
+  id: string;
+  text: string;
+  done: boolean;
+  createdByName: string;
+  assigneeName: string;
+}) => ({
   id: i.id,
   text: i.text,
   done: i.done,
   by: i.createdByName,
+  assignee: i.assigneeName,
 });
 
 /** GET /api/v1/checklist — Checkliste des aktuellen Nutzers. */
