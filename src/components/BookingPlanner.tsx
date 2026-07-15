@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
 
@@ -54,6 +54,34 @@ export function BookingPlanner() {
       .then(setItems)
       .catch(() => {});
   }, []);
+
+  // Zeitkonflikte: Buchungen mit Datum+Uhrzeit, die am selben Tag < 60 min auseinander liegen.
+  const conflicts = useMemo(() => {
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+    };
+    const byDay = new Map<string, { id: string; min: number }[]>();
+    for (const b of items) {
+      if (!b.date || !b.time) continue;
+      const min = toMin(b.time);
+      if (min === null) continue;
+      const list = byDay.get(b.date) ?? [];
+      list.push({ id: b.id, min });
+      byDay.set(b.date, list);
+    }
+    const set = new Set<string>();
+    for (const list of byDay.values()) {
+      list.sort((a, b) => a.min - b.min);
+      for (let i = 1; i < list.length; i++) {
+        if (list[i].min - list[i - 1].min < 60) {
+          set.add(list[i].id);
+          set.add(list[i - 1].id);
+        }
+      }
+    }
+    return set;
+  }, [items]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -228,6 +256,11 @@ export function BookingPlanner() {
                         {b.time && ` · ${b.time}`}
                         {b.priceYen ? ` · ${yenFmt.format(b.priceYen)}` : ""}
                       </p>
+                      {conflicts.has(b.id) && (
+                        <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                          ⚠ Zeitlich knapp zu einer anderen Buchung am selben Tag
+                        </p>
+                      )}
                       {b.ref && (
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           Nr.: <span className="font-mono">{b.ref}</span>
