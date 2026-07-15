@@ -25,6 +25,7 @@ export default async function StartPage() {
       tiles: [
         { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
         { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", emoji: "✈️" },
+        { href: "/buchungen", label: "Buchungen", desc: "Tickets & Reservierungen mit Nummer", emoji: "🎟️" },
         { href: "/ausgaben", label: "Ausgaben", desc: "Yen → Euro, nach Kategorien", emoji: "💴" },
         { href: "/abrechnung", label: "Abrechnung", desc: "Wer schuldet wem (gleichmäßig geteilt)", emoji: "🧮" },
         { href: "/zoll", label: "Zollrechner", desc: "Einfuhrabgaben für Waren aus Japan", emoji: "🛃" },

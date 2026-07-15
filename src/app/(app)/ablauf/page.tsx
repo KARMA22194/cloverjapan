@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getActiveTripId } from "@/lib/services/trip";
 import { listFlights } from "@/lib/services/flightsService";
+import { listBookings } from "@/lib/services/bookingsService";
 import { getTripStops } from "@/lib/services/tripStops";
 import { getAllPlannerTasks } from "@/lib/services/plannerTasks";
 import { toDateParam } from "@/lib/time";
@@ -12,13 +13,21 @@ export const metadata: Metadata = { title: "Reiseablauf – Clover Japan" };
 
 interface Entry {
   time: string; // "HH:MM" oder ""
-  kind: "flight" | "stop" | "task";
+  kind: "flight" | "stop" | "task" | "booking";
   emoji: string;
   label: string;
   sub?: string;
   done?: boolean;
   href?: string;
 }
+
+const BOOKING_EMOJI: Record<string, string> = {
+  TICKET: "🎟️",
+  RESTAURANT: "🍜",
+  AKTIVITAET: "🎪",
+  TRANSPORT: "🚄",
+  SONSTIGES: "📌",
+};
 
 /** UTC-Uhrzeit (Flug-/Stopp-Zeiten sind als UTC-naive Wall-Clock gespeichert). */
 function utcTime(d: Date): string {
@@ -52,10 +61,11 @@ export default async function AblaufPage() {
   if (!session?.user) redirect("/login");
 
   const tripId = await getActiveTripId(session.user.id);
-  const [flights, stops, tasks] = await Promise.all([
+  const [flights, stops, tasks, bookings] = await Promise.all([
     listFlights(tripId),
     getTripStops(tripId),
     getAllPlannerTasks(tripId),
+    listBookings(tripId),
   ]);
 
   // Einträge nach Tag (YYYY-MM-DD) gruppieren.
@@ -101,6 +111,17 @@ export default async function AblaufPage() {
       emoji: t.done ? "✅" : "⬜",
       label: t.text,
       done: t.done,
+    });
+  }
+
+  for (const b of bookings) {
+    if (!b.date) continue;
+    push(b.date, {
+      time: b.time || "",
+      kind: "booking",
+      emoji: BOOKING_EMOJI[b.kind] ?? "🎟️",
+      label: b.title,
+      sub: b.ref ? `Nr.: ${b.ref}` : undefined,
     });
   }
 

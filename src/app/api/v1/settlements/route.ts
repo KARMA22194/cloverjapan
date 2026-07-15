@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
 import { createSettlement, listSettlements } from "@/lib/services/settlements";
 
-export const settlementBody = z.object({
+const settlementBody = z.object({
   fromId: z.string().min(1).max(40),
   toId: z.string().min(1).max(40),
   fromName: z.string().max(100).optional().default(""),
@@ -14,7 +14,7 @@ export const settlementBody = z.object({
   yen: z.number().int().positive().max(100_000_000),
 });
 
-export const toSettlementDto = (s: {
+const toSettlementDto = (s: {
   id: string;
   fromId: string;
   toId: string;
