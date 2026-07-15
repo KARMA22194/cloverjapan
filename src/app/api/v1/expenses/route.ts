@@ -11,6 +11,7 @@ const createBody = z.object({
   label: z.string().max(200).optional().default(""),
   yen: z.number().int().positive().max(100_000_000),
   paidById: z.string().max(40).nullish(),
+  shared: z.boolean().optional().default(true),
 });
 
 const toDto = (e: {
@@ -21,6 +22,7 @@ const toDto = (e: {
   createdByName: string;
   createdAt: Date;
   paidById: string | null;
+  shared: boolean;
 }) => ({
   id: e.id,
   category: e.category,
@@ -29,6 +31,7 @@ const toDto = (e: {
   by: e.createdByName,
   createdAt: e.createdAt.toISOString(),
   paidById: e.paidById,
+  shared: e.shared,
 });
 
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */

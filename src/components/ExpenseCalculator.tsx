@@ -79,6 +79,7 @@ export function ExpenseCalculator() {
 
   const [members, setMembers] = useState<{ id: string; name: string; isMe: boolean }[]>([]);
   const [paidById, setPaidById] = useState("");
+  const [shared, setShared] = useState(true);
 
   // Kurs laden (mit Fallback).
   useEffect(() => {
@@ -165,6 +166,7 @@ export function ExpenseCalculator() {
         label: label.trim(),
         yen: Math.round(parsedYen),
         paidById: paidById || undefined,
+        shared,
       });
       setItems((prev) => [...prev, created]);
       setYenInput("");
@@ -262,22 +264,36 @@ export function ExpenseCalculator() {
           </div>
 
           {members.length > 1 && (
-            <div className="mt-2">
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                Bezahlt von
-              </label>
-              <select
-                value={paidById}
-                onChange={(e) => setPaidById(e.target.value)}
-                className={inputClass}
+            <div className="mt-2 flex items-end gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Bezahlt von
+                </label>
+                <select
+                  value={paidById}
+                  onChange={(e) => setPaidById(e.target.value)}
+                  className={inputClass}
+                >
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                      {m.isMe ? " (ich)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-xs text-slate-600 dark:text-slate-300"
+                title="Aus: persönliche Ausgabe, wird nicht in die Abrechnung aufgeteilt"
               >
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {m.isMe ? " (ich)" : ""}
-                  </option>
-                ))}
-              </select>
+                <input
+                  type="checkbox"
+                  checked={shared}
+                  onChange={(e) => setShared(e.target.checked)}
+                  className="h-4 w-4 accent-brand"
+                />
+                Auf alle aufteilen
+              </label>
             </div>
           )}
 

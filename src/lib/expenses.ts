@@ -26,6 +26,7 @@ export interface ExpenseItem {
   yen: number;
   by?: string;
   paidById?: string | null;
+  shared?: boolean;
 }
 
 /**

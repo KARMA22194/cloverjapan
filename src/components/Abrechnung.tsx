@@ -12,6 +12,7 @@ interface Member {
 interface Expense {
   yen: number;
   paidById?: string | null;
+  shared?: boolean;
 }
 
 const yenFmt = new Intl.NumberFormat("de-DE", {
@@ -42,9 +43,14 @@ export function Abrechnung() {
 
   const calc = useMemo(() => {
     const memberIds = new Set(members.map((m) => m.id));
-    // Nur zugeordnete Ausgaben zählen (Zahler ist aktuelles Mitglied).
-    const counted = expenses.filter((e) => e.paidById && memberIds.has(e.paidById));
-    const unassigned = expenses.length - counted.length;
+    // Nur geteilte Ausgaben mit zugeordnetem (aktuellem) Zahler fließen in die Aufteilung.
+    const counted = expenses.filter(
+      (e) => e.shared !== false && e.paidById && memberIds.has(e.paidById),
+    );
+    const personal = expenses.filter((e) => e.shared === false).length;
+    const unassigned = expenses.filter(
+      (e) => e.shared !== false && (!e.paidById || !memberIds.has(e.paidById)),
+    ).length;
     const total = counted.reduce((s, e) => s + e.yen, 0);
     const n = members.length;
     const share = n > 0 ? total / n : 0;
@@ -83,7 +89,7 @@ export function Abrechnung() {
       if (creditors[j].amt < 0.5) j++;
     }
 
-    return { total, share, balances, transfers, unassigned };
+    return { total, share, balances, transfers, unassigned, personal };
   }, [members, expenses]);
 
   const eur = (yen: number) => (rate ? eurFmt.format(yen * rate) : null);
@@ -112,8 +118,8 @@ export function Abrechnung() {
         </div>
         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {yenFmt.format(Math.round(calc.share))} pro Person ({members.length} Mitglieder, gleichmäßig geteilt).
-          {calc.unassigned > 0 &&
-            ` ${calc.unassigned} Ausgabe(n) ohne Zahler werden nicht berücksichtigt.`}
+          {calc.personal > 0 && ` ${calc.personal} persönliche Ausgabe(n) nicht aufgeteilt.`}
+          {calc.unassigned > 0 && ` ${calc.unassigned} ohne Zahler nicht berücksichtigt.`}
         </p>
       </div>
 

@@ -6,7 +6,13 @@ export function listExpenses(tripId: string) {
 
 export function createExpense(
   tripId: string,
-  input: { category: string; label: string; yen: number; paidById?: string | null },
+  input: {
+    category: string;
+    label: string;
+    yen: number;
+    paidById?: string | null;
+    shared?: boolean;
+  },
   createdByName: string,
 ) {
   return db.expense.create({
@@ -17,6 +23,7 @@ export function createExpense(
       yen: input.yen,
       createdByName,
       paidById: input.paidById ?? null,
+      shared: input.shared ?? true,
     },
   });
 }
