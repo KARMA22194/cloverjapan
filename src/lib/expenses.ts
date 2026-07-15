@@ -27,6 +27,7 @@ export interface ExpenseItem {
   by?: string;
   paidById?: string | null;
   shared?: boolean;
+  hasReceipt?: boolean;
 }
 
 /**

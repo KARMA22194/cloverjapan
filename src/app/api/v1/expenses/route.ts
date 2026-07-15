@@ -23,6 +23,7 @@ const toDto = (e: {
   createdAt: Date;
   paidById: string | null;
   shared: boolean;
+  receipt: string | null;
 }) => ({
   id: e.id,
   category: e.category,
@@ -32,6 +33,7 @@ const toDto = (e: {
   createdAt: e.createdAt.toISOString(),
   paidById: e.paidById,
   shared: e.shared,
+  hasReceipt: !!e.receipt, // Blob wird nicht in der Liste ausgeliefert (nur bei Bedarf)
 });
 
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */

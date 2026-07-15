@@ -178,6 +178,8 @@ model Expense {
   paidBy        User?    @relation("ExpensePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
   // true = auf alle Mitglieder aufteilen; false = persönlich (nicht in die Abrechnung).
   shared        Boolean  @default(true)
+  // Optionales Beleg-Foto als (verkleinerte) Data-URL.
+  receipt       String?
   // Optional an einen Flug gekoppelt: der Flugpreis erscheint als Ausgabe und wird
   // beim Löschen des Flugs mitgelöscht (Cascade).
   flightId      String?  @unique

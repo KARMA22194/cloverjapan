@@ -33,6 +33,17 @@ export async function deleteExpenseOwned(id: string, tripId: string) {
   return res.count;
 }
 
+/** Beleg-Foto einer eigenen Ausgabe abrufen. */
+export function getExpenseReceipt(id: string, tripId: string) {
+  return db.expense.findFirst({ where: { id, tripId }, select: { receipt: true } });
+}
+
+/** Beleg-Foto setzen/entfernen (null = entfernen); gibt Anzahl betroffener Zeilen zurück. */
+export async function setExpenseReceipt(id: string, tripId: string, receipt: string | null) {
+  const res = await db.expense.updateMany({ where: { id, tripId }, data: { receipt } });
+  return res.count;
+}
+
 export async function clearExpenses(tripId: string) {
   const res = await db.expense.deleteMany({ where: { tripId } });
   return res.count;

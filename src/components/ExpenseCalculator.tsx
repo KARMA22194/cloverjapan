@@ -12,6 +12,31 @@ import {
 
 const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst ausfällt
 
+/** Beleg-Bild client-seitig verkleinern → JPEG-Data-URL (max. 1000 px lange Kante). */
+function resizeReceipt(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read"));
+    reader.onload = () => {
+      const img = document.createElement("img");
+      img.onerror = () => reject(new Error("img"));
+      img.onload = () => {
+        const max = 1000;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("ctx"));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.6));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const yenFmt = new Intl.NumberFormat("de-DE", {
   style: "currency",
@@ -77,6 +102,7 @@ export function ExpenseCalculator() {
   const [category, setCategory] = useState<ExpenseCategoryValue>("ESSEN");
   const [budget, setBudget] = useState("");
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
+  const [receiptView, setReceiptView] = useState<string | null>(null);
 
   const [members, setMembers] = useState<{ id: string; name: string; isMe: boolean }[]>([]);
   const [paidById, setPaidById] = useState("");
@@ -194,6 +220,25 @@ export function ExpenseCalculator() {
   function removeItem(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
     api.delete(`/api/v1/expenses/${id}`).catch(() => {});
+  }
+
+  async function attachReceipt(id: string, file: File) {
+    try {
+      const dataUrl = await resizeReceipt(file);
+      await api.patch(`/api/v1/expenses/${id}`, { receipt: dataUrl });
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, hasReceipt: true } : it)));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function viewReceipt(id: string) {
+    try {
+      const r = await api.get<{ receipt: string | null }>(`/api/v1/expenses/${id}`);
+      if (r.receipt) setReceiptView(r.receipt);
+    } catch {
+      /* ignore */
+    }
   }
 
   function clearAll() {
@@ -386,6 +431,34 @@ export function ExpenseCalculator() {
                   <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-slate-800 dark:text-slate-100">
                     {eurFmt.format(eur(it.yen))}
                   </span>
+                  {it.hasReceipt ? (
+                    <button
+                      type="button"
+                      onClick={() => viewReceipt(it.id)}
+                      title="Beleg ansehen"
+                      aria-label="Beleg ansehen"
+                      className="shrink-0 rounded px-1.5 py-1 text-xs text-brand transition hover:bg-brand/10"
+                    >
+                      📎
+                    </button>
+                  ) : (
+                    <label
+                      title="Beleg anhängen"
+                      className="shrink-0 cursor-pointer rounded px-1.5 py-1 text-xs text-slate-400 transition hover:text-brand dark:text-slate-500"
+                    >
+                      📷
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = "";
+                          if (f) attachReceipt(it.id, f);
+                        }}
+                      />
+                    </label>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeItem(it.id)}
@@ -539,6 +612,32 @@ export function ExpenseCalculator() {
               })}
             </ul>
           </div>
+        </div>
+      )}
+
+      {receiptView && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setReceiptView(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Beleg"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={receiptView}
+            alt="Beleg"
+            className="max-h-[90vh] max-w-full rounded-lg shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setReceiptView(null)}
+            aria-label="Schließen"
+            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-medium text-slate-800 shadow"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>
