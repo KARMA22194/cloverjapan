@@ -164,6 +164,7 @@ export function TripPlanner() {
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const routeRef = useRef<Leaflet.Polyline | null>(null);
   const konbiniRef = useRef<Leaflet.LayerGroup | null>(null);
+  const rainRef = useRef<Leaflet.TileLayer | null>(null);
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -196,6 +197,9 @@ export function TripPlanner() {
   const [konbiniLoading, setKonbiniLoading] = useState(false);
   const [konbiniError, setKonbiniError] = useState<string | null>(null);
   const [hiddenBrands, setHiddenBrands] = useState<Set<KonbiniBrand>>(new Set());
+
+  const [showRain, setShowRain] = useState(false);
+  const [rainError, setRainError] = useState<string | null>(null);
 
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
@@ -255,6 +259,7 @@ export function TripPlanner() {
         mapRef.current = null;
         markersRef.current = null;
         konbiniRef.current = null;
+        rainRef.current = null;
         routeRef.current = null;
       }
     };
@@ -390,6 +395,48 @@ export function TripPlanner() {
       map.setView([myLocation.lat, myLocation.lng], 16);
     }
   }, [myLocation, konbiniMode]);
+
+  // Regenradar-Overlay (RainViewer, keyfrei): jüngstes Radarbild als halbtransparente Kachel.
+  useEffect(() => {
+    const L = LRef.current;
+    const map = mapRef.current;
+    if (!L || !map) return;
+    if (rainRef.current) {
+      rainRef.current.remove();
+      rainRef.current = null;
+    }
+    if (!showRain) {
+      setRainError(null);
+      return;
+    }
+    let cancelled = false;
+    fetch("https://api.rainviewer.com/public/weather-maps.json")
+      .then((r) => r.json())
+      .then((d: { host?: string; radar?: { past?: { path: string }[] } }) => {
+        if (cancelled || !mapRef.current) return;
+        const frames = d.radar?.past ?? [];
+        const frame = frames[frames.length - 1];
+        if (!d.host || !frame?.path) {
+          setRainError("Regenradar gerade nicht verfügbar.");
+          return;
+        }
+        // {host}{path}/256/{z}/{x}/{y}/{color}/{smooth}_{snow}.png (Farbschema 2).
+        const layer = L.tileLayer(`${d.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.6,
+          zIndex: 400,
+          attribution: "Radar &copy; RainViewer",
+        });
+        layer.addTo(mapRef.current);
+        rainRef.current = layer;
+        setRainError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setRainError("Regenradar konnte nicht geladen werden.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showRain, ready]);
 
   // Echten Standort per Browser-Geolocation ermitteln (nur über HTTPS/localhost).
   function locateMe() {
@@ -1078,6 +1125,27 @@ export function TripPlanner() {
                 </div>
               );
             })()}
+        </div>
+
+        {/* Regenradar-Overlay (RainViewer, keyfrei) */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showRain}
+              onChange={(e) => setShowRain(e.target.checked)}
+              className="h-4 w-4 accent-[#009bc9]"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-200">🌧️ Regenradar</span>
+          </label>
+          {showRain && !rainError && (
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              Aktuelles Niederschlagsradar über der Karte — hineinzoomen für Details (RainViewer).
+            </p>
+          )}
+          {rainError && (
+            <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{rainError}</p>
+          )}
         </div>
 
         {/* Zugverbindungen je Etappe (Google Directions, Transit) */}
