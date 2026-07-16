@@ -8,6 +8,7 @@ import { api } from "@/lib/api/client";
 import { Logo } from "@/components/Logo";
 import { Avatar } from "@/components/Avatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { JapanClock } from "@/components/JapanClock";
 
 interface NavLink {
   href: string;
@@ -126,6 +127,7 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
         </div>
 
         <div className="flex items-center gap-3">
+          <JapanClock compact />
           <ThemeToggle />
           <Link
             href="/profil"

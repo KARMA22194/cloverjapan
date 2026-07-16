@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { TripDashboard } from "@/components/TripDashboard";
+import { JapanClock } from "@/components/JapanClock";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -28,7 +29,7 @@ export default async function StartPage() {
         { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", emoji: "✈️" },
         { href: "/programm", label: "Programm", desc: "Reiseablauf, Tagesplaner, Buchungen & Checkliste", emoji: "🗓️" },
         { href: "/geld", label: "Geld", desc: "Ausgaben, Abrechnung, Zoll & Wunschliste", emoji: "💴" },
-        { href: "/info", label: "Info", desc: "Reiseübersicht & Wetter", emoji: "🧭" },
+        { href: "/info", label: "Info", desc: "Übersicht, Wetter & Notfallnummern", emoji: "🧭" },
         { href: "/mitglieder", label: "Mitglieder", desc: "Leute einladen & gemeinsam bearbeiten", emoji: "👥" },
       ],
     },
@@ -54,6 +55,10 @@ export default async function StartPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Wähle einen Bereich.
         </p>
+      </div>
+
+      <div className="sm:max-w-xs md:hidden">
+        <JapanClock />
       </div>
 
       <TripDashboard />

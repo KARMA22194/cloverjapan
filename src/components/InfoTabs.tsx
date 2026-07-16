@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { ReiseUebersicht } from "@/components/ReiseUebersicht";
 import { WeatherBoard } from "@/components/WeatherBoard";
+import { NotfallInfo } from "@/components/NotfallInfo";
 
 const TABS = [
   { key: "uebersicht", label: "Übersicht", emoji: "🧭" },
   { key: "wetter", label: "Wetter", emoji: "☀️" },
+  { key: "notfall", label: "Notfall & Basics", emoji: "🆘" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -56,6 +58,7 @@ export function InfoTabs({ initial }: { initial?: string }) {
 
       {active === "uebersicht" && <ReiseUebersicht />}
       {active === "wetter" && <WeatherBoard />}
+      {active === "notfall" && <NotfallInfo />}
     </div>
   );
 }

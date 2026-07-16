@@ -19,7 +19,7 @@ export default async function InfoPage({
     <div>
       <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Info · Japan</h1>
       <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-        Reiseübersicht und Wetter für Japan.
+        Reiseübersicht, Wetter sowie Notfallnummern &amp; Basics für Japan.
       </p>
       <InfoTabs initial={tab} />
     </div>
