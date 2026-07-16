@@ -5,6 +5,7 @@ import { handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
 import { clearExpenses, createExpense, listExpenses } from "@/lib/services/expensesService";
+import { logActivity } from "@/lib/services/activityService";
 
 const createBody = z.object({
   category: z.string().min(1).max(40),
@@ -53,7 +54,15 @@ export function POST(req: NextRequest) {
     const body = createBody.parse(await readJson(req));
     // Standard-Zahler = der/die Erfassende, falls nicht anders angegeben.
     const paidById = body.paidById ?? user.id;
-    return ok(toDto(await createExpense(tripId, { ...body, paidById }, user.name)), 201);
+    const created = await createExpense(tripId, { ...body, paidById }, user.name);
+    await logActivity({
+      tripId,
+      userId: user.id,
+      userName: user.name,
+      action: "expense.create",
+      summary: created.label || created.category,
+    });
+    return ok(toDto(created), 201);
   });
 }
 

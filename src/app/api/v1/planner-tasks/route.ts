@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
 import { dateParamSchema } from "@/lib/api/schemas";
 import { createPlannerTask, getPlannerTasks } from "@/lib/services/plannerTasks";
+import { logActivity } from "@/lib/services/activityService";
 import { toDateParam } from "@/lib/time";
 
 const createBody = z.object({
@@ -49,15 +50,18 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = createBody.parse(await readJson(req));
-    return ok(
-      toDto(
-        await createPlannerTask(
-          tripId,
-          { dateParam: body.date, time: body.time, text: body.text, assigneeName: body.assigneeName },
-          user.name,
-        ),
-      ),
-      201,
+    const created = await createPlannerTask(
+      tripId,
+      { dateParam: body.date, time: body.time, text: body.text, assigneeName: body.assigneeName },
+      user.name,
     );
+    await logActivity({
+      tripId,
+      userId: user.id,
+      userName: user.name,
+      action: "task.create",
+      summary: created.text,
+    });
+    return ok(toDto(created), 201);
   });
 }

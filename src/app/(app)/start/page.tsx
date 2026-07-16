@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { TripDashboard } from "@/components/TripDashboard";
 import { JapanClock } from "@/components/JapanClock";
+import { ActivityFeed } from "@/components/ActivityFeed";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -62,6 +63,8 @@ export default async function StartPage() {
       </div>
 
       <TripDashboard />
+
+      <ActivityFeed />
 
       {groups.map((group) => (
         <details key={group.title} open className="group/section">

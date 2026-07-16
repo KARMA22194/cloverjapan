@@ -100,6 +100,7 @@ model Trip {
   settlements    Settlement[]
   bookings       Booking[]
   wishlist       WishlistItem[]
+  activities     Activity[]
 }
 
 // Einladung für eine Person OHNE Konto: Token-Link zum Selbst-Registrieren.
@@ -286,6 +287,20 @@ model WishlistItem {
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
+}
+
+// Aktivitäts-Feed: menschenlesbare Ereignisse pro Reise (wer hat was hinzugefügt).
+model Activity {
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String? // Referenz auf den Auslöser (kein harter FK; Name ist Schnappschuss)
+  userName  String   @default("")
+  action    String // Maschinen-Schlüssel, z. B. "booking.create"
+  summary   String // fertige Anzeige, z. B. "teamLab Planets"
+  createdAt DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
 }
 
 model ChecklistItem {

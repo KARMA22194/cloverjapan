@@ -4,6 +4,7 @@ import { handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
 import { createFlight, listFlights } from "@/lib/services/flightsService";
+import { logActivity } from "@/lib/services/activityService";
 import { flightBody, toFlightDto } from "./schema";
 
 /** GET /api/v1/flights — Flüge der aktuellen Reise. */
@@ -21,6 +22,14 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = flightBody.parse(await readJson(req));
-    return ok(toFlightDto(await createFlight(tripId, body, user.name)), 201);
+    const created = await createFlight(tripId, body, user.name);
+    await logActivity({
+      tripId,
+      userId: user.id,
+      userName: user.name,
+      action: "flight.create",
+      summary: created.flightNumber,
+    });
+    return ok(toFlightDto(created), 201);
   });
 }
