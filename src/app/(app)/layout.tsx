@@ -20,13 +20,9 @@ export default async function AppLayout({
       items: [
         { href: "/reiseplaner", label: "Reiseplaner", match: "/reiseplaner" },
         { href: "/fluege", label: "Flüge", match: "/fluege" },
-        { href: "/buchungen", label: "Buchungen", match: "/buchungen" },
+        { href: "/programm", label: "Programm", match: "/programm" },
         { href: "/geld", label: "Geld", match: "/geld" },
-        { href: "/tagesplaner", label: "Tagesplaner", match: "/tagesplaner" },
-        { href: "/ablauf", label: "Reiseablauf", match: "/ablauf" },
-        { href: "/checkliste", label: "Checkliste", match: "/checkliste" },
-        { href: "/wetter", label: "Wetter", match: "/wetter" },
-        { href: "/uebersicht", label: "Übersicht", match: "/uebersicht" },
+        { href: "/info", label: "Info", match: "/info" },
         { href: "/mitglieder", label: "Mitglieder", match: "/mitglieder" },
       ],
     },
@@ -49,7 +45,7 @@ export default async function AppLayout({
         <main className="mx-auto max-w-6xl px-4 py-6">
           <div className="lg:flex lg:items-start lg:gap-6">
             <div className="min-w-0 flex-1">{children}</div>
-            {/* Tokio-Wetter: nur auf Laptop/PC (auf dem Handy gibt es die /wetter-Seite). */}
+            {/* Tokio-Wetter: nur auf Laptop/PC (auf dem Handy gibt es den Info-Bereich). */}
             <aside className="hidden w-64 shrink-0 lg:block print:hidden">
               <div className="sticky top-6">
                 <WeatherWidget />

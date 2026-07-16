@@ -128,7 +128,7 @@ export function TripDashboard() {
       </div>
 
       {/* Als Nächstes */}
-      <Link href="/ablauf" className={`${card} transition hover:border-brand`}>
+      <Link href="/programm?tab=ablauf" className={`${card} transition hover:border-brand`}>
         <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           Als Nächstes
         </p>
@@ -178,7 +178,7 @@ export function TripDashboard() {
       </Link>
 
       {/* Checkliste */}
-      <Link href="/checkliste" className={`${card} transition hover:border-brand`}>
+      <Link href="/programm?tab=checkliste" className={`${card} transition hover:border-brand`}>
         <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           Checkliste
         </p>

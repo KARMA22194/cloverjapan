@@ -78,7 +78,7 @@ export function WeatherWidget() {
           )}
 
           <Link
-            href="/wetter"
+            href="/info?tab=wetter"
             className="mt-3 block text-xs font-medium text-brand hover:underline"
           >
             Alle Vorhersagen →

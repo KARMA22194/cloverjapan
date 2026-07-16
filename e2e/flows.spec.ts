@@ -38,7 +38,7 @@ test.describe("Kern-Flows (Japan)", () => {
 
   test("Wetter zeigt mehrere Städte", async ({ page }) => {
     await login(page);
-    await page.goto("/wetter");
+    await page.goto("/info?tab=wetter");
     for (const city of ["Tokio", "Kyoto", "Osaka", "Sapporo", "Fukuoka"]) {
       await expect(page.getByRole("heading", { name: city })).toBeVisible();
     }
