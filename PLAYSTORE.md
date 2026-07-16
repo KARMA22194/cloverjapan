@@ -69,7 +69,7 @@ npx cap sync android            # Config + Plugins übernehmen
 ## 4. App-Name, Package-ID, Icon, Berechtigungen
 - **Anzeigename** (unter dem Icon) kommt aus `appName: "Clover Japan"` →
   landet in `android/app/src/main/res/values/strings.xml` als `app_name`.
-- **Package-ID / applicationId:** aktuell `de.etikett.timetracker`
+- **Package-ID / applicationId:** aktuell `app.clover.japan`
   (`android/app/build.gradle`). Muss **weltweit eindeutig** und **unveränderlich**
   sein. Empfehlung: etwas Eindeutiges wie `de.deinname.cloverjapan`.
 - **Version:** in `android/app/build.gradle` → `versionCode` (Integer, bei jedem

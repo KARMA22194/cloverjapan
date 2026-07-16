@@ -6,7 +6,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 //   - Lokaler Test: server.url = http://<LAN-IP-deines-Rechners>:3000 (NICHT localhost,
 //     das wäre das Gerät selbst) + cleartext: true.
 const config: CapacitorConfig = {
-  appId: "de.etikett.timetracker",
+  appId: "app.clover.japan",
   // Name unter dem App-Icon (Homescreen). Store-Titel „CloverJapanPlaner" wird
   // separat in App Store Connect / Play Console gesetzt.
   appName: "Clover Japan",
