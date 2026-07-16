@@ -20,31 +20,18 @@ export default async function KofferFinderPage({
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
       <Logo height={72} />
       {!tag ? (
-        <p className="text-slate-600 dark:text-slate-300">
-          Dieser Kofferanhänger ist unbekannt oder wurde entfernt.
-        </p>
+        <div className="space-y-1 text-slate-600 dark:text-slate-300">
+          <p>Dieser Kofferanhänger ist unbekannt oder wurde entfernt.</p>
+          <p>This luggage tag is unknown or has been removed.</p>
+          <p>この荷物タグは無効か、削除されています。</p>
+        </div>
       ) : (
-        <>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-              Danke, dass du hilfst! 🙏
-            </h1>
-            <p className="text-slate-700 dark:text-slate-200">
-              Dieser Koffer gehört <strong>{tag.ownerName}</strong>.
-            </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">🧳 „{tag.label}"</p>
-            <p className="pt-2 text-sm text-slate-500 dark:text-slate-400">
-              Wenn du magst, teile kurz deinen Standort – {tag.ownerName} bekommt ihn sofort und
-              kann den Koffer zurückholen.
-            </p>
-          </div>
-          <LuggageFinder
-            token={tag.token}
-            label={tag.label}
-            ownerName={tag.ownerName}
-            whatsapp={tag.whatsapp}
-          />
-        </>
+        <LuggageFinder
+          token={tag.token}
+          label={tag.label}
+          ownerName={tag.ownerName}
+          whatsapp={tag.whatsapp}
+        />
       )}
     </main>
   );
