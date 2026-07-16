@@ -78,6 +78,8 @@ export function ExpenseCalculator() {
   const [budget, setBudget] = useState("");
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
   const [receiptView, setReceiptView] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState<string | null>(null);
 
   const members = useMembers();
   const [paidById, setPaidById] = useState("");
@@ -180,7 +182,14 @@ export function ExpenseCalculator() {
         paidById: paidById || undefined,
         shared,
       });
-      setItems((prev) => [...prev, created]);
+      // Gescanntes Beleg-Foto automatisch an die neue Ausgabe hängen.
+      let item = created;
+      if (pendingReceipt) {
+        await api.patch(`/api/v1/expenses/${created.id}`, { receipt: pendingReceipt }).catch(() => {});
+        item = { ...created, hasReceipt: true };
+        setPendingReceipt(null);
+      }
+      setItems((prev) => [...prev, item]);
       setYenInput("");
       setLabel("");
     } catch {
@@ -191,6 +200,25 @@ export function ExpenseCalculator() {
   function removeItem(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
     api.delete(`/api/v1/expenses/${id}`).catch(() => {});
+  }
+
+  async function scanReceipt(file: File) {
+    setScanning(true);
+    try {
+      const dataUrl = await resizeReceipt(file);
+      const r = await api.post<{ yen: number; category: ExpenseCategoryValue; label: string }>(
+        "/api/v1/expenses/scan",
+        { image: dataUrl },
+      );
+      if (r.yen > 0) setYenInput(String(r.yen));
+      setCategory(r.category);
+      if (r.label) setLabel(r.label);
+      setPendingReceipt(dataUrl); // wird beim Speichern automatisch angehängt
+    } catch {
+      /* Fehlermeldung (z. B. kein API-Key) erscheint als Toast */
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function attachReceipt(id: string, file: File) {
@@ -243,6 +271,29 @@ export function ExpenseCalculator() {
           onSubmit={addItem}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
         >
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20">
+              📸 {scanning ? "Beleg wird gelesen…" : "Beleg scannen"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                disabled={scanning}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) scanReceipt(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {pendingReceipt && (
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                Foto wird angehängt ✓
+              </span>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <div className="w-32">
               <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
