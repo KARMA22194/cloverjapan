@@ -3,11 +3,11 @@ import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "CloverJapanPlaner",
-  description: "Zeiterfassung & Japan-Reiseplaner",
+  title: "Clover Japan",
+  description: "Kollaborativer Japan-Reiseplaner",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Clover Japan" },
-  icons: { apple: "/icon-192.png" },
+  // Icons kommen aus den Datei-Konventionen (src/app/{favicon.ico,icon.png,apple-icon.png}).
 };
 
 export const viewport: Viewport = {

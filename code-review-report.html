@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code-Review — Clover Japan</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --text:#1a2230; --muted:#5b6676;
+    --border:#e2e8f0; --brand:#009BC9; --brand-dark:#0A314C; --accent:#F87805;
+    --crit:#b91c1c; --high:#dc2626; --med:#d97706; --low:#2563eb; --info:#64748b;
+    --crit-bg:#fef2f2; --high-bg:#fef2f2; --med-bg:#fffbeb; --low-bg:#eff6ff; --info-bg:#f1f5f9;
+    --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0b1220; --card:#131c2b; --text:#e6edf6; --muted:#9aa7b8;
+      --border:#243244; --brand:#33b5da; --brand-dark:#B9E7F7; --accent:#ff9840;
+      --crit-bg:#3a1414; --high-bg:#3a1414; --med-bg:#3a2a0e; --low-bg:#132133; --info-bg:#1a2432;
+      --crit:#f87171; --high:#f87171; --med:#fbbf24; --low:#60a5fa; --info:#94a3b8;
+      --shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --card:#131c2b; --text:#e6edf6; --muted:#9aa7b8;
+    --border:#243244; --brand:#33b5da; --brand-dark:#B9E7F7; --accent:#ff9840;
+    --crit-bg:#3a1414; --high-bg:#3a1414; --med-bg:#3a2a0e; --low-bg:#132133; --info-bg:#1a2432;
+    --crit:#f87171; --high:#f87171; --med:#fbbf24; --low:#60a5fa; --info:#94a3b8;
+    --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f7fa; --card:#ffffff; --text:#1a2230; --muted:#5b6676;
+    --border:#e2e8f0; --brand:#009BC9; --brand-dark:#0A314C; --accent:#F87805;
+    --crit:#b91c1c; --high:#dc2626; --med:#d97706; --low:#2563eb; --info:#64748b;
+    --crit-bg:#fef2f2; --high-bg:#fef2f2; --med-bg:#fffbeb; --low-bg:#eff6ff; --info-bg:#f1f5f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:2rem 1.25rem 4rem}
+  header.hero{background:linear-gradient(135deg,var(--brand),#0077a3);color:#fff;
+    border-radius:16px;padding:2rem 1.75rem;margin-bottom:1.75rem;box-shadow:var(--shadow)}
+  @media (prefers-color-scheme:dark){header.hero{background:linear-gradient(135deg,#0a4a63,#08303f)}}
+  header.hero h1{margin:0 0 .35rem;font-size:1.9rem;letter-spacing:-.02em}
+  header.hero p{margin:.15rem 0;opacity:.92;font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+  .meta span{background:rgba(255,255,255,.16);padding:.25rem .7rem;border-radius:999px;font-size:.8rem}
+  .summary{background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:1.25rem 1.5rem;margin-bottom:1.5rem;box-shadow:var(--shadow)}
+  .summary h2{margin-top:0}
+  .counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.75rem;margin-top:1rem}
+  .count{border-radius:12px;padding:.85rem;text-align:center;border:1px solid var(--border)}
+  .count .n{font-size:1.8rem;font-weight:700;line-height:1}
+  .count .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;margin-top:.35rem;opacity:.8}
+  .c-crit{background:var(--crit-bg)} .c-crit .n{color:var(--crit)}
+  .c-high{background:var(--high-bg)} .c-high .n{color:var(--high)}
+  .c-med{background:var(--med-bg)} .c-med .n{color:var(--med)}
+  .c-low{background:var(--low-bg)} .c-low .n{color:var(--low)}
+  .c-info{background:var(--info-bg)} .c-info .n{color:var(--info)}
+  section.agent{margin-bottom:1.75rem}
+  section.agent > h2{display:flex;align-items:center;gap:.6rem;font-size:1.3rem;
+    padding-bottom:.5rem;border-bottom:2px solid var(--border);margin-bottom:1rem}
+  .agent-sub{color:var(--muted);font-size:.88rem;font-weight:400;margin-left:auto}
+  .finding{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--info);
+    border-radius:10px;padding:1rem 1.1rem;margin-bottom:.9rem;box-shadow:var(--shadow)}
+  .finding.sev-Kritisch{border-left-color:var(--crit)}
+  .finding.sev-Hoch{border-left-color:var(--high)}
+  .finding.sev-Mittel{border-left-color:var(--med)}
+  .finding.sev-Niedrig{border-left-color:var(--low)}
+  .finding.sev-Info{border-left-color:var(--info)}
+  .finding h3{margin:0 0 .4rem;font-size:1.02rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+  .badge{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    padding:.15rem .5rem;border-radius:6px;white-space:nowrap}
+  .b-Kritisch{background:var(--crit);color:#fff}
+  .b-Hoch{background:var(--high);color:#fff}
+  .b-Mittel{background:var(--med);color:#fff}
+  .b-Niedrig{background:var(--low);color:#fff}
+  .b-Info{background:var(--info);color:#fff}
+  .finding .loc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.8rem;color:var(--brand);background:var(--info-bg);padding:.1rem .4rem;
+    border-radius:5px;word-break:break-all}
+  .finding p{margin:.5rem 0 0;font-size:.92rem}
+  .finding .rec{margin-top:.55rem;font-size:.9rem;padding:.55rem .7rem;background:var(--info-bg);
+    border-radius:8px}
+  .finding .rec strong{color:var(--brand)}
+  .cross{background:linear-gradient(135deg,rgba(248,120,4,.1),transparent);
+    border:1px solid var(--accent);border-radius:14px;padding:1.1rem 1.4rem;margin-bottom:1.75rem}
+  .cross h2{margin-top:0;color:var(--accent)}
+  .cross ul{margin:.5rem 0 0;padding-left:1.2rem}
+  .cross li{margin-bottom:.4rem;font-size:.92rem}
+  .positive{background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:1.1rem 1.4rem;box-shadow:var(--shadow)}
+  .positive h2{margin-top:0;color:#16a34a}
+  @media (prefers-color-scheme:dark){.positive h2{color:#4ade80}}
+  .positive ul{margin:.5rem 0 0;padding-left:1.2rem;columns:2;column-gap:1.5rem}
+  .positive li{margin-bottom:.4rem;font-size:.88rem;break-inside:avoid}
+  @media (max-width:640px){.positive ul{columns:1}}
+  footer{margin-top:2.5rem;text-align:center;color:var(--muted);font-size:.8rem}
+  .note{font-size:.82rem;color:var(--muted);font-style:italic;margin-top:.5rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>🍀 Code-Review — Clover Japan</h1>
+    <p>Kollaborativer Japan-Reiseplaner · Next.js 15 · Prisma · Auth.js</p>
+    <p>Automatisiertes Review durch 5 spezialisierte Agenten — nur Analyse, keine Änderungen am Code.</p>
+    <div class="meta">
+      <span>📅 14.07.2026</span>
+      <span>🔍 5 Review-Dimensionen</span>
+      <span>🌿 Branch: main</span>
+      <span>🏨 Schwerpunkt: uncommittetes „trip-hotel"-Feature</span>
+    </div>
+  </header>
+
+  <div class="summary">
+    <h2>Gesamteinschätzung</h2>
+    <p>Die Grundarchitektur ist <strong>solide und idiomatisch</strong>: durchgängige Ownership-Checks
+    (<code>updateMany</code>/<code>deleteMany</code> mit <code>{ id, tripId }</code>), dünne Route-Handler über eine
+    saubere Service-Schicht, Zod-Validierung, DTOs ohne Datenleck, echter SSRF-Filter und atomare Einmal-Token.
+    <strong>Keine kritischen Lücken</strong> (kein Auth-Bypass, keine Injection, keine Secret-Leaks).</p>
+    <p>Der Handlungsbedarf konzentriert sich auf das neue <strong>trip-hotel-Feature</strong> (Client-seitig noch
+    nicht merge-reif) sowie einige <strong>Security-Härtungen</strong> (CSP, Rate-Limiting).</p>
+    <div class="counts">
+      <div class="count c-crit"><div class="n">0</div><div class="l">Kritisch</div></div>
+      <div class="count c-high"><div class="n">0</div><div class="l">Hoch</div></div>
+      <div class="count c-med"><div class="n">6</div><div class="l">Mittel</div></div>
+      <div class="count c-low"><div class="n">9</div><div class="l">Niedrig</div></div>
+      <div class="count c-info"><div class="n">8</div><div class="l">Info</div></div>
+    </div>
+    <p class="note">Zusammengeführte, deduplizierte Findings. Mehrere Agenten haben dieselben Kernpunkte
+    unabhängig bestätigt (siehe „Von mehreren Agenten bestätigt").</p>
+  </div>
+
+  <div class="cross">
+    <h2>⚡ Von mehreren Agenten bestätigt (Top-Prioritäten)</h2>
+    <ul>
+      <li><strong>Regression bei der Reisetag-Zuweisung</strong> — von Korrektheit- <em>und</em> Trip-Hotel-Agent gefunden. Das Datumsfeld erscheint nur noch, wenn bereits ein Datum gesetzt ist → neue Zuweisung im Reiseplaner nicht mehr möglich, nicht rückgängig machbar.</li>
+      <li><strong>Silent-Fail bei optimistischen Mutationen</strong> — von 3 Agenten (Korrektheit, Trip-Hotel, Performance) gemeldet. <code>.catch(() =&gt; {})</code> ohne Rollback/Feedback → UI driftet in einer geteilten Reise dauerhaft von der DB ab.</li>
+      <li><strong>Scope-Creep im Feature-Diff</strong> — fremde Änderungen (Stopp-Listen-Umbau, Transit-Hinweistext) gehören nicht zur Hotel-PR und sollten getrennt werden.</li>
+      <li><strong>Fehlende Check-in ≤ Check-out-Validierung &amp; Position-Race</strong> — von 3+ Agenten übereinstimmend als niedrigprior bestätigt.</li>
+    </ul>
+  </div>
+
+  <!-- SECURITY -->
+  <section class="agent">
+    <h2>🔒 Security <span class="agent-sub">Auth · Autorisierung · SSRF · CSP · Rate-Limiting</span></h2>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> IP-Rate-Limiting über <code>X-Forwarded-For</code> fälschbar</h3>
+      <span class="loc">src/lib/rate.ts:52-56</span>
+      <p><code>clientIp</code> nimmt ungeprüft den ersten Wert des client-kontrollierten Headers. Registrierungs- (5/h) und Passwort-forgot-Limits (5/h) lassen sich durch Rotieren des Headers trivial umgehen.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Nur einer bekannten Proxy-Kette vertrauen (Hop-Anzahl konfigurieren) bzw. Socket-Peer-IP nutzen. Header nie ungefiltert als Limit-Schlüssel.</div>
+    </div>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> CSP erlaubt <code>'unsafe-inline'</code> in <code>script-src</code> (auch Prod)</h3>
+      <span class="loc">next.config.ts:15,22</span>
+      <p>Der zentrale XSS-Schutz der CSP ist damit praktisch ausgehebelt — ein injizierter Inline-Script würde ausgeführt. Grund: FOUC-Theme-Script, Leaflet, Swagger.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Nonce-/Hash-basierte CSP. Statisches Theme-Init-Script per SHA-256-Hash aufnehmen, Rest per Pro-Request-Nonce; danach <code>'unsafe-inline'</code> in Prod entfernen.</div>
+    </div>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> <code>geo/resolve</code>: Server-Fetch beliebiger URLs ohne Rate-Limit</h3>
+      <span class="loc">src/app/api/v1/geo/resolve/route.ts:23-58 · src/lib/net.ts:16-17</span>
+      <p>Anders als Schwester-Endpunkte (flights/lookup, from-text) hat <code>resolve</code> kein Rate-Limit. Zusammen mit dem dokumentierten DNS-Rebinding-Restrisiko ein brauchbarer Outbound-Request-/Scanning-Vektor.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Rate-Limit ergänzen (z. B. <code>resolve:&lt;userId&gt;</code> 30/min); optional aufgelöste IP pinnen (schließt Rebinding).</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Login-Rate-Limit nur pro E-Mail → Account-Lockout-DoS</h3>
+      <span class="loc">src/auth.ts:35</span>
+      <p>10 Fehlversuche/15 min pro E-Mail: Angreifer kann ein fremdes Konto gezielt 15 min sperren; keine IP-übergreifende Drossel gegen verteiltes Spraying.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Zusätzlich pro IP drosseln, exponentielles Backoff, erfolgreicher Login setzt Zähler zurück.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Flaches Trip-Berechtigungsmodell</h3>
+      <span class="loc">trip/members/[userId]/route.ts · trip-stops/route.ts · expenses/route.ts</span>
+      <p>Jedes Mitglied kann jedes andere (inkl. Ersteller) entfernen, die komplette Stopp-Liste ersetzen und alle Ausgaben löschen. Kein Owner-/Rollen-Konzept je Reise, kein Audit.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Owner-/Manager-Rolle je Reise; destruktive Bulk-Ops und Fremd-Entfernung darauf beschränken.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Passkey-Login mit <code>userVerification: "preferred"</code></h3>
+      <span class="loc">passkey/auth/options/route.ts:12 · src/auth.ts:81-91</span>
+      <p>Für einen alleinigen Login-Faktor zu schwach — Authenticator darf ohne PIN/Biometrie authentifizieren.</p>
+      <div class="rec"><strong>Empfehlung:</strong> <code>"required"</code> in Options <em>und</em> <code>requireUserVerification: true</code> bei der Verifikation.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Seed legt Admin mit schwachem Passwort an — kein Prod-Guard</h3>
+      <span class="loc">prisma/seed.ts:7,29</span>
+      <p><code>admin@clover.japan</code> mit öffentlich dokumentiertem <code>password123</code>; ein versehentlicher Prod-Seed stellt sofort ein Trivial-Admin-Konto bereit.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Seed auf <code>NODE_ENV !== "production"</code> beschränken.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Prod ohne SMTP: Verify-/Invite-Link direkt in API-Antwort</h3>
+      <span class="loc">register/route.ts:46-53</span>
+      <p>Der Dev-Fallback liefert den Verify-Token in der HTTP-Antwort. In Prod ohne SMTP wird E-Mail-Verifikation wirkungslos und offene Registrierung ungebremst.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Fallback strikt an <code>NODE_ENV !== "production"</code> koppeln; in Prod ohne SMTP hart fehlschlagen.</div>
+    </div>
+
+    <div class="finding sev-Info">
+      <h3><span class="badge b-Info">Info</span> Weitere Härtungen</h3>
+      <p><strong>I1:</strong> <code>requireUser</code> prüft <code>emailVerified</code> nicht frisch (Doku-Abweichung, session.ts:26-29). ·
+      <strong>I2:</strong> CSP <code>connect-src</code>/<code>img-src</code> erlauben beliebige <code>https:</code>-Hosts. ·
+      <strong>I3:</strong> Profilbild akzeptiert <code>data:image/svg+xml</code> (me/route.ts). ·
+      <strong>I4:</strong> E-Mail-Bestätigung per GET durch Link-Scanner auslösbar. ·
+      <strong>I5:</strong> Passwort-Policy inkonsistent (Admin min 6 vs. sonst min 8).</p>
+    </div>
+  </section>
+
+  <!-- KORREKTHEIT -->
+  <section class="agent">
+    <h2>🐛 Korrektheit <span class="agent-sub">Logikfehler · Edge-Cases · Races</span></h2>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> Regression: Reisetag im Reiseplaner nicht mehr zuweisbar</h3>
+      <span class="loc">src/components/TripPlanner.tsx:681,691</span>
+      <p>Das Datums-<code>&lt;input&gt;</code> wird nur noch gerendert, wenn <code>s.date</code> schon gesetzt ist. Neu angelegte Stopps (Ortssuche) haben nie ein Datum → Feld fehlt. Leert man ein Datum, verschwindet das Feld und lässt sich nicht wieder einblenden. Widerspricht der dokumentierten Funktion „Reisetag zuordnen".</p>
+      <div class="rec"><strong>Empfehlung:</strong> Input unabhängig von <code>s.date</code> immer rendern — oder, falls bewusst in den Tagesplaner verlagert, Doku anpassen und Feld sauber entfernen (nicht Halbzustand).</div>
+    </div>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> Hotel-Speichern schlägt bei langem Nominatim-Label fehl (400)</h3>
+      <span class="loc">TripPlanner.tsx:353-360 · trip-hotels/schema.ts:12</span>
+      <p><code>addHotel</code> postet das ungekürzte <code>r.label</code>. Nominatim liefert oft &gt;200 Zeichen → <code>label.max(200)</code> wirft ZodError → 400. Nutzer sieht „Konnte keine Unterkunft ermitteln", obwohl der Ort gefunden wurde.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Label vor dem Speichern kürzen (<code>shortLabel</code>) oder serverseitig truncaten statt hart abzulehnen.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Optimistische Updates ohne Rollback bei Serverfehler</h3>
+      <span class="loc">TripPlanner.tsx:366-374 (setHotelDates, removeHotel)</span>
+      <p><code>.catch(() =&gt; {})</code> verschluckt Fehler. In geteilter Reise (Hotel parallel schon gelöscht → 404) driftet die UI still von der DB ab.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Bei Fehler vorherigen State wiederherstellen und Meldung anzeigen.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Keine Plausibilitätsprüfung Check-in ≤ Check-out</h3>
+      <span class="loc">trip-hotels/schema.ts:11-19</span>
+      <p>Nur Format <code>YYYY-MM-DD</code> geprüft; ein Check-out vor Check-in ist speicherbar.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Zod-<code>.refine()</code> (bei PATCH ggf. gegen bestehenden Wert im Service prüfen).</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Position-Race in <code>addTripHotel</code> (count-then-create)</h3>
+      <span class="loc">src/lib/services/tripHotels.ts:16-29</span>
+      <p><code>count()</code> + <code>create()</code> nicht atomar; parallele POSTs erhalten dieselbe <code>position</code>. Kein Datenverlust, nur mehrdeutige Sortierung. Gleiches Muster wie <code>addTripStop</code>.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Tolerabel für MVP; sonst Tie-Breaker <code>orderBy: [{position},{id}]</code> oder Transaktion.</div>
+    </div>
+  </section>
+
+  <!-- TRIP-HOTEL FEATURE -->
+  <section class="agent">
+    <h2>🏨 Trip-Hotel-Feature <span class="agent-sub">Das uncommittete Feature end-to-end</span></h2>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> Fremde Änderungen im Feature-Diff (Scope-Creep)</h3>
+      <span class="loc">TripPlanner.tsx:690-702 (Stopp-Layout) · :757 (Transit-Text)</span>
+      <p>Der Zwei-Zeilen-Umbau der Stopp-Liste und die Reduktion des Transit-Hinweises gehören nicht zum Hotel-Feature, sind aber im selben Diff.</p>
+      <div class="rec"><strong>Empfehlung:</strong> In separate Commits/PRs auslagern, damit der Diff auf „trip-hotel" fokussiert bleibt.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Leerer PATCH-Body ist gültig → sinnloser Update</h3>
+      <span class="loc">trip-hotels/schema.ts:19 · tripHotels.ts:38</span>
+      <p>Beide Felder <code>nullish</code> → <code>{}</code>-Body passiert Validierung → <code>updateMany(data:{})</code>, No-Op mit 200.</p>
+      <div class="rec"><strong>Empfehlung:</strong> <code>.refine(v =&gt; v.checkIn !== undefined || v.checkOut !== undefined)</code>.</div>
+    </div>
+
+    <div class="finding sev-Info">
+      <h3><span class="badge b-Info">Info</span> Fehlende Tests / Seed</h3>
+      <p>Kein E2E-/Playwright-Happy-Path für Hotels, kein Seed-Beispiel. (OpenAPI-Registrierung fehlt bewusst — konsistent mit „Trip-basierte Endpunkte nicht registriert".)</p>
+      <div class="rec"><strong>Empfehlung:</strong> Mindestens einen E2E: Hotel hinzufügen → Marker → löschen.</div>
+    </div>
+
+    <div class="finding sev-Info">
+      <h3><span class="badge b-Info">Info</span> Fazit des Feature-Reviews</h3>
+      <p><strong>Backend</strong> (Modell, Migration <code>onDelete: Cascade</code> + Index, Service, API, Tenant-Isolation, DTO) ist sauber und <strong>merge-reif</strong>. Der <strong>Client-Teil ist noch nicht merge-reif</strong>: Blocker sind die Reisetag-Regression und die verschluckte Fehlerbehandlung. Nach deren Behebung (und Auslagern der fremden Änderungen) ist das Feature freigabefähig.</p>
+    </div>
+  </section>
+
+  <!-- ARCHITEKTUR -->
+  <section class="agent">
+    <h2>🏗️ Architektur <span class="agent-sub">REST/Service-Schicht · DTO · Konsistenz</span></h2>
+
+    <div class="finding sev-Mittel">
+      <h3><span class="badge b-Mittel">Mittel</span> <code>hotelToStop</code> persistiert gekürztes Label</h3>
+      <span class="loc">src/components/TripPlanner.tsx:377-378</span>
+      <p>Beim „Hotel → Stopp"-Weg wird <code>shortLabel(h.label)</code> (reine Anzeige-Hilfe) <em>gespeichert</em>. Alle anderen Pfade speichern das volle Label und kürzen erst beim Rendern → hier geht der vollständige Name dauerhaft verloren.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Volles Label speichern, Kürzung dem Rendering (<code>shortLabel</code>) überlassen.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> <code>TripHotel.id</code> per <code>randomUUID()</code> statt <code>@default(cuid())</code></h3>
+      <span class="loc">prisma/schema.prisma:149 · tripHotels.ts:19</span>
+      <p>Hotels werden nur server-seitig per POST angelegt (keine ID-Stabilität wie bei client-generierten <code>TripStop</code>-IDs nötig). Alle vergleichbaren Modelle (<code>Expense</code>, <code>Flight</code>, …) nutzen <code>@default(cuid())</code>.</p>
+      <div class="rec"><strong>Empfehlung:</strong> <code>@default(cuid())</code> im Schema, <code>randomUUID()</code> im Service streichen — vereinheitlicht ID-Format.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Zwei Konventionen für Zod/DTO + dreifach dupliziertes <code>dateStr</code></h3>
+      <span class="loc">trip-hotels/schema.ts vs. trip-stops/route.ts:9-37</span>
+      <p>trip-hotels lagert Schemas in <code>schema.ts</code> aus, trip-stops hält sie inline. <code>dateStr</code> ist in 3 Dateien dupliziert.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Muster projektweit vereinheitlichen; <code>dateStr</code> in gemeinsamen Helfer (<code>src/lib/api/</code>) ziehen.</div>
+    </div>
+
+    <div class="finding sev-Info">
+      <h3><span class="badge b-Info">Info</span> Kleinere Punkte</h3>
+      <p>Stale Datei-Kopfkommentar in <code>prisma/schema.prisma:1-2</code> („Time Tracker" / <code>Project/Assignment/TimeEntry</code> existieren nicht mehr). Fehlende Check-out ≥ Check-in-Regel (Best-Practice-Ergänzung).</p>
+    </div>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section class="agent">
+    <h2>⚡ Performance &amp; Dependencies <span class="agent-sub">Bundles · Queries · package.json · a11y</span></h2>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Tailwind-Versionen per Caret statt exakt gepinnt</h3>
+      <span class="loc">package.json:45,55</span>
+      <p><code>@tailwindcss/postcss: ^4.3.2</code> und <code>tailwindcss: ^4.3.2</code> können bei getrennten Installs theoretisch auf unterschiedliche 4.x-Patches auflösen — genau der in CLAUDE.md gewarnte Build-Fehler („Missing field <code>negated</code>").</p>
+      <div class="rec"><strong>Empfehlung:</strong> Beide exakt pinnen (<code>4.3.2</code> ohne <code>^</code>), analog zu <code>prisma</code>/<code>@prisma/client</code>.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Hotel-Eingabefeld ohne Label-Zuordnung (a11y)</h3>
+      <span class="loc">src/components/TripPlanner.tsx (Hotel-Formular)</span>
+      <p>Das <code>&lt;label&gt;🏨 Hotel&lt;/label&gt;</code> umschließt den Input nicht und hat kein <code>htmlFor</code>/<code>id</code>. Screenreader lesen keine Beschriftung vor (Placeholder ist kein Ersatz). Die Datumsfelder sind dagegen korrekt gewrappt.</p>
+      <div class="rec"><strong>Empfehlung:</strong> <code>htmlFor</code>/<code>id</code> setzen oder Input in <code>&lt;label&gt;</code> einbetten.</div>
+    </div>
+
+    <div class="finding sev-Niedrig">
+      <h3><span class="badge b-Niedrig">Niedrig</span> Voller Marker-/Routen-Rebuild bei jeder Hotel-Änderung</h3>
+      <span class="loc">src/components/TripPlanner.tsx (Karten-useEffect, deps [stops,hotels,route,ready])</span>
+      <p>Jede Hotel-Mutation reißt sämtliche Marker ab und baut sie neu auf inkl. Routenlinie. Für diskrete Events tolerierbar, aber unnötig.</p>
+      <div class="rec"><strong>Empfehlung:</strong> Hotel-Marker in eigene Leaflet-Layer-Group auslagern, getrennt aktualisieren.</div>
+    </div>
+
+    <div class="finding sev-Info">
+      <h3><span class="badge b-Info">Info</span> Dependencies OK · kein <code>any</code> · keine N+1</h3>
+      <p><code>next ^15.5.20</code> erfüllt die CVE-Vorgabe (CVE-2025-66478). <code>next-auth 5.0.0-beta.25</code> bewusst gepinnt. Neuer Code: kein <code>any</code>, keine N+1-Queries, saubere Typen.</p>
+    </div>
+  </section>
+
+  <!-- POSITIVES -->
+  <div class="positive">
+    <h2>✅ Positiv hervorzuheben (verifiziert)</h2>
+    <ul>
+      <li>Durchgängige Ownership-Filter (<code>updateMany</code>/<code>deleteMany</code> mit <code>{id,tripId}</code>)</li>
+      <li>Atomare, konditionale Token-/Einladungs-Entwertung gegen Doppel-Einlösung</li>
+      <li>SSRF-Filter deckt Loopback/Link-Local/CGNAT/IPv6-mapped ab, prüft jeden Redirect-Hop</li>
+      <li>DTOs geben nie <code>passwordHash</code> aus</li>
+      <li>Leaflet-Popups/Tooltips als DOM-Element (<code>textContent</code>) — XSS-konform</li>
+      <li>Challenge-Cookie httpOnly + <code>secure</code> in Prod</li>
+      <li><code>.env</code> gitignored, keine hartkodierten Secrets</li>
+      <li>Tenant-Isolation im neuen Feature korrekt (<code>getActiveTripId</code> serverseitig)</li>
+      <li>Migration ↔ Schema deckungsgleich (Cascade, Index, Typen)</li>
+      <li>Dünne Route-Handler → Service → DTO, konsequent eingehalten</li>
+    </ul>
+  </div>
+
+  <footer>
+    <p>Erstellt durch 5 parallele Review-Agenten · Clover Japan · 14.07.2026 · Reine Analyse, keine Code-Änderungen.</p>
+  </footer>
+
+</div>
+</body>
+</html>
