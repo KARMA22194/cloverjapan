@@ -101,6 +101,7 @@ model Trip {
   bookings       Booking[]
   wishlist       WishlistItem[]
   activities     Activity[]
+  stamps         CollectedStamp[]
 }
 
 // Einladung für eine Person OHNE Konto: Token-Link zum Selbst-Registrieren.
@@ -288,6 +289,18 @@ model WishlistItem {
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
+}
+
+// Gesammelte Eki-Stamps pro Reise (Katalog liegt im Code: src/lib/ekiStamps.ts).
+model CollectedStamp {
+  id            String   @id @default(cuid())
+  tripId        String
+  stampKey      String // Verweis auf den Katalog-Eintrag
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, stampKey])
 }
 
 // Aktivitäts-Feed: menschenlesbare Ereignisse pro Reise (wer hat was hinzugefügt).

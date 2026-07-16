@@ -5,10 +5,12 @@ import { useState } from "react";
 import { ReiseUebersicht } from "@/components/ReiseUebersicht";
 import { WeatherBoard } from "@/components/WeatherBoard";
 import { NotfallInfo } from "@/components/NotfallInfo";
+import { EkiStampAlbum } from "@/components/EkiStampAlbum";
 
 const TABS = [
   { key: "uebersicht", label: "Übersicht", emoji: "🧭" },
   { key: "wetter", label: "Wetter", emoji: "☀️" },
+  { key: "stempel", label: "Stempel", emoji: "⛩️" },
   { key: "notfall", label: "Notfall & Basics", emoji: "🆘" },
 ] as const;
 
@@ -58,6 +60,7 @@ export function InfoTabs({ initial }: { initial?: string }) {
 
       {active === "uebersicht" && <ReiseUebersicht />}
       {active === "wetter" && <WeatherBoard />}
+      {active === "stempel" && <EkiStampAlbum />}
       {active === "notfall" && <NotfallInfo />}
     </div>
   );

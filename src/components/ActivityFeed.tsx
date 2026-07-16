@@ -18,6 +18,7 @@ const VERB: Record<string, { emoji: string; text: string }> = {
   "wishlist.create": { emoji: "🛍️", text: "Wunsch notiert" },
   "task.create": { emoji: "📝", text: "Aufgabe angelegt" },
   "flight.create": { emoji: "✈️", text: "Flug erfasst" },
+  "stamp.collect": { emoji: "⛩️", text: "Stempel gesammelt" },
 };
 
 /** "vor 3 Min", "vor 2 Std", "gestern", sonst Datum. */
