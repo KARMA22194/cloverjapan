@@ -5,7 +5,36 @@ import { requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 
 const USER_AGENT = "CloverJapan-Reiseplaner/1.0 (self-hosted)";
-const OVERPASS = "https://overpass-api.de/api/interpreter";
+// Mehrere Overpass-Spiegel: der öffentliche Haupt-Server ist oft langsam/limitiert.
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
+
+// Vercel-Serverless mehr Zeitbudget geben (Overpass kann ein paar Sekunden brauchen).
+export const maxDuration = 30;
+
+/** Overpass mit Abbruch-Timeout und Spiegel-Fallback abfragen. */
+async function queryOverpass(query: string): Promise<Response | null> {
+  for (const base of OVERPASS_ENDPOINTS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    try {
+      const res = await fetch(`${base}?data=${encodeURIComponent(query)}`, {
+        headers: { "User-Agent": USER_AGENT },
+        signal: ctrl.signal,
+        // Route ist stabil → 1 h serverseitig cachen (schont Overpass).
+        next: { revalidate: 3600 },
+      });
+      clearTimeout(timer);
+      if (res.ok) return res;
+    } catch {
+      clearTimeout(timer); // Timeout/Netzfehler → nächsten Spiegel versuchen
+    }
+  }
+  return null;
+}
 
 type Brand = "7-Eleven" | "Lawson" | "FamilyMart" | "Ministop" | "Konbini";
 
@@ -54,15 +83,10 @@ export function GET(req: NextRequest) {
 
     // around:<radius>,lat1,lng1,lat2,lng2,… filtert Knoten entlang der Linie.
     const coords = points.map((p) => `${p.lat},${p.lng}`).join(",");
-    const query = `[out:json][timeout:25];node[shop=convenience](around:${radius},${coords});out body 200;`;
-    const url = `${OVERPASS}?data=${encodeURIComponent(query)}`;
+    const query = `[out:json][timeout:15];node[shop=convenience](around:${radius},${coords});out body 200;`;
 
-    const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-      // Route ist stabil → 1 h serverseitig cachen (schont Overpass).
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) throw new ApiError(502, "Konbini-Dienst (Overpass) nicht erreichbar.");
+    const res = await queryOverpass(query);
+    if (!res) throw new ApiError(502, "Konbini-Dienst (Overpass) gerade nicht erreichbar.");
 
     const data = (await res.json()) as {
       elements?: { type: string; lat?: number; lon?: number; tags?: Record<string, string> }[];
