@@ -231,6 +231,7 @@ model Flight {
   arrival       DateTime? // Ankunft (dito)
   durationMin   Int? // echte Flugdauer (aus UTC-Zeiten beim Abruf; manuell null)
   bookingRef    String    @default("")
+  seats         String    @default("") // Sitzplätze, z. B. "32A, 32B"
   priceYen      Int? // Preis in Yen (Eingabe €/¥ wird clientseitig umgerechnet)
   createdByName String    @default("")
   createdAt     DateTime  @default(now())

@@ -11,6 +11,7 @@ interface Flight {
   fromCode: string;
   toCode: string;
   departure: string | null;
+  seats: string;
 }
 interface Booking {
   title: string;
@@ -139,6 +140,11 @@ export function TripDashboard() {
             <span className="block text-xs text-slate-400 dark:text-slate-500">
               {fmtDay(nextFlight.departure!.slice(0, 10))} · {nextFlight.departure!.slice(11, 16)}
             </span>
+            {nextFlight.seats && (
+              <span className="mt-1 inline-block rounded-md bg-brand px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                💺 {nextFlight.seats}
+              </span>
+            )}
           </p>
         ) : nextBooking ? (
           <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">

@@ -13,6 +13,7 @@ export interface FlightInput {
   arrival?: string | null;
   durationMin?: number | null;
   bookingRef?: string;
+  seats?: string;
   priceYen?: number | null;
 }
 
@@ -77,6 +78,7 @@ function fields(input: FlightInput) {
     arrival: toDate(input.arrival),
     durationMin: input.durationMin ?? null,
     bookingRef: input.bookingRef?.trim() ?? "",
+    seats: input.seats?.trim() ?? "",
     priceYen: input.priceYen ?? null,
   };
 }

@@ -24,6 +24,7 @@ interface Flight {
   arrival: string | null;
   durationMin: number | null;
   bookingRef: string;
+  seats: string;
   priceYen: number | null;
   by?: string;
 }
@@ -77,6 +78,7 @@ const emptyForm = {
   departure: "", // datetime-local "YYYY-MM-DDTHH:MM"
   arrival: "",
   bookingRef: "",
+  seats: "",
 };
 
 /** ISO "…T17:20:00.000Z" → datetime-local "…T17:20". */
@@ -170,6 +172,7 @@ export function FlightPlanner() {
       departure: isoToLocal(f.departure),
       arrival: isoToLocal(f.arrival),
       bookingRef: f.bookingRef,
+      seats: f.seats ?? "",
     });
     setDurationMin(f.durationMin);
     // Bereits gespeicherter Preis ist in Yen → zum Bearbeiten in ¥ anzeigen.
@@ -315,6 +318,10 @@ export function FlightPlanner() {
             <label className={labelClass}>Buchungsnummer</label>
             <input value={form.bookingRef} onChange={(e) => set("bookingRef", e.target.value)} placeholder="ABC123" className={inputClass} />
           </div>
+          <div>
+            <label className={labelClass}>Sitzplätze</label>
+            <input value={form.seats} onChange={(e) => set("seats", e.target.value)} placeholder="z. B. 32A, 32B" className={inputClass} />
+          </div>
           <div className="flex gap-2">
             <div className="w-20">
               <label className={labelClass}>Ab (IATA)</label>
@@ -429,6 +436,14 @@ export function FlightPlanner() {
                     {fmtDuration(f.durationMin) && ` · ${fmtDuration(f.durationMin)} Flugzeit`}
                     {f.bookingRef && ` · Buchung ${f.bookingRef}`}
                   </p>
+                  {f.seats && (
+                    <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                      💺 Sitze:{" "}
+                      <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                        {f.seats}
+                      </span>
+                    </p>
+                  )}
                   {f.by && <p className="text-[11px] text-slate-400 dark:text-slate-500">von {f.by}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1">

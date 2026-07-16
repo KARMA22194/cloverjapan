@@ -12,6 +12,7 @@ interface Flight {
   toCode: string;
   departure: string | null;
   arrival: string | null;
+  seats: string;
 }
 
 function todayStr(): string {
@@ -52,15 +53,22 @@ export function FlightDayStatus() {
       <div className="space-y-5">
         {relevant.map((f) => (
           <div key={f.id}>
-            <p className="mb-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">
-              {f.flightNumber}
-              {f.fromCode && (
-                <span className="text-slate-500 dark:text-slate-400">
-                  {" "}
-                  · {f.fromCode} → {f.toCode}
+            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                {f.flightNumber}
+                {f.fromCode && (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {" "}
+                    · {f.fromCode} → {f.toCode}
+                  </span>
+                )}
+              </p>
+              {f.seats && (
+                <span className="rounded-md bg-brand px-2 py-0.5 text-sm font-bold tabular-nums text-white">
+                  💺 {f.seats}
                 </span>
               )}
-            </p>
+            </div>
             <FlightLiveStatus number={f.flightNumber} date={f.departure!.slice(0, 10)} />
           </div>
         ))}
