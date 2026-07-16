@@ -302,6 +302,7 @@ model LuggageTag {
   ownerName     String // für den Finder sichtbar
   notifyEmail   String   @default("") // Benachrichtigungs-Ziel (nicht für Finder sichtbar)
   whatsapp      String   @default("") // optionale Nummer für den wa.me-Knopf des Finders
+  contact       String   @default("") // für den Finder SICHTBARER Direktkontakt (E-Mail/Tel/Hotel)
   createdByName String   @default("")
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)

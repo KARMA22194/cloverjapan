@@ -31,6 +31,7 @@ export default async function KofferFinderPage({
           label={tag.label}
           ownerName={tag.ownerName}
           whatsapp={tag.whatsapp}
+          contact={tag.contact}
         />
       )}
     </main>

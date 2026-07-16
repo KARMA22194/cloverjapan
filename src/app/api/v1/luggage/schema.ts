@@ -8,6 +8,7 @@ export const luggageBody = z.object({
   ownerName: z.string().trim().min(1, "Name fehlt.").max(80),
   notifyEmail: z.string().trim().email("Ungültige E-Mail.").max(200).optional().or(z.literal("")),
   whatsapp: z.string().trim().max(30).optional().default(""),
+  contact: z.string().trim().max(120).optional().default(""),
 });
 
 export const toLuggageDto = (t: LuggageTag) => ({
@@ -17,5 +18,6 @@ export const toLuggageDto = (t: LuggageTag) => ({
   ownerName: t.ownerName,
   notifyEmail: t.notifyEmail,
   whatsapp: t.whatsapp,
+  contact: t.contact,
   by: t.createdByName,
 });

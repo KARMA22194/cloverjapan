@@ -8,6 +8,7 @@ export interface LuggageInput {
   ownerName: string;
   notifyEmail?: string;
   whatsapp?: string;
+  contact?: string;
 }
 
 const newToken = () => randomBytes(9).toString("base64url"); // ~12 Zeichen, URL-sicher
@@ -21,6 +22,7 @@ export async function createLuggageTag(tripId: string, input: LuggageInput, byNa
       ownerName: input.ownerName.trim(),
       notifyEmail: input.notifyEmail?.trim() ?? "",
       whatsapp: input.whatsapp?.trim().replace(/[^\d+]/g, "") ?? "",
+      contact: input.contact?.trim() ?? "",
       createdByName: byName,
     },
   });

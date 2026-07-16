@@ -19,6 +19,9 @@ interface Strings {
   denied: string;
   unsupported: string;
   waMsg: (label: string, maps: string) => string;
+  contactHeading: (name: string) => string;
+  waContact: string;
+  waMsgPlain: (label: string) => string;
 }
 
 const T: Record<Lang, Strings> = {
@@ -40,6 +43,9 @@ const T: Record<Lang, Strings> = {
     denied: "Standortfreigabe abgelehnt. Du kannst es erneut versuchen.",
     unsupported: "Standort wird von diesem Gerät nicht unterstützt.",
     waMsg: (l, maps) => `Hallo! Ich habe deinen Koffer „${l}" gefunden. Mein Standort: ${maps}`,
+    contactHeading: (n) => `Du möchtest deinen Standort nicht teilen? Erreiche ${n} direkt:`,
+    waContact: "Per WhatsApp schreiben",
+    waMsgPlain: (l) => `Hallo! Ich habe deinen Koffer „${l}" gefunden.`,
   },
   en: {
     thanks: "Thank you for helping! 🙏",
@@ -59,6 +65,9 @@ const T: Record<Lang, Strings> = {
     denied: "Location access was denied. You can try again.",
     unsupported: "Location is not supported on this device.",
     waMsg: (l, maps) => `Hi! I found your suitcase “${l}”. My location: ${maps}`,
+    contactHeading: (n) => `Prefer not to share your location? Reach ${n} directly:`,
+    waContact: "Message on WhatsApp",
+    waMsgPlain: (l) => `Hi! I found your suitcase “${l}”.`,
   },
   ja: {
     thanks: "ご協力ありがとうございます！🙏",
@@ -78,8 +87,23 @@ const T: Record<Lang, Strings> = {
     denied: "位置情報の許可が拒否されました。もう一度お試しください。",
     unsupported: "この端末では位置情報がサポートされていません。",
     waMsg: (l, maps) => `こんにちは！あなたのスーツケース「${l}」を見つけました。現在地: ${maps}`,
+    contactHeading: (n) => `現在地を共有したくない場合は、${n} さんに直接ご連絡ください：`,
+    waContact: "WhatsApp で連絡する",
+    waMsgPlain: (l) => `こんにちは！あなたのスーツケース「${l}」を見つけました。`,
   },
 };
+
+/** Kontaktwert als passenden Link darstellen (E-Mail → mailto, Telefon → tel, sonst Text). */
+function ContactValue({ value }: { value: string }) {
+  const cls = "block break-words text-center text-sm font-medium text-brand hover:underline";
+  if (value.includes("@") && !value.includes(" ")) {
+    return <a href={`mailto:${value}`} className={cls}>{value}</a>;
+  }
+  if (/^\+?[\d\s()/-]{5,}$/.test(value)) {
+    return <a href={`tel:${value.replace(/[^\d+]/g, "")}`} className={cls}>{value}</a>;
+  }
+  return <p className="text-center text-sm text-slate-700 dark:text-slate-200">{value}</p>;
+}
 
 const LANG_LABEL: Record<Lang, string> = { de: "DE", en: "EN", ja: "日本語" };
 
@@ -88,11 +112,13 @@ export function LuggageFinder({
   label,
   ownerName,
   whatsapp,
+  contact,
 }: {
   token: string;
   label: string;
   ownerName: string;
   whatsapp: string;
+  contact: string;
 }) {
   const [lang, setLang] = useState<Lang>("en");
   const [busy, setBusy] = useState(false);
@@ -185,17 +211,39 @@ export function LuggageFinder({
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={share}
-            disabled={busy}
-            className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            📍 {busy ? t.sharing : t.share}
-          </button>
-          {error && <p className="text-center text-sm text-amber-600 dark:text-amber-400">{error}</p>}
-          <p className="text-center text-xs text-slate-400 dark:text-slate-500">{t.only}</p>
+        <div className="space-y-4">
+          {/* Direktkontakt VOR dem Standort-Button (falls man nicht teilen möchte). */}
+          {(whatsapp || contact) && (
+            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                {t.contactHeading(ownerName)}
+              </p>
+              {whatsapp && (
+                <a
+                  href={`https://wa.me/${whatsapp.replace(/[^\d]/g, "")}?text=${encodeURIComponent(t.waMsgPlain(label))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-md bg-[#25D366] px-3 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
+                >
+                  {t.waContact}
+                </a>
+              )}
+              {contact && <ContactValue value={contact} />}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={share}
+              disabled={busy}
+              className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              📍 {busy ? t.sharing : t.share}
+            </button>
+            {error && <p className="text-center text-sm text-amber-600 dark:text-amber-400">{error}</p>}
+            <p className="text-center text-xs text-slate-400 dark:text-slate-500">{t.only}</p>
+          </div>
         </div>
       )}
     </div>

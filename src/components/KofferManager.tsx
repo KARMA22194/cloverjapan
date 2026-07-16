@@ -11,6 +11,7 @@ interface Tag {
   ownerName: string;
   notifyEmail: string;
   whatsapp: string;
+  contact: string;
   by?: string;
 }
 
@@ -24,6 +25,7 @@ export function KofferManager() {
   const [ownerName, setOwnerName] = useState("");
   const [notifyEmail, setNotifyEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [contact, setContact] = useState("");
   const [saving, setSaving] = useState(false);
 
   function load() {
@@ -63,12 +65,14 @@ export function KofferManager() {
         ownerName: ownerName.trim(),
         notifyEmail: notifyEmail.trim() || undefined,
         whatsapp: whatsapp.trim() || undefined,
+        contact: contact.trim() || undefined,
       });
       setTags((prev) => [...prev, created]);
       setLabel("");
       setOwnerName("");
       setNotifyEmail("");
       setWhatsapp("");
+      setContact("");
     } catch {
       /* Fehler kommt als Toast */
     } finally {
@@ -119,6 +123,12 @@ export function KofferManager() {
             WhatsApp-Nummer (optional, für Finder-Knopf)
           </label>
           <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+49170…" className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            Direktkontakt für den Finder (optional, sichtbar)
+          </label>
+          <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="E-Mail, Telefon oder Hotel" className={inputClass} />
         </div>
         <button
           type="submit"
