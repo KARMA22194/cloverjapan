@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { eurFmt, yenFmt } from "@/lib/format";
+import { FlightLiveStatus } from "@/components/FlightLiveStatus";
+
+/** Heutiges Datum als YYYY-MM-DD (lokal). */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 interface Flight {
   id: string;
@@ -92,6 +99,9 @@ export function FlightPlanner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // Aufgeklappte Live-Status-Panels; am Abreisetag wird ein Flug automatisch geöffnet.
+  const [liveOpen, setLiveOpen] = useState<Set<string>>(new Set());
+  const seededLive = useRef<Set<string>>(new Set());
 
   const reload = useCallback(() => {
     return api
@@ -103,6 +113,31 @@ export function FlightPlanner() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Flüge, die heute abfliegen, einmalig automatisch aufklappen (Live-Status).
+  useEffect(() => {
+    const today = todayStr();
+    const toOpen = flights.filter(
+      (f) => f.flightNumber && f.departure?.slice(0, 10) === today && !seededLive.current.has(f.id),
+    );
+    if (toOpen.length === 0) return;
+    // Ref-Mutation im Effekt-Body (nicht im setState-Updater → Strict-Mode-sicher).
+    toOpen.forEach((f) => seededLive.current.add(f.id));
+    setLiveOpen((prev) => {
+      const next = new Set(prev);
+      toOpen.forEach((f) => next.add(f.id));
+      return next;
+    });
+  }, [flights]);
+
+  function toggleLive(id: string) {
+    setLiveOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     api
@@ -368,7 +403,8 @@ export function FlightPlanner() {
         ) : (
           <ul>
             {flights.map((f) => (
-              <li key={f.id} className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0">
+              <li key={f.id} className="border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0">
+                <div className="flex items-start gap-3">
                 <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">✈</span>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">
@@ -418,6 +454,23 @@ export function FlightPlanner() {
                     </button>
                   </div>
                 </div>
+                </div>
+                {f.flightNumber && f.departure && (
+                  <div className="mt-2 sm:pl-12">
+                    <button
+                      type="button"
+                      onClick={() => toggleLive(f.id)}
+                      className="text-xs font-medium text-brand hover:underline"
+                    >
+                      {liveOpen.has(f.id) ? "Live-Status ausblenden" : "🔴 Live-Status anzeigen"}
+                    </button>
+                    {liveOpen.has(f.id) && (
+                      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/30">
+                        <FlightLiveStatus number={f.flightNumber} date={f.departure.slice(0, 10)} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

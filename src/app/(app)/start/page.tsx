@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { TripDashboard } from "@/components/TripDashboard";
 import { JapanClock } from "@/components/JapanClock";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { FlightDayStatus } from "@/components/FlightDayStatus";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -57,6 +58,8 @@ export default async function StartPage() {
           Wähle einen Bereich.
         </p>
       </div>
+
+      <FlightDayStatus />
 
       <div className="sm:max-w-xs md:hidden">
         <JapanClock />
