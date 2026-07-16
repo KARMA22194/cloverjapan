@@ -102,6 +102,7 @@ model Trip {
   wishlist       WishlistItem[]
   activities     Activity[]
   stamps         CollectedStamp[]
+  luggageTags    LuggageTag[]
 }
 
 // Einladung für eine Person OHNE Konto: Token-Link zum Selbst-Registrieren.
@@ -289,6 +290,23 @@ model WishlistItem {
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, position])
+}
+
+// Digitaler Kofferanhänger: QR-Code → öffentliche Finder-Seite /k/<token>.
+// Finder teilt Standort → Owner wird per E-Mail/Discord benachrichtigt.
+model LuggageTag {
+  id            String   @id @default(cuid())
+  tripId        String
+  token         String   @unique
+  label         String // z. B. "Papas Koffer"
+  ownerName     String // für den Finder sichtbar
+  notifyEmail   String   @default("") // Benachrichtigungs-Ziel (nicht für Finder sichtbar)
+  whatsapp      String   @default("") // optionale Nummer für den wa.me-Knopf des Finders
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
 }
 
 // Gesammelte Eki-Stamps pro Reise (Katalog liegt im Code: src/lib/ekiStamps.ts).

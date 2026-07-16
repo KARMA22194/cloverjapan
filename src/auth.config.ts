@@ -20,8 +20,9 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnLogin = nextUrl.pathname.startsWith("/login");
-      // Registrierung, E-Mail-Bestätigung und Passwort-Reset sind bewusst öffentlich.
-      const isPublic = ["/register", "/verify", "/forgot", "/reset"].some((p) =>
+      // Registrierung, E-Mail-Bestätigung, Passwort-Reset und die öffentliche
+      // Kofferfinder-Seite (/k/<token>) sind bewusst öffentlich.
+      const isPublic = ["/register", "/verify", "/forgot", "/reset", "/k/"].some((p) =>
         nextUrl.pathname.startsWith(p),
       );
 

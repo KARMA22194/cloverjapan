@@ -98,6 +98,34 @@ export async function sendTripInviteEmail(to: string, inviterName: string): Prom
 }
 
 /**
+ * Benachrichtigt den Besitzer, dass sein Koffer gefunden wurde (mit GPS-Standort).
+ * Gibt zurück, ob tatsächlich versendet wurde.
+ */
+export async function sendLuggageFoundEmail(
+  to: string,
+  label: string,
+  lat: number,
+  lng: number,
+): Promise<boolean> {
+  const t = transport();
+  if (!t) return false;
+  const maps = `https://www.google.com/maps?q=${lat},${lng}`;
+  try {
+    await t.sendMail({
+      from: fromAddress(),
+      to,
+      subject: `🧳 Dein Koffer „${label}" wurde gefunden!`,
+      text:
+        `Jemand hat den QR-Code an deinem Koffer „${label}" gescannt und seinen Standort geteilt.\n\n` +
+        `Aktueller Standort:\n${maps}\n\n(${lat}, ${lng})`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Schickt einer Person OHNE Konto den Registrierungs-Link zur Japan-Reise.
  * Gibt zurück, ob tatsächlich versendet wurde (false, wenn SMTP fehlt/Fehler).
  */
