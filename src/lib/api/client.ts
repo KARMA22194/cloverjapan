@@ -4,6 +4,8 @@
  * Aufrufe und keine Server Actions mehr für Daten-Mutationen.
  */
 
+import { toast } from "@/lib/toast";
+
 export class ApiRequestError extends Error {
   constructor(
     public readonly status: number,
@@ -16,12 +18,23 @@ export class ApiRequestError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // Fehlgeschlagene Mutationen immer sichtbar melden – auch dort, wo der Aufrufer
+  // den Fehler nur still abfängt (optimistisches Update zurückrollt). GET bleibt
+  // stumm (Leerzustände/Offline-Banner decken das ab).
+  const notify = method !== "GET";
   const hasBody = body !== undefined;
-  const res = await fetch(path, {
-    method,
-    headers: hasBody ? { "Content-Type": "application/json" } : undefined,
-    body: hasBody ? JSON.stringify(body) : undefined,
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: hasBody ? { "Content-Type": "application/json" } : undefined,
+      body: hasBody ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    if (notify) toast("Keine Verbindung – bitte später erneut versuchen.");
+    throw new ApiRequestError(0, "Keine Verbindung");
+  }
 
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
@@ -29,6 +42,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     const message =
       (data && typeof data === "object" && data.error?.message) || `Fehler ${res.status}`;
+    if (notify) toast(message);
     throw new ApiRequestError(res.status, message, data?.error?.details);
   }
   return data as T;
