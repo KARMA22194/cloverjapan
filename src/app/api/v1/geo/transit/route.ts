@@ -125,16 +125,27 @@ const yenFmt = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 function estimateTransit(from: Point, to: Point, preferDirect: boolean) {
   // Schienenweg grob 20 % länger als Luftlinie.
   const km = haversineKm(from, to) * 1.2;
-  // Direkt = Shinkansen (schnell, teurer); mit Umstieg = Regional/Express (langsamer, günstiger).
-  const speed = preferDirect ? 200 : 90; // km/h
-  const overhead = preferDirect ? 20 : 40; // min
-  const yenPerKm = preferDirect ? 22 : 14;
-  const durationMin = Math.round((km / speed) * 60 + overhead);
-  const fareYen = Math.round((km * yenPerKm) / 100) * 100;
+
+  // Verkehrsmittel nach Distanz wählen: der Shinkansen fährt nur echte
+  // Fernstrecken (Tokio↔Kyoto), nicht innerstädtisch. Kurze Wege laufen über
+  // U-Bahn/Hochbahn (z. B. Yurikamome) bzw. Regionalzüge.
+  const profile =
+    km < 40
+      ? { label: "Nahverkehr (U-Bahn/Regional)", speed: 35, overhead: 12, base: 150, perKm: 14, transfers: 1 }
+      : km < 120
+        ? { label: "Regional/Express", speed: 85, overhead: 18, base: 200, perKm: 16, transfers: 1 }
+        : { label: "Shinkansen", speed: 200, overhead: 25, base: 2500, perKm: 22, transfers: 0 };
+
+  const durationMin = Math.round((km / profile.speed) * 60 + profile.overhead);
+  // Auf 10 ¥ gerundet (japanische Nahverkehrstarife liegen in dieser Größenordnung).
+  const fareYen = Math.max(profile.base, Math.round((profile.base + km * profile.perKm) / 10) * 10);
+  // „Direkt" bevorzugt: reduziert – wo möglich – einen Umstieg (ändert aber nicht das Verkehrsmittel).
+  const transfers = preferDirect ? Math.max(0, profile.transfers - 1) : profile.transfers;
+
   return {
     durationMin,
-    transfers: preferDirect ? 0 : 1,
-    lines: [preferDirect ? "Shinkansen (Schätzung)" : "Regional/Express (Schätzung)"],
+    transfers,
+    lines: [`${profile.label} (Schätzung)`],
     departure: null,
     arrival: null,
     fare: { text: `≈ ${yenFmt.format(fareYen)} ¥` },
