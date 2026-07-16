@@ -5,6 +5,7 @@ import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { api } from "@/lib/api/client";
+import { toast } from "@/lib/toast";
 import { addExpenseItem } from "@/lib/expenses";
 import { deDate } from "@/lib/format";
 
@@ -136,6 +137,16 @@ function konbiniIcon(L: typeof Leaflet, brand: KonbiniBrand): Leaflet.DivIcon {
   });
 }
 
+/** „Dein Standort"-Marker (blauer Punkt mit Halo). */
+function meIcon(L: typeof Leaflet): Leaflet.DivIcon {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:16px;height:16px;border-radius:9999px;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 4px rgba(37,99,235,.3)"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+}
+
 /** Route-Polylinie auf höchstens `max` Stützpunkte ausdünnen (kleine Overpass-Anfrage). */
 function sampleGeometry(geom: [number, number][], max = 40): [number, number][] {
   if (geom.length <= max) return geom;
@@ -177,10 +188,14 @@ export function TripPlanner() {
   const [hotelAdding, setHotelAdding] = useState(false);
   const [hotelError, setHotelError] = useState<string | null>(null);
 
-  const [showKonbini, setShowKonbini] = useState(false);
+  // Konbini-Radar: aus | entlang der Route | rund um den eigenen Standort.
+  const [konbiniMode, setKonbiniMode] = useState<"off" | "route" | "location">("off");
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [konbinis, setKonbinis] = useState<Konbini[]>([]);
   const [konbiniLoading, setKonbiniLoading] = useState(false);
   const [konbiniError, setKonbiniError] = useState<string | null>(null);
+  const [hiddenBrands, setHiddenBrands] = useState<Set<KonbiniBrand>>(new Set());
 
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
@@ -303,9 +318,19 @@ export function TripPlanner() {
     }
   }, [stops, hotels, route, ready]);
 
-  // Konbinis entlang der berechneten Route laden (nur wenn Schalter an + Route da).
+  // Konbinis laden – entlang der Route (~120 m Korridor) oder um den Standort (~400 m).
   useEffect(() => {
-    if (!showKonbini || !route) {
+    let pts: string | null = null;
+    let radius = 120;
+    if (konbiniMode === "route" && route) {
+      pts = sampleGeometry(route.geometry)
+        .map(([lat, lng]) => `${lat},${lng}`)
+        .join(";");
+    } else if (konbiniMode === "location" && myLocation) {
+      pts = `${myLocation.lat},${myLocation.lng}`;
+      radius = 400;
+    }
+    if (!pts) {
       setKonbinis([]);
       setKonbiniError(null);
       return;
@@ -313,11 +338,8 @@ export function TripPlanner() {
     let cancelled = false;
     setKonbiniLoading(true);
     setKonbiniError(null);
-    const pts = sampleGeometry(route.geometry)
-      .map(([lat, lng]) => `${lat},${lng}`)
-      .join(";");
     api
-      .get<{ stores: Konbini[] }>(`/api/v1/geo/konbini?points=${encodeURIComponent(pts)}`)
+      .get<{ stores: Konbini[] }>(`/api/v1/geo/konbini?points=${encodeURIComponent(pts)}&radius=${radius}`)
       .then((d) => {
         if (!cancelled) setKonbinis(d.stores);
       })
@@ -333,24 +355,76 @@ export function TripPlanner() {
     return () => {
       cancelled = true;
     };
-  }, [showKonbini, route]);
+  }, [konbiniMode, route, myLocation]);
 
-  // Konbini-Marker rendern (eigener Layer → beeinflusst Stopp-/Hotel-Marker nicht).
+  // Konbini- und Standort-Marker rendern (eigener Layer → Stopp-/Hotel-Marker bleiben).
   useEffect(() => {
     const L = LRef.current;
     const layer = konbiniRef.current;
     if (!L || !layer) return;
     layer.clearLayers();
-    konbinis.forEach((k) => {
-      // XSS-sicher: Popup als DOM-Element mit textContent (kein HTML-String).
-      const popupEl = document.createElement("div");
-      popupEl.textContent =
-        k.name && k.name !== k.brand ? `🏪 ${k.brand} · ${k.name}` : `🏪 ${k.brand}`;
-      L.marker([k.lat, k.lng], { icon: konbiniIcon(L, k.brand) })
+    if (konbiniMode === "location" && myLocation) {
+      const meEl = document.createElement("div");
+      meEl.textContent = "📍 Dein Standort";
+      L.marker([myLocation.lat, myLocation.lng], { icon: meIcon(L) })
         .addTo(layer)
-        .bindPopup(popupEl);
+        .bindPopup(meEl);
+    }
+    konbinis
+      .filter((k) => !hiddenBrands.has(k.brand))
+      .forEach((k) => {
+        // XSS-sicher: Popup als DOM-Element mit textContent (kein HTML-String).
+        const popupEl = document.createElement("div");
+        popupEl.textContent =
+          k.name && k.name !== k.brand ? `🏪 ${k.brand} · ${k.name}` : `🏪 ${k.brand}`;
+        L.marker([k.lat, k.lng], { icon: konbiniIcon(L, k.brand) })
+          .addTo(layer)
+          .bindPopup(popupEl);
+      });
+  }, [konbinis, konbiniMode, myLocation, hiddenBrands, ready]);
+
+  // Beim Ermitteln des Standorts die Karte dorthin zentrieren.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && konbiniMode === "location" && myLocation) {
+      map.setView([myLocation.lat, myLocation.lng], 16);
+    }
+  }, [myLocation, konbiniMode]);
+
+  // Echten Standort per Browser-Geolocation ermitteln (nur über HTTPS/localhost).
+  function locateMe() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast("Standort wird von diesem Gerät nicht unterstützt.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setKonbiniMode("location");
+      },
+      (err) => {
+        setLocating(false);
+        toast(
+          err.code === err.PERMISSION_DENIED
+            ? "Standortzugriff abgelehnt – in den Browser-Einstellungen erlauben."
+            : "Standort konnte nicht ermittelt werden.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
+
+  // Konbini-Marke ein-/ausblenden (Legende als Filter).
+  function toggleBrand(b: KonbiniBrand) {
+    setHiddenBrands((prev) => {
+      const next = new Set(prev);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
+      return next;
     });
-  }, [konbinis, ready]);
+  }
 
   async function addStop(e: React.FormEvent) {
     e.preventDefault();
@@ -912,48 +986,99 @@ export function TripPlanner() {
           </div>
         )}
 
-        {/* Konbini-Radar: Convenience-Stores entlang der Route (keyfrei via OSM/Overpass) */}
-        {route && (
-          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showKonbini}
-                onChange={(e) => setShowKonbini(e.target.checked)}
-                className="h-4 w-4 accent-[#009bc9]"
-              />
-              <span className="font-medium text-slate-700 dark:text-slate-200">
-                🏪 Konbinis entlang der Route
-              </span>
-              {konbiniLoading && <span className="text-xs text-slate-400">lädt…</span>}
-            </label>
-
-            {showKonbini && !konbiniLoading && !konbiniError && (
-              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                {konbinis.length > 0
-                  ? `${konbinis.length} Läden im Umkreis von ~120 m entlang der Route.`
-                  : "Keine Konbinis direkt an dieser Route gefunden."}
-              </p>
-            )}
-            {konbiniError && (
-              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{konbiniError}</p>
-            )}
-
-            {showKonbini && konbinis.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-                {(["7-Eleven", "Lawson", "FamilyMart"] as const).map((b) => (
-                  <span key={b} className="inline-flex items-center gap-1">
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: KONBINI_STYLE[b].color }}
-                    />
-                    {b}
-                  </span>
-                ))}
-              </div>
+        {/* Konbini-Radar: Convenience-Stores entlang der Route ODER um den Standort (keyfrei via OSM/Overpass) */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            🏪 Konbini-Radar
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setKonbiniMode((m) => (m === "route" ? "off" : "route"))}
+              disabled={!route}
+              title={route ? undefined : "Zuerst die beste Route berechnen"}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                konbiniMode === "route"
+                  ? "border-transparent bg-brand text-white"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              Entlang der Route
+            </button>
+            <button
+              type="button"
+              onClick={locateMe}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                konbiniMode === "location"
+                  ? "border-transparent bg-brand text-white"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              📍 {locating ? "Standort…" : "In meiner Nähe"}
+            </button>
+            {konbiniMode !== "off" && (
+              <button
+                type="button"
+                onClick={() => setKonbiniMode("off")}
+                className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+              >
+                Ausblenden
+              </button>
             )}
           </div>
-        )}
+
+          {konbiniLoading && <p className="mt-2 text-xs text-slate-400">lädt…</p>}
+          {konbiniError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">{konbiniError}</p>
+          )}
+          {konbiniMode !== "off" && !konbiniLoading && !konbiniError && (
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {konbinis.length > 0
+                ? `${konbinis.filter((k) => !hiddenBrands.has(k.brand)).length}/${konbinis.length} Läden ${
+                    konbiniMode === "route" ? "entlang der Route (~120 m)" : "in der Nähe (~400 m)"
+                  } — Marke antippen zum Filtern.`
+                : konbiniMode === "location"
+                  ? "Keine Konbinis in der Nähe gefunden."
+                  : "Keine Konbinis direkt an dieser Route gefunden."}
+            </p>
+          )}
+
+          {konbiniMode !== "off" &&
+            konbinis.length > 0 &&
+            (() => {
+              const order: KonbiniBrand[] = ["7-Eleven", "Lawson", "FamilyMart", "Ministop", "Konbini"];
+              const counts = new Map<KonbiniBrand, number>();
+              konbinis.forEach((k) => counts.set(k.brand, (counts.get(k.brand) ?? 0) + 1));
+              const present = order.filter((b) => counts.has(b));
+              return (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {present.map((b) => {
+                    const active = !hiddenBrands.has(b);
+                    return (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => toggleBrand(b)}
+                        aria-pressed={active}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                          active
+                            ? "border-transparent text-white"
+                            : "border-slate-300 text-slate-400 line-through dark:border-slate-600 dark:text-slate-500"
+                        }`}
+                        style={active ? { backgroundColor: KONBINI_STYLE[b].color } : undefined}
+                      >
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: active ? "#fff" : KONBINI_STYLE[b].color }}
+                        />
+                        {b} ({counts.get(b)})
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+        </div>
 
         {/* Zugverbindungen je Etappe (Google Directions, Transit) */}
         {route && (
