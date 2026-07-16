@@ -17,6 +17,14 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** Verständliche Meldung für Fehler ohne JSON-Body (z. B. Serverless-Timeout/Absturz). */
+function friendlyStatus(status: number): string {
+  if (status === 408 || status === 504) return "Zeitüberschreitung – bitte kurz später erneut versuchen.";
+  if (status === 502 || status === 503) return "Server derzeit nicht erreichbar – bitte später erneut versuchen.";
+  if (status >= 500) return "Serverfehler – bitte später erneut versuchen.";
+  return `Fehler ${status}`;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   // Fehlgeschlagene Mutationen immer sichtbar melden – auch dort, wo der Aufrufer
   // den Fehler nur still abfängt (optimistisches Update zurückrollt). GET bleibt
@@ -36,15 +44,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiRequestError(0, "Keine Verbindung");
   }
 
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  // Antwort robust lesen: nicht jede Antwort ist JSON (z. B. Vercel-Fehlerseite
+  // „An error occurred…" bei Function-Timeout) → niemals blind JSON.parse.
+  const raw = await res.text();
+  let data: unknown = null;
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = null; // Nicht-JSON-Body (Fehlerseite o. Ä.)
+    }
+  }
 
   if (!res.ok) {
-    const message =
-      (data && typeof data === "object" && data.error?.message) || `Fehler ${res.status}`;
+    const apiMsg =
+      data && typeof data === "object"
+        ? (data as { error?: { message?: string } }).error?.message
+        : undefined;
+    const message = apiMsg || friendlyStatus(res.status);
     if (notify) toast(message);
-    throw new ApiRequestError(res.status, message, data?.error?.details);
+    throw new ApiRequestError(res.status, message, (data as { error?: { details?: unknown } })?.error?.details);
   }
+
   return data as T;
 }
 
