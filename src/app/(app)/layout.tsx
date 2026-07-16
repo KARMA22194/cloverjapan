@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { TopNav } from "@/components/TopNav";
 import { BiometricLock } from "@/components/BiometricLock";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 export default async function AppLayout({
   children,
@@ -38,6 +39,7 @@ export default async function AppLayout({
   return (
     <BiometricLock>
       <div className="min-h-full">
+        <OfflineBanner />
         <TopNav
           groups={groups}
           userName={session.user.name ?? session.user.email ?? "Nutzer"}

@@ -1,15 +1,23 @@
-// Minimaler Service-Worker: macht die App installierbar (fetch-Handler) und
-// cached ausschließlich **statische, nicht personenbezogene** Assets.
+// Service-Worker: macht die App installierbar UND offline-lesbar.
 //
-// Bewusst NICHT gecacht:
-//  - /api/*             → immer live.
-//  - Navigations-/HTML-Responses (SSR-Seiten wie /admin, /day, /profil) → sie enthalten
-//    personenbezogene Daten; ein persistenter Cache würde offline die zuletzt gesehene
-//    Seite eines *anderen* Nutzers ausliefern (Cross-User-Leak).
-// Nur App-Shell-Assets (JS/CSS/Fonts/Icons) landen im Cache — sie sind für alle gleich.
-const CACHE = "tt-cache-v3";
+// Zwei Caches:
+//  1. STATIC_CACHE — statische, nicht personenbezogene App-Shell-Assets
+//     (JS/CSS/Fonts/Icons). Für alle Nutzer gleich, unbedenklich persistent.
+//  2. DATA_CACHE   — Navigations-/HTML-Seiten UND GET /api/*-Antworten, damit
+//     der zuletzt gesehene Reiseplan offline verfügbar ist.
+//
+// Strategie durchgehend NETWORK-FIRST: online kommt immer die frische Antwort
+// (kein veraltetes Bundle/keine veralteten Daten), der Cache dient nur als
+// Offline-Fallback.
+//
+// Cross-User-Schutz: DATA_CACHE ist an genau einen Nutzer gebunden (Marker
+// "/__owner"). Meldet der Client einen anderen Nutzer (Login-Wechsel) oder einen
+// Logout, wird DATA_CACHE vollständig geleert — so sieht nie jemand offline die
+// personenbezogenen Seiten/Daten eines anderen Kontos.
+const STATIC_CACHE = "tt-static-v4";
+const DATA_CACHE = "tt-data-v1";
+const OWNER_KEY = "/__owner";
 
-// Allowlist: statische Assets ohne Nutzerbezug.
 function isStaticAsset(url) {
   const p = url.pathname;
   return (
@@ -22,6 +30,13 @@ function isStaticAsset(url) {
   );
 }
 
+// Cacheln, was offline sinnvoll lesbar ist: eigene GET-Navigationen und GET /api/*.
+function isDataRequest(request, url) {
+  if (url.origin !== self.location.origin) return false;
+  if (request.mode === "navigate") return true;
+  return url.pathname.startsWith("/api/");
+}
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -30,35 +45,81 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== STATIC_CACHE && k !== DATA_CACHE).map((k) => caches.delete(k)),
+        ),
+      )
       .then(() => self.clients.claim()),
   );
+});
+
+// Owner-Handling: Daten-Cache leeren, wenn ein anderer Nutzer aktiv wird / sich abmeldet.
+async function setOwner(userId) {
+  const cache = await caches.open(DATA_CACHE);
+  const prev = await cache.match(OWNER_KEY);
+  const prevId = prev ? await prev.text() : null;
+  if (prevId !== userId) {
+    await caches.delete(DATA_CACHE);
+    const fresh = await caches.open(DATA_CACHE);
+    await fresh.put(OWNER_KEY, new Response(userId || ""));
+  }
+}
+
+self.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (data.type === "session" && data.userId) {
+    event.waitUntil(setOwner(String(data.userId)));
+  } else if (data.type === "logout") {
+    event.waitUntil(caches.delete(DATA_CACHE));
+  }
 });
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Nur eigene same-origin GET-Requests behandeln; alles andere direkt ans Netz.
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
-  // Nur statische Assets werden vom SW gecacht. Navigationen/HTML & /api gehen
-  // ohne respondWith direkt ans Netz (kein Caching personenbezogener Antworten).
-  if (!isStaticAsset(url)) return;
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Nur erfolgreiche, echte (basic) Responses cachen — keine 3xx/4xx/5xx
-        // oder opaken Antworten (Cache-Poisoning-Schutz).
-        if (response.ok && response.type === "basic") {
-          const copy = response.clone();
-          caches
-            .open(CACHE)
-            .then((cache) => cache.put(request, copy))
-            .catch(() => {});
-        }
-        return response;
-      })
-      .catch(() => caches.match(request)),
-  );
+  if (isStaticAsset(url)) {
+    // Statisch: network-first, Fallback auf Cache.
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            caches.open(STATIC_CACHE).then((c) => c.put(request, copy)).catch(() => {});
+          }
+          return response;
+        })
+        .catch(() => caches.match(request)),
+    );
+    return;
+  }
+
+  if (isDataRequest(request, url)) {
+    // Daten/Navigation: network-first, Fallback auf zuletzt gesehene Version.
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            caches.open(DATA_CACHE).then((c) => c.put(request, copy)).catch(() => {});
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          // Navigation ohne Cache → einfache Offline-Antwort.
+          if (request.mode === "navigate") {
+            return new Response(
+              "<!doctype html><meta charset=utf-8><title>Offline</title><body style='font-family:sans-serif;padding:2rem;color:#0A314C'><h1>Offline</h1><p>Diese Seite wurde noch nicht geladen. Sobald du wieder online bist, ist sie verfügbar.</p></body>",
+              { headers: { "Content-Type": "text/html; charset=utf-8" }, status: 200 },
+            );
+          }
+          return new Response("", { status: 504 });
+        }),
+    );
+  }
 });

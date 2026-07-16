@@ -139,7 +139,17 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
               {me?.name ?? userName}
             </span>
           </Link>
-          <form action={logoutAction}>
+          <form
+            action={logoutAction}
+            onSubmit={() => {
+              // Personenbezogenen Offline-Cache beim Abmelden leeren (Cross-User-Schutz).
+              try {
+                navigator.serviceWorker?.controller?.postMessage({ type: "logout" });
+              } catch {
+                /* SW evtl. nicht aktiv – unkritisch */
+              }
+            }}
+          >
             <button
               type="submit"
               className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
