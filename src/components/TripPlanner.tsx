@@ -44,6 +44,14 @@ interface RouteInfo {
   order: number[];
 }
 
+type KonbiniBrand = "7-Eleven" | "Lawson" | "FamilyMart" | "Ministop" | "Konbini";
+interface Konbini {
+  lat: number;
+  lng: number;
+  brand: KonbiniBrand;
+  name: string;
+}
+
 interface TransitConn {
   durationMin: number;
   transfers: number;
@@ -110,12 +118,41 @@ function hotelIcon(L: typeof Leaflet): Leaflet.DivIcon {
   });
 }
 
+// Konbini-Marker: kleiner als Stopps (sekundär), markenfarben mit Kürzel.
+const KONBINI_STYLE: Record<KonbiniBrand, { color: string; badge: string }> = {
+  "7-Eleven": { color: "#ee7203", badge: "7" },
+  Lawson: { color: "#0055a5", badge: "L" },
+  FamilyMart: { color: "#009a44", badge: "F" },
+  Ministop: { color: "#1a9c6b", badge: "M" },
+  Konbini: { color: "#64748b", badge: "🏪" },
+};
+function konbiniIcon(L: typeof Leaflet, brand: KonbiniBrand): Leaflet.DivIcon {
+  const s = KONBINI_STYLE[brand];
+  return L.divIcon({
+    className: "",
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:9999px;background:${s.color};color:#fff;font-size:10px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)">${s.badge}</div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+/** Route-Polylinie auf höchstens `max` Stützpunkte ausdünnen (kleine Overpass-Anfrage). */
+function sampleGeometry(geom: [number, number][], max = 40): [number, number][] {
+  if (geom.length <= max) return geom;
+  const step = Math.ceil(geom.length / max);
+  const out = geom.filter((_, i) => i % step === 0);
+  const last = geom[geom.length - 1];
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
 export function TripPlanner() {
   const mapEl = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const routeRef = useRef<Leaflet.Polyline | null>(null);
+  const konbiniRef = useRef<Leaflet.LayerGroup | null>(null);
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -139,6 +176,11 @@ export function TripPlanner() {
   const [hotelQuery, setHotelQuery] = useState("");
   const [hotelAdding, setHotelAdding] = useState(false);
   const [hotelError, setHotelError] = useState<string | null>(null);
+
+  const [showKonbini, setShowKonbini] = useState(false);
+  const [konbinis, setKonbinis] = useState<Konbini[]>([]);
+  const [konbiniLoading, setKonbiniLoading] = useState(false);
+  const [konbiniError, setKonbiniError] = useState<string | null>(null);
 
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
@@ -187,6 +229,7 @@ export function TripPlanner() {
         maxZoom: 20,
       }).addTo(map);
       markersRef.current = L.layerGroup().addTo(map);
+      konbiniRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
       setReady(true);
     })();
@@ -196,6 +239,7 @@ export function TripPlanner() {
         mapRef.current.remove();
         mapRef.current = null;
         markersRef.current = null;
+        konbiniRef.current = null;
         routeRef.current = null;
       }
     };
@@ -258,6 +302,55 @@ export function TripPlanner() {
       map.setView(JAPAN_CENTER, 5);
     }
   }, [stops, hotels, route, ready]);
+
+  // Konbinis entlang der berechneten Route laden (nur wenn Schalter an + Route da).
+  useEffect(() => {
+    if (!showKonbini || !route) {
+      setKonbinis([]);
+      setKonbiniError(null);
+      return;
+    }
+    let cancelled = false;
+    setKonbiniLoading(true);
+    setKonbiniError(null);
+    const pts = sampleGeometry(route.geometry)
+      .map(([lat, lng]) => `${lat},${lng}`)
+      .join(";");
+    api
+      .get<{ stores: Konbini[] }>(`/api/v1/geo/konbini?points=${encodeURIComponent(pts)}`)
+      .then((d) => {
+        if (!cancelled) setKonbinis(d.stores);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setKonbinis([]);
+          setKonbiniError(e instanceof Error ? e.message : "Konbinis konnten nicht geladen werden.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setKonbiniLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showKonbini, route]);
+
+  // Konbini-Marker rendern (eigener Layer → beeinflusst Stopp-/Hotel-Marker nicht).
+  useEffect(() => {
+    const L = LRef.current;
+    const layer = konbiniRef.current;
+    if (!L || !layer) return;
+    layer.clearLayers();
+    konbinis.forEach((k) => {
+      // XSS-sicher: Popup als DOM-Element mit textContent (kein HTML-String).
+      const popupEl = document.createElement("div");
+      popupEl.textContent =
+        k.name && k.name !== k.brand ? `🏪 ${k.brand} · ${k.name}` : `🏪 ${k.brand}`;
+      L.marker([k.lat, k.lng], { icon: konbiniIcon(L, k.brand) })
+        .addTo(layer)
+        .bindPopup(popupEl);
+    });
+  }, [konbinis, ready]);
 
   async function addStop(e: React.FormEvent) {
     e.preventDefault();
@@ -816,6 +909,49 @@ export function TripPlanner() {
             <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
               Reihenfolge optimiert (ab dem ersten Ort).
             </span>
+          </div>
+        )}
+
+        {/* Konbini-Radar: Convenience-Stores entlang der Route (keyfrei via OSM/Overpass) */}
+        {route && (
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showKonbini}
+                onChange={(e) => setShowKonbini(e.target.checked)}
+                className="h-4 w-4 accent-[#009bc9]"
+              />
+              <span className="font-medium text-slate-700 dark:text-slate-200">
+                🏪 Konbinis entlang der Route
+              </span>
+              {konbiniLoading && <span className="text-xs text-slate-400">lädt…</span>}
+            </label>
+
+            {showKonbini && !konbiniLoading && !konbiniError && (
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                {konbinis.length > 0
+                  ? `${konbinis.length} Läden im Umkreis von ~120 m entlang der Route.`
+                  : "Keine Konbinis direkt an dieser Route gefunden."}
+              </p>
+            )}
+            {konbiniError && (
+              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{konbiniError}</p>
+            )}
+
+            {showKonbini && konbinis.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                {(["7-Eleven", "Lawson", "FamilyMart"] as const).map((b) => (
+                  <span key={b} className="inline-flex items-center gap-1">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: KONBINI_STYLE[b].color }}
+                    />
+                    {b}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
