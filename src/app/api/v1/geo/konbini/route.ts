@@ -38,6 +38,26 @@ async function queryOverpass(query: string): Promise<Response | null> {
 
 type Brand = "7-Eleven" | "Lawson" | "FamilyMart" | "Ministop" | "Konbini";
 
+/**
+ * OSM-`addr:*`-Tags → lesbare Adresse. Japanische Adressen sind grob-nach-fein
+ * (Präfektur → Stadt → Viertel → Block/Hausnummer); wir setzen sie in dieser
+ * Reihenfolge zusammen. `addr:full` (falls gepflegt) hat Vorrang.
+ */
+function formatAddress(tags: Record<string, string> | undefined): string | undefined {
+  if (!tags) return undefined;
+  if (tags["addr:full"]) return tags["addr:full"];
+  const parts = [
+    tags["addr:province"] || tags["addr:state"],
+    tags["addr:city"],
+    tags["addr:suburb"] || tags["addr:ward"],
+    tags["addr:quarter"] || tags["addr:neighbourhood"],
+    tags["addr:district"],
+    tags["addr:block_number"],
+    tags["addr:housenumber"],
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
 /** OSM-Tags → bekannte Kette (inkl. japanischer Schreibweisen). */
 function detectBrand(tags: Record<string, string> | undefined): Brand {
   const s = `${tags?.brand ?? ""} ${tags?.["brand:en"] ?? ""} ${tags?.name ?? ""} ${tags?.["name:en"] ?? ""} ${tags?.operator ?? ""}`.toLowerCase();
@@ -98,6 +118,7 @@ export function GET(req: NextRequest) {
         lng: e.lon!,
         brand: detectBrand(e.tags),
         name: e.tags?.["name:en"] || e.tags?.name || e.tags?.brand || "Konbini",
+        address: formatAddress(e.tags),
       }));
 
     return ok({ stores, count: stores.length });

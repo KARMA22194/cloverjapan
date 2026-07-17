@@ -51,6 +51,7 @@ interface Konbini {
   lng: number;
   brand: KonbiniBrand;
   name: string;
+  address?: string;
 }
 
 interface TransitConn {
@@ -378,10 +379,46 @@ export function TripPlanner() {
     konbinis
       .filter((k) => !hiddenBrands.has(k.brand))
       .forEach((k) => {
-        // XSS-sicher: Popup als DOM-Element mit textContent (kein HTML-String).
+        // XSS-sicher: Popup als DOM-Elemente mit textContent (kein HTML-String).
         const popupEl = document.createElement("div");
-        popupEl.textContent =
+        popupEl.className = "space-y-1";
+
+        const titleEl = document.createElement("div");
+        titleEl.className = "font-medium";
+        titleEl.textContent =
           k.name && k.name !== k.brand ? `🏪 ${k.brand} · ${k.name}` : `🏪 ${k.brand}`;
+        popupEl.appendChild(titleEl);
+
+        if (k.address) {
+          const addrEl = document.createElement("div");
+          addrEl.className = "text-slate-500";
+          addrEl.textContent = k.address;
+          popupEl.appendChild(addrEl);
+        }
+
+        const linkEl = document.createElement("a");
+        // Server-Route löst mit Google-Key (kostenlos, nur place_id) die exakte
+        // Filiale auf und leitet auf deren POI-Karte weiter. `q` = Suchtext für
+        // Google: die Marke (robuster als der ggf. japanische OSM-Filialname —
+        // die exakte Filiale ergibt sich server-seitig über DISTANCE + Koordinaten).
+        // `fallback` = keyfreier Suchtext (Name/Adresse, sonst Koordinaten), falls
+        // kein Key/kein Treffer.
+        const searchText = k.brand === "Konbini" ? "convenience store" : k.brand;
+        const fallbackQuery =
+          k.name && k.name !== k.brand
+            ? [k.name, k.address].filter(Boolean).join(" ")
+            : k.address
+              ? `${k.brand} ${k.address}`
+              : `${k.lat},${k.lng}`;
+        linkEl.href =
+          `/api/v1/geo/place-link?lat=${k.lat}&lng=${k.lng}` +
+          `&q=${encodeURIComponent(searchText)}&fallback=${encodeURIComponent(fallbackQuery)}`;
+        linkEl.target = "_blank";
+        linkEl.rel = "noopener noreferrer";
+        linkEl.className = "inline-block text-brand hover:underline";
+        linkEl.textContent = "📍 In Google Maps öffnen";
+        popupEl.appendChild(linkEl);
+
         L.marker([k.lat, k.lng], { icon: konbiniIcon(L, k.brand) })
           .addTo(layer)
           .bindPopup(popupEl);
