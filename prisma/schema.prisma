@@ -36,6 +36,9 @@ model User {
   // Eingeladene/Admin-angelegte/geseedete Konten gelten als bestätigt.
   emailVerified DateTime?
   image         String? // Profilbild als Data-URL (klein) oder null
+  // Letzter Lebenszeichen-Zeitpunkt (Heartbeat aus der offenen App) → Presence
+  // („online"/„zuletzt online vor X") in der Mitgliederliste. null = noch nie gesehen.
+  lastSeenAt    DateTime?
   createdAt     DateTime  @default(now())
 
   tripMembership TripMember?

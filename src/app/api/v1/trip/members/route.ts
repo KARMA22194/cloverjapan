@@ -36,6 +36,8 @@ export function GET(req: NextRequest) {
         email: m.user.email,
         image: m.user.image,
         isMe: m.user.id === user.id,
+        // Für den Präsenz-Status; eigener Eintrag gilt immer als „jetzt online".
+        lastSeenAt: m.user.id === user.id ? new Date().toISOString() : m.user.lastSeenAt?.toISOString() ?? null,
       })),
       invitations: invitations.map((inv) => ({
         id: inv.id,

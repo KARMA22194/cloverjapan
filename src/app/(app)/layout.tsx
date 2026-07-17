@@ -5,6 +5,7 @@ import { TopNav } from "@/components/TopNav";
 import { BiometricLock } from "@/components/BiometricLock";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 
 export default async function AppLayout({
   children,
@@ -39,6 +40,7 @@ export default async function AppLayout({
   return (
     <BiometricLock>
       <div className="min-h-full">
+        <PresenceHeartbeat />
         <OfflineBanner />
         <TopNav
           groups={groups}

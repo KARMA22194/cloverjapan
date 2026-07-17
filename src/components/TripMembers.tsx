@@ -11,6 +11,42 @@ interface Member {
   email: string;
   image?: string | null;
   isMe: boolean;
+  lastSeenAt?: string | null;
+}
+
+// Bis zu dieser Stille gilt jemand als „online" (Heartbeat kommt alle 45 s →
+// 2 min überbrücken einen verpassten Ping, ohne sofort „offline" zu zeigen).
+const ONLINE_MS = 2 * 60 * 1000;
+
+function isOnline(lastSeenAt?: string | null): boolean {
+  if (!lastSeenAt) return false;
+  return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_MS;
+}
+
+/** „online" / „vor X Min" / „vor X Std" / „vor X Tagen" bzw. null = nie gesehen. */
+function presenceLabel(lastSeenAt?: string | null): string | null {
+  if (!lastSeenAt) return null;
+  const ms = Date.now() - new Date(lastSeenAt).getTime();
+  if (ms < ONLINE_MS) return "online";
+  const min = Math.floor(ms / 60_000);
+  if (min < 60) return `zuletzt vor ${min} Min`;
+  const std = Math.floor(min / 60);
+  if (std < 24) return `zuletzt vor ${std} Std`;
+  const tage = Math.floor(std / 24);
+  return `zuletzt vor ${tage} ${tage === 1 ? "Tag" : "Tagen"}`;
+}
+
+/** Genauer Zeitpunkt für den Tooltip, z. B. „zuletzt online: 17.07.2026, 11:44 Uhr". */
+function exactSeen(lastSeenAt?: string | null): string {
+  if (!lastSeenAt) return "noch nie online";
+  const d = new Date(lastSeenAt).toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `zuletzt online: ${d} Uhr`;
 }
 
 interface Invitation {
@@ -65,6 +101,20 @@ export function TripMembers() {
 
   useEffect(() => {
     reload();
+  }, [reload]);
+
+  // Präsenz aktuell halten: alle 30 s neu laden (nur bei sichtbarem Tab) und
+  // beim Zurückkehren in den Tab sofort. So wechselt der Online-Status live.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    const timer = setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [reload]);
 
   async function invite(e: React.FormEvent) {
@@ -263,13 +313,39 @@ export function TripMembers() {
             key={m.id}
             className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
           >
-            <Avatar name={m.name} image={m.image} size={36} />
+            <div className="relative shrink-0">
+              <Avatar name={m.name} image={m.image} size={36} />
+              {/* Präsenz-Punkt: grün = online, grau = offline. */}
+              <span
+                title={m.isMe ? "du bist online" : exactSeen(m.lastSeenAt)}
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 ${
+                  isOnline(m.lastSeenAt) ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                }`}
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
                 {m.name}
                 {m.isMe && <span className="ml-1 text-xs text-slate-400">(du)</span>}
               </p>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{m.email}</p>
+              <p className="flex items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                <span className="truncate">{m.email}</span>
+                {presenceLabel(m.lastSeenAt) && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span
+                      title={m.isMe ? undefined : exactSeen(m.lastSeenAt)}
+                      className={`shrink-0 ${
+                        isOnline(m.lastSeenAt)
+                          ? "font-medium text-emerald-600 dark:text-emerald-400"
+                          : "cursor-help"
+                      }`}
+                    >
+                      {presenceLabel(m.lastSeenAt)}
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
             {!m.isMe && (
               <button

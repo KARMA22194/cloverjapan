@@ -36,9 +36,18 @@ export async function getTripMembers(tripId: string) {
     orderBy: { joinedAt: "asc" },
     select: {
       joinedAt: true,
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true, name: true, email: true, image: true, lastSeenAt: true } },
     },
   });
+}
+
+/**
+ * Presence-Heartbeat: markiert den Nutzer als „gerade aktiv" (lastSeenAt = jetzt).
+ * Best-effort — wird häufig aus der offenen App aufgerufen; ein Fehler darf die
+ * App nicht stören (der Aufrufer ignoriert Fehler).
+ */
+export async function touchPresence(userId: string): Promise<void> {
+  await db.user.update({ where: { id: userId }, data: { lastSeenAt: new Date() } });
 }
 
 type InviteResult =
