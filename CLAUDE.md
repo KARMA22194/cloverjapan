@@ -198,6 +198,10 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 `Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
+- `User.lastSeenAt` (`DateTime?`) — Presence: Heartbeat der offenen App (`POST /api/v1/presence`,
+  `PresenceHeartbeat` im `(app)`-Layout, alle 45 s bei sichtbarem/online Tab). Mitgliederliste
+  zeigt daraus „online" (< 2 min) / „zuletzt vor X" (grüner/grauer Punkt, Live-Polling 30 s).
+  Zusätzlich `ConnectionStatus` in der TopNav = eigener Online/Offline-Indikator (`navigator.onLine`).
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
   Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig
@@ -255,7 +259,8 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 `expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
 `bookings` (+`[id]`), `wishlist` (+`[id]`), `settlements` (+`[id]`), `planner-tasks` (+`[id]`),
 `checklist`, `activity`, `stamps` (+`collect`), `luggage` (+`[id]`, +`found/[token]` — **public**),
-`geo/*` (search, route, resolve, transit, **konbini**), `fx/rate`, `weather`, `openapi`.
+`presence` (POST — Heartbeat), `geo/*` (search, route, resolve, transit, **konbini**,
+**place-link**), `fx/rate`, `weather`, `openapi`.
 (Trip-basierte Endpunkte sind nicht in OpenAPI registriert.)
 
 ### Auth-Flows
@@ -288,7 +293,14 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
   **Overpass/OSM** entlang der Route (Polylinie, ~120 m) oder um den Standort (~400 m).
   Serverless-gehärtet: `maxDuration=30`, 12-s-Abbruch-Timeout, **Spiegel-Fallback**
   (overpass-api.de → kumi.systems → private.coffee). Frontend: Modus aus/Route/Standort +
-  anklickbarer Marken-Filter (eigener Marker-Layer; Popups XSS-sicher).
+  anklickbarer Marken-Filter (eigener Marker-Layer; Popups XSS-sicher). Popup zeigt
+  Marke/Filialname + Adresse (aus OSM-`addr:*`) + „In Google Maps öffnen" → Route
+  `geo/place-link`: mit `GOOGLE_MAPS_API_KEY` exakte Filiale (Places-API „Text Search",
+  **nur** `places.id` = kostenlose IDs-only-SKU → `query_place_id`). Wichtig:
+  `rankPreference=DISTANCE` (nächstgelegener Laden zu den Koordinaten, **nicht** der
+  prominenteste) + `includedType=convenience_store` (keine Lawson-Bank-ATMs). Ohne Key/
+  ohne Treffer keyfreier Fallback (Text-/Koordinaten-Suche). Leitet immer per Redirect
+  weiter, nie JSON-Fehler.
 - **Regenradar-Overlay** (Schalter): jüngstes RainViewer-Radarbild als halbtransparente
   Kachel-Ebene über der Karte (keyfrei, eigener `TileLayer`).
 - Stopps + Unterkünfte in der **DB** pro Reise (`TripStop`/`TripHotel`, PUT-Replace;
@@ -397,7 +409,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
 | `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`) | **Beleg-Scan** (Claude Vision) | für Beleg-Scan |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
-| `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) | optional |
+| `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |
 
 **Konbini/Overpass, Regenradar/RainViewer, Geocoding/Routing, Eki-Stamps, Wetter** sind
 **keyfrei** — laufen ohne Env. Fehlt ein optionaler Key, gibt es einen sauberen Fallback
