@@ -60,7 +60,15 @@ Ort: Vercel → Projekt `cloverjapan` → **Settings → Environment Variables**
 | `SMTP_USER` | `kk485790@gmail.com` |
 | `SMTP_PASS` | Gmail-**App-Passwort** (kein normales Passwort!) |
 | `SMTP_FROM` | `Clover Japan <kk485790@gmail.com>` |
-| `AERODATABOX_API_KEY` | *(optional)* Key für den automatischen Flug-Abruf per Flugnummer (AeroDataBox über RapidAPI). Ohne Key funktioniert die Flüge-Seite trotzdem — dann werden Flüge **manuell** erfasst. Zum Aktivieren: bei RapidAPI kostenlos für „AeroDataBox" anmelden, Key hier eintragen, Redeploy. |
+| `AERODATABOX_API_KEY` | *(optional)* Flug-**Auto-Abruf UND Live-Status** (Gate/Terminal/Kofferband) — AeroDataBox über RapidAPI. Ohne Key: Flüge manuell, kein Live-Status. |
+| `ANTHROPIC_API_KEY` | *(optional)* **Beleg-Scan** (Kassenzettel per KI, Ausgaben). Key auf console.anthropic.com erstellen. Ohne Key: Meldung „nicht konfiguriert" → manuell eintragen. |
+| `RECEIPT_MODEL` | *(optional)* KI-Modell für den Beleg-Scan (Default `claude-haiku-4-5-20251001`, günstig). |
+| `DISCORD_WEBHOOK_URL` | *(optional)* Discord-Push, wenn jemand deinen Koffer-QR scannt (E-Mail geht ohnehin raus). |
+| `GOOGLE_MAPS_API_KEY` | *(optional, **kostet** ggf.)* echte In-App-Zugverbindung statt distanzbasierter Schätzung. |
+
+> **Feature-Keys sind optional** — ohne sie greifen saubere Fallbacks (kein Absturz).
+> **Keyfrei** laufen: Konbini-Radar, Regenradar, Karte/Route, Eki-Stamps, Wetter.
+> Nach dem Eintragen eines Keys immer **Redeploy** (sonst greift er nicht)!
 
 > Wenn sich die Live-Adresse je ändert, müssen `WEBAUTHN_RP_ID`,
 > `WEBAUTHN_ORIGIN` und `APP_URL` angepasst und neu deployt werden.
@@ -120,6 +128,16 @@ Firmen-Netz die direkte DB-Verbindung blockiert, läuft das über **Neons Web-Ed
 - **Erster Aufruf langsam:** Neon-Free „schläft“ bei Inaktivität, wacht in 1–2 s auf.
 - **E-Mail kommt nicht an:** `SMTP_*`-Variablen prüfen; `SMTP_PASS` muss ein
   Gmail-**App-Passwort** sein (2-Faktor-Auth erforderlich).
+- **Neueste Features fehlen komplett / „Unexpected token" o. Ä.:** meist ein
+  **fehlgeschlagener Deploy** → Vercel → **Deployments** → Build-Log. Häufig scheitert
+  `prisma migrate deploy`, wenn **`DIRECT_URL`** fehlt/falsch ist (blockiert den ganzen
+  Build → alter Stand bleibt live).
+- **Flüge „kein API-Key" / Beleg-Scan „nicht konfiguriert":** zugehöriger Key fehlt in
+  **Production** oder es wurde nach dem Eintragen **nicht neu deployt** (Abschnitt 4).
+- **Konbini/Standort geht nicht:** „In meiner Nähe", Eki-Stamps und Koffer-Fund brauchen
+  **HTTPS** (auf Vercel ok) + die Geolocation-Freigabe aus dem aktuellen Deploy. Konbini
+  nutzt den öffentlichen Overpass-Server (mit Timeout + Spiegel-Fallback) — bei Zicken
+  einfach später erneut versuchen.
 
 ---
 

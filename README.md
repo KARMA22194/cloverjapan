@@ -1,9 +1,13 @@
 # Clover Japan
 
 Kollaborativer **Reiseplaner für eine Japan-Reise**: Login/Registrierung, gemeinsame
-Reise (Trip) mit eingeladenen Mitgliedern und Tools für Reiseplaner (Karte), Flüge,
-Ausgaben (Yen→Euro), Zollrechner, Tagesplaner, Checkliste, Wetter und eine druckbare
-Reiseübersicht. Rollen: `EMPLOYEE`, `MANAGER`, `ADMIN` (Admin = Nutzerverwaltung).
+Reise (Trip) mit eingeladenen Mitgliedern. Tools (in Tab-Bereiche gebündelt):
+**Reiseplaner** (Karte, Route, Zugverbindungen, Konbini-Radar, Regenradar), **Flüge**
+(Auto-Abruf, Live-Status, Sitzplätze), **Geld** (Ausgaben Yen→Euro mit **KI-Beleg-Scan**,
+Abrechnung, Zollrechner, Wunschliste), **Programm** (Reiseablauf, Tagesplaner, Buchungen,
+Checkliste), **Info** (Übersicht, Wetter, **Eki-Stamp-Album**, **QR-Kofferretter**, Notfall)
+sowie ein Start-Dashboard (Countdown, Live-Flug, Aktivitäts-Feed, Japan-Uhr).
+Rollen: `EMPLOYEE`, `MANAGER`, `ADMIN` (Admin = Nutzerverwaltung).
 
 ## Tech-Stack
 
@@ -13,9 +17,11 @@ Reiseübersicht. Rollen: `EMPLOYEE`, `MANAGER`, `ADMIN` (Admin = Nutzerverwaltun
 - **E-Mail** via SMTP (Einladungen, Verifikation, Passwort-Reset)
 - **Tailwind CSS v4**, **Zod**, **date-fns**
 - **OpenAPI 3.1 + Swagger UI** (`@asteasolutions/zod-to-openapi`, `swagger-ui-dist`)
-- **Karten:** Leaflet + OSM/CARTO, Nominatim, OSRM (keyfrei); **Wetter:** Open-Meteo;
-  **Flüge:** AeroDataBox (optional); **Kurs:** open.er-api.com
-- Läuft vollständig in **Docker** (kein Node auf dem Host nötig)
+- **Karten:** Leaflet + OSM/CARTO, Nominatim, OSRM, **Overpass** (Konbini), **RainViewer**
+  (Regenradar) — alle keyfrei; **Wetter:** Open-Meteo; **Kurs:** open.er-api.com
+- **Flüge:** AeroDataBox (optional); **Beleg-Scan:** Claude Vision (optional); **QR:** `qrcode`
+- Läuft vollständig in **Docker** (kein Node auf dem Host); **Deploy:** Vercel + Neon
+  (Migrationen laufen via `vercel.json` automatisch — siehe `VERCEL.md`)
 
 ## Start (Docker)
 

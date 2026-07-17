@@ -9,15 +9,27 @@ Ergänzt die übergeordnete `../CLAUDE.md` (Sprache: **immer Deutsch**; MCP: Con
 registrieren sich selbst / per Einladung), gehören einer geteilten **Reise (`Trip`)**
 an und planen gemeinsam:
 
-- **Reiseplaner** — Orte auf einer Karte, beste Route, Zugverbindungen (Deep-Link zu Google Maps)
-- **Flüge** — per Flugnummer abrufen oder manuell; Preis fließt in die Ausgaben
-- **Ausgaben** — Yen→Euro, Kategorien, Budget
-- **Zollrechner** — Einfuhrabgaben für Waren aus Japan (dt. Reisezoll)
-- **Tagesplaner** — Aufgaben je Tag (Ort per Knopfdruck in den Reiseplaner übernehmbar)
-- **Checkliste** · **Mitglieder** (einladen, gemeinsam bearbeiten)
+- **Reiseplaner** — Orte auf einer Karte, beste Route, Zugverbindungen (Deep-Link zu Google
+  Maps), **Konbini-Radar** (7-Eleven/Lawson/… entlang Route oder um den eigenen Standort),
+  **Regenradar-Overlay** (RainViewer)
+- **Flüge** — per Flugnummer abrufen oder manuell; **Live-Status** (Gate/Terminal/Check-in/
+  Kofferband), **Sitzplätze**; Preis fließt in die Ausgaben
+- **Geld** (Tab-Bereich) — **Ausgaben** (Yen→Euro, **Beleg-Scan per KI**), **Abrechnung**
+  (wer-schuldet-wem), **Zollrechner**, **Wunschliste**
+- **Programm** (Tab-Bereich) — **Reiseablauf** (Timeline), **Tagesplaner**, **Buchungen/Tickets**,
+  **Checkliste**
+- **Info** (Tab-Bereich) — **Reiseübersicht**, **Wetter**, **Eki-Stamp-Album** (GPS-Sammelalbum),
+  **Kofferanhänger** (QR-Finder), **Notfall & Basics**
+- **Mitglieder** (einladen, gemeinsam bearbeiten) · **Start-Dashboard** (Countdown, „Als
+  Nächstes", Live-Flug am Reisetag, Aktivitäts-Feed, Japan-Uhr)
 
 Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerverwaltung**
 (`/admin`). (Die ursprüngliche Zeiterfassung wurde vollständig entfernt.)
+
+> **Hinweis zur Navigation:** Zusammengehörige Tools sind in Tab-Bereiche gebündelt
+> (`/geld`, `/programm`, `/info`). Die alten Einzelrouten (`/ausgaben`, `/zoll`,
+> `/wunschliste`, `/abrechnung`, `/tagesplaner`, `/buchungen`, `/ablauf`, `/checkliste`,
+> `/wetter`, `/uebersicht`) leiten per `redirect` auf den passenden Tab (`?tab=`).
 
 ## Tech-Stack
 
@@ -35,8 +47,19 @@ Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerv
   `swagger-ui-dist` (self-hosted UI unter `/api-docs`)
 - **Karten (Reiseplaner):** `leaflet` + OSM/CARTO-Tiles; Geocoding **Nominatim**,
   Routing **OSRM** (server-seitig, keyfrei)
-- **Flüge:** **AeroDataBox** über RapidAPI (optional, `AERODATABOX_API_KEY`)
+- **Konbini-Radar:** **Overpass API / OpenStreetMap** (`shop=convenience`, keyfrei,
+  Spiegel-Fallback)
+- **Regenradar:** **RainViewer** (keyfrei, Kachel-Overlay)
+- **Flüge:** **AeroDataBox** über RapidAPI (optional, `AERODATABOX_API_KEY`) — Auto-Abruf
+  **und** Live-Status
+- **Beleg-Scan:** **Claude Vision** (Anthropic Messages API, `ANTHROPIC_API_KEY`,
+  Modell via `RECEIPT_MODEL`, Default Haiku 4.5) — liest Kassenzettel
+- **QR-Codes** (Kofferanhänger): `qrcode` (clientseitig als Data-URL)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
+- **Deployment:** Vercel + Neon (Postgres). `vercel.json` `buildCommand`:
+  `prisma generate && prisma migrate deploy && next build` — **Migrationen laufen
+  automatisch beim Deploy** (braucht `DIRECT_URL` = Neon-Direct-URL, sonst schlägt der
+  Deploy fehl und nichts Neues geht live).
 
 Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-66478**),
 `tailwindcss` + `@tailwindcss/postcss` müssen **dieselbe** 4.x-Version haben
@@ -95,8 +118,12 @@ Warnung/ein Datenverlust ansteht (z. B. Unique-Constraint, DROP). Dann die
 - **PWA:** installierbar via `public/manifest.webmanifest` + Service-Worker
   `public/sw.js`. **Wichtig:** der SW wird **nur in Produktion** registriert
   (`src/components/PwaRegister.tsx`); in der Entwicklung wird ein alter SW samt Cache
-  aktiv entfernt (sonst veraltetes Bundle). SW cacht nur statische Assets, nie
-  Navigations-/API-Responses. `start_url=/start`, `display=standalone`.
+  aktiv entfernt (sonst veraltetes Bundle). `start_url=/start`, `display=standalone`.
+- **Offline-Lesezugriff:** SW cacht **network-first** — statische Assets in `STATIC_CACHE`,
+  Navigationen **und** `GET /api/*` in `DATA_CACHE` (online immer frisch, offline aus Cache).
+  **Cross-User-Schutz:** `DATA_CACHE` ist per Marker `/__owner` an einen Nutzer gebunden;
+  `PwaRegister` meldet die Session (`/api/v1/me`), TopNav den Logout → bei Nutzerwechsel/
+  Logout wird der Daten-Cache geleert. `OfflineBanner` zeigt den Offline-Zustand.
 - **Playwright** (im Container): einmalig
   `docker compose exec app npx playwright install --with-deps chromium`, dann
   `docker compose exec app npx playwright test` bzw. eigene `node e2e/<script>.mjs`.
@@ -123,14 +150,17 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   - `dto.ts` — Prisma → schlanke Response-DTOs (nie rohes Prisma; **kein** `passwordHash`).
   - `openapi.ts` — OpenAPI-3.1-Dokument (nur Session + Users registriert).
   - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`). Nach Writes:
-    **`router.refresh()`** rendert die SSR-Seite neu.
+    **`router.refresh()`** rendert die SSR-Seite neu. Parst Antworten **tolerant** (nicht-JSON
+    wie Vercels „An error occurred…"-Fehlerseite → verständliche Meldung statt `JSON.parse`-
+    Crash). Fehlgeschlagene **Mutationen** lösen automatisch einen **Toast** aus (`@/lib/toast`
+    + `<Toaster>` global im Root-Layout); GET bleibt stumm.
 - **Route-Handler:** `src/app/api/v1/**/route.ts` — dünn: `requireUser/Admin` →
   Zod-`parse` → Service → DTO → `ok()`. **Ownership** via `updateMany`/`deleteMany`
   mit `where { id, userId }` bzw. `{ id, tripId }`.
 - **Auth Split-Config** (Edge-Kompatibilität):
   - `src/auth.config.ts` — **edge-safe** (keine Prisma/bcrypt!), `authorized`/`jwt`/
     `session`-Callbacks + `session.maxAge` (12 h). Öffentliche Routen: `/login`,
-    `/register`, `/verify`, `/forgot`, `/reset`.
+    `/register`, `/verify`, `/forgot`, `/reset`, **`/k/`** (öffentliche Kofferfinder-Seite).
   - `src/auth.ts` — volle Instanz (Credentials + Passkey; Prisma + bcrypt; Node-Runtime).
     Login prüft `active` **und** `emailVerified`; Brute-Force-Rate-Limit pro E-Mail.
   - `src/middleware.ts` — eigene NextAuth-Instanz aus `authConfig` für Route-Schutz.
@@ -143,10 +173,15 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 ### Sicherheit (nach Audit umgesetzt)
 
 - **Rate-Limiting** (`src/lib/rate.ts` + `RateLimit`-Modell, Postgres-basiert,
-  serverless-tauglich): Registrierung (5/h/IP), Login (10/15 min/E-Mail), Einladungen
-  (20/h), Passwort-forgot (5/h), Flug-Lookup (30/h), Geocode-Übernahme (30/min).
+  serverless-tauglich): Registrierung (5/h/IP), Login (**10/15 min/E-Mail UND 30/15 min/IP**
+  — IP-Limit fängt E-Mail-Spraying ab), Einladungen (20/h), Passwort-forgot (5/h),
+  Flug-Lookup/-Live (30–60/h), Geocode-Übernahme (30/min), Konbini (20/h), Beleg-Scan (30/h),
+  Koffer-Fund (5/10 min pro Token & IP).
 - **Security-Header** (`next.config.ts`): CSP, HSTS, X-Frame-Options, nosniff,
   Referrer-/Permissions-Policy. `script-src` bekommt `'unsafe-eval'`/`ws:` **nur im Dev**.
+  **`Permissions-Policy: geolocation=(self)`** — Standort ist freigegeben (Konbini „in meiner
+  Nähe", Eki-Stamps, Koffer-Fund). ⚠️ War früher `geolocation=()` → hätte alle Standort-
+  Features geblockt. `img-src`/`connect-src` erlauben `https:` (RainViewer-Tiles, Overpass).
 - **SSRF-Schutz** (`src/lib/net.ts`, `safeFetch`): nutzergesteuerte Fetches
   (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele + folgen
   Redirects manuell.
@@ -159,17 +194,31 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 ### Datenmodell (`prisma/schema.prisma`)
 
 `User` · `Credential` · `Token` · `RateLimit` · `Trip` · `TripMember` · `TripInvitation`
-· `TripStop` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem`. Kern:
+· `TripStop` · `TripHotel` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem` ·
+`Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
   Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig
   auf → Komponenten bleiben tenant-agnostisch.
-- `Expense.yen` als **Int** (Yen); `Expense.flightId` (unique, `onDelete: Cascade`) koppelt
-  optional einen Flugpreis als Ausgabe (Kategorie „TRANSPORT").
-- `Flight` — Details + `priceYen`; Zeiten als **UTC-naive Wall-Clock** gespeichert und
-  immer in UTC formatiert (kein Zeitzonen-Verschieben).
+- `Expense.yen` als **Int** (Yen); `Expense.flightId`/`bookingId` (unique, `onDelete: Cascade`)
+  koppeln optional Flug-/Buchungspreis als Ausgabe. `Expense.paidById` (FK User, SetNull) =
+  Zahler für die Abrechnung; `Expense.shared` (Bool) = auf alle aufteilen; `Expense.receipt`
+  (String?) = Beleg-Foto als Data-URL.
+- `Flight` — Details + `priceYen` + **`seats`** (Sitzplätze, z. B. „32A, 32B"); Zeiten als
+  **UTC-naive Wall-Clock** gespeichert und immer in UTC formatiert (kein Zeitzonen-Verschieben).
+- `TripHotel` — Unterkunft (eigenes Modell, fließt **nicht** in die Routenoptimierung);
+  `Settlement` — beglichene Beträge der Abrechnung; `Booking` — Ticket/Reservierung
+  (Preis → gekoppelte Ausgabe); `WishlistItem` — Einkaufs-/Souvenir-Wunschliste (Summe →
+  Zollrechner). `PlannerTask`/`ChecklistItem` haben `assigneeName` (Zuweisung).
+- **`Activity`** — Aktivitäts-Feed (pro Reise, FK→Trip Cascade): `action` (Maschinen-Key,
+  z. B. `booking.create`) + `summary`; `logActivity()` best-effort (bricht die Mutation nie ab).
+- **`CollectedStamp`** — gesammelte Eki-Stamps (`@@unique([tripId, stampKey])`); Katalog liegt
+  im Code (`src/lib/ekiStamps.ts`), nicht in der DB.
+- **`LuggageTag`** — digitaler Kofferanhänger: `token` (unique, im QR), `ownerName`/`label`
+  (dem Finder sichtbar), `notifyEmail` (privat, **nie** an den Finder), `whatsapp`+`contact`
+  (optional, dem Finder sichtbar).
 - `TripInvitation` — Token-Link, 14 Tage gültig; `createInvitation`/`acceptInvitation`
   atomar; bestehende Konten werden **nicht** zwangsverschoben (Zustimmung nötig, s. u.).
 - Datums-Felder (`@db.Date`) in **UTC**; `src/lib/time.ts` (`parseDateParam`/`toDateParam`/
@@ -180,22 +229,34 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 Auth (öffentlich): `/login` · `/register` (offene Selbst-Registrierung + Invite-Modus
 mit `?token=`) · `/verify?token=` (E-Mail bestätigen) · `/forgot` · `/reset?token=`.
 
-App (`(app)`-Layout, TopNav-Gruppen **Japan** + **Mehr**):
-- `/start` — kategorisierte Kachel-Übersicht; `/` → Redirect hierhin
-- `/reiseplaner` — Karte, Route, Zugverbindungen (s. u.)
-- `/fluege` — Flüge (Auto-Abruf/manuell), Preis → Ausgaben
-- `/ausgaben` — Ausgabenrechner Yen→Euro
-- `/zoll` — Zollrechner (dt. Reisezoll)
-- `/tagesplaner` · `/checkliste` · `/mitglieder`
-- `/profil` — Profilbild (client-seitig auf 128×128, Data-URL in `User.image`, `PATCH /api/v1/me`)
-- `/admin` — **Nutzerverwaltung** (nur ADMIN)
-- `/api-docs` — Swagger UI
+App (`(app)`-Layout, TopNav-Gruppe **Japan** + **Mehr**). Japan-Nav ist bewusst
+konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info · Mitglieder**.
+- `/start` — Dashboard (Countdown, „Als Nächstes", Live-Flug am Reisetag, Ausgaben, Checkliste,
+  Aktivitäts-Feed, Japan-Uhr) + Kachel-Übersicht; `/` → Redirect hierhin
+- `/reiseplaner` — Karte, Route, Zugverbindungen, Konbini-Radar, Regenradar (s. u.)
+- `/fluege` — Flüge (Auto-Abruf/manuell, Live-Status, Sitzplätze), Preis → Ausgaben
+- `/geld` — Tab-Bereich: `ausgaben` · `abrechnung` · `zoll` · `wunschliste` (`GeldTabs.tsx`,
+  Deep-Link via `?tab=`)
+- `/programm` — Tab-Bereich: `ablauf` · `tagesplaner` · `buchungen` · `checkliste`
+  (`ProgrammTabs.tsx`; **Ablauf** ist SSR und wird als vorgerenderter Server-Node in den
+  Client-Tab gereicht)
+- `/info` — Tab-Bereich: `uebersicht` · `wetter` · `stempel` · `koffer` · `notfall`
+  (`InfoTabs.tsx`)
+- `/k/[token]` — **öffentliche** Kofferfinder-Seite (kein Login), dreisprachig (DE/EN/日本語)
+- `/mitglieder` · `/profil` (Profilbild 128×128 Data-URL, `PATCH /api/v1/me`) · `/admin` (nur
+  ADMIN) · `/api-docs` (Swagger UI)
+- **Redirect-Altrouten:** `/ausgaben`,`/zoll`,`/wunschliste`,`/abrechnung` → `/geld?tab=…`;
+  `/ablauf`,`/tagesplaner`,`/buchungen`,`/checkliste` → `/programm?tab=…`;
+  `/wetter`,`/uebersicht` → `/info?tab=…`.
 
 **API-Endpunkte:** `me`, `users` (+`[id]`), `register`, `password/forgot`,
 `password/reset`, `invite/[token]`, `trip/members` (+`[userId]`),
-`trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `expenses`,
-`flights` (+`[id]`, +`lookup`), `planner-tasks` (+`[id]`), `checklist`, `geo/*`,
-`fx/rate`, `openapi`. (Trip-basierte Endpunkte sind nicht in OpenAPI registriert.)
+`trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `trip-hotels`,
+`expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
+`bookings` (+`[id]`), `wishlist` (+`[id]`), `settlements` (+`[id]`), `planner-tasks` (+`[id]`),
+`checklist`, `activity`, `stamps` (+`collect`), `luggage` (+`[id]`, +`found/[token]` — **public**),
+`geo/*` (search, route, resolve, transit, **konbini**), `fx/rate`, `weather`, `openapi`.
+(Trip-basierte Endpunkte sind nicht in OpenAPI registriert.)
 
 ### Auth-Flows
 
@@ -220,8 +281,18 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
   Zugverbindung (Google Directions), sonst distanzbasierte **Schätzung**.
 - **Google-Maps-Deep-Link je Etappe** (`travelmode=transit`, keyfrei) — öffnet die volle
   ÖPNV-Timeline in Google Maps.
-- Stopps in der **DB** pro Reise (`TripStop`, PUT-Replace; `from-text` hängt einen
-  einzelnen geocodeten Ort an).
+- **Transit-Schätzung distanzbasiert:** ohne Google-Key wird das Verkehrsmittel nach Distanz
+  gewählt (< 40 km Nahverkehr, < 120 km Regional, darüber Shinkansen) — **kein** Shinkansen
+  mehr für kurze Stadtstrecken.
+- `GET /api/v1/geo/konbini?points=&radius=` — **Konbini-Radar**: Convenience-Stores via
+  **Overpass/OSM** entlang der Route (Polylinie, ~120 m) oder um den Standort (~400 m).
+  Serverless-gehärtet: `maxDuration=30`, 12-s-Abbruch-Timeout, **Spiegel-Fallback**
+  (overpass-api.de → kumi.systems → private.coffee). Frontend: Modus aus/Route/Standort +
+  anklickbarer Marken-Filter (eigener Marker-Layer; Popups XSS-sicher).
+- **Regenradar-Overlay** (Schalter): jüngstes RainViewer-Radarbild als halbtransparente
+  Kachel-Ebene über der Karte (keyfrei, eigener `TileLayer`).
+- Stopps + Unterkünfte in der **DB** pro Reise (`TripStop`/`TripHotel`, PUT-Replace;
+  `from-text` hängt einen einzelnen geocodeten Ort an).
 
 ### Flüge (`/fluege`)
 
@@ -229,21 +300,69 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
 **AeroDataBox** (nur mit `AERODATABOX_API_KEY`, sonst 422 → manuell). Es wird die
 Instanz mit **passendem Abflugdatum** gewählt (AeroDataBox liefert für ein Datum oft
 zwei). Preis (€/¥, clientseitig nach Yen) → verknüpfte **Ausgabe** (Kategorie TRANSPORT),
-Update/Delete synchron (Cascade).
+Update/Delete synchron (Cascade). **Sitzplätze** (`Flight.seats`) werden fett aufs
+Dashboard gespiegelt.
+- **Live-Status** `GET /api/v1/flights/live?number=&date=` (AeroDataBox, 120 s gecacht,
+  60/h): Status/Verspätung, Abflug-Terminal/Check-in/Gate, Ankunft-Terminal/Gate/**Kofferband**.
+  `FlightLiveStatus.tsx` (Auto-Refresh 90 s), pro Flug im Modul aufklappbar (am Abreisetag
+  automatisch offen); `FlightDayStatus.tsx` zeigt „Heute unterwegs" auf dem Dashboard nur
+  zwischen Ab- und Ankunftstag.
+- ⚠️ Gate/Check-in/Kofferband werden von AeroDataBox erst **wenige Stunden vor Abflug** belegt.
 
-### Ausgaben & Zoll
+### Geld-Bereich (`/geld`, Tabs)
 
 - **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro live via `GET /api/v1/fx/rate`
-  (open.er-api.com, keyfrei). Kategorien + Budget + Donut. Ausgaben in der **DB** pro Reise.
-- **Zollrechner** (`/zoll`, `CustomsCalculator.tsx`): dt. Reisezoll — Freimenge 430 €/Person,
+  (open.er-api.com, keyfrei). Kategorien (`src/lib/expenses.ts`) + Budget + Donut + Zahler +
+  „auf alle aufteilen" + Beleg-Foto. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
+  (**Claude Vision**) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
+  Foto beim Speichern automatisch angehängt. Ohne `ANTHROPIC_API_KEY` → 422 → manuell.
+- **Abrechnung** (`Abrechnung.tsx`): wer-schuldet-wem (Gleichteilung, greedy), „Bezahlt"
+  markieren (`Settlement`).
+- **Zollrechner** (`CustomsCalculator.tsx`): dt. Reisezoll — Freimenge 430 €/Person,
   Pauschalsatz 17,5 % bis 700 €, sonst Zoll + 19 % EUSt. Rein rechnerisch (keine DB),
-  optional Warenwert aus den Ausgaben übernehmen.
+  optional Warenwert aus Ausgaben/Wunschliste übernehmen.
+- **Wunschliste** (`Wunschliste.tsx`): Einkaufs-/Souvenirliste (¥, gekauft-Haken); Summe → Zoll.
 
 ### Tagesplaner → Reiseplaner
 
 Aufgabentext per Knopf zu einem Ort auflösen (`POST /api/v1/trip-stops/from-text` →
 `geocodeJapan`, Nominatim/Japan) und als Stopp anhängen. „teamLab Planets" → Ort;
-Freitext ohne Ort → 422.
+Freitext ohne Ort → 422. (Tagesplaner liegt im **Programm**-Tab-Bereich.)
+
+### Programm-Bereich (`/programm`, Tabs)
+
+`ProgrammTabs.tsx`: **Reiseablauf** (SSR-Timeline `AblaufTimeline.tsx` — führt Flüge/Stopps/
+Aufgaben/Buchungen tag-für-tag zusammen, wird als Server-Node in den Client-Tab gereicht) ·
+**Tagesplaner** · **Buchungen/Tickets** (`BookingPlanner.tsx`; Preis → Ausgabe, Zeitkonflikt-
+Warnung) · **Checkliste** (Japan-Vorlage, Zuweisung).
+
+### Info-Bereich (`/info`, Tabs)
+
+`InfoTabs.tsx`: **Übersicht** · **Wetter** (Open-Meteo, `GET /api/v1/weather`) · **Stempel** ·
+**Koffer** · **Notfall & Basics**.
+- **Eki-Stamp-Album** (`EkiStampAlbum.tsx`): 16 Orte (Katalog `src/lib/ekiStamps.ts`).
+  „Stempel hier sammeln" → Browser-Geolocation → `POST /api/v1/stamps/collect` schaltet frei,
+  wenn man im Umkreis eines Katalog-Orts steht (sonst 422 mit Distanz). Gesammelt = Hanko-Rot,
+  pro Reise geteilt, taucht im Aktivitäts-Feed auf.
+- **Notfall & Basics** (`NotfallInfo.tsx`): statisch — Notrufe (110/119, JNTO), dt.
+  Vertretungen (`tel:`), Tax-Free/Strom/Bargeld/kein-Trinkgeld, wichtige Sätze (JA + Umschrift).
+
+### Kofferretter (QR) — `/info?tab=koffer` + öffentliche Seite `/k/[token]`
+
+`KofferManager.tsx`: pro Koffer ein `LuggageTag` mit QR-Code (`qrcode`, herunterladbar). Findet
+jemand den Koffer & scannt, landet er auf `/k/[token]` (`LuggageFinder.tsx`, **öffentlich**,
+dreisprachig DE/EN/日本語 nach Browser-Sprache + Umschalter). **Vor** dem „Standort teilen"-
+Button steht optional der Direktkontakt (WhatsApp-`wa.me` + `contact` als mailto/tel), falls man
+den Standort nicht teilen möchte. Standort teilen → `POST /api/v1/luggage/found/[token]`
+(public, ratenlimitiert) benachrichtigt den Owner per **E-Mail** (SMTP) + **Discord**
+(`DISCORD_WEBHOOK_URL`). Der Finder sieht **nie** die `notifyEmail`.
+
+### Start-Dashboard
+
+`TripDashboard.tsx` (Countdown/Als-Nächstes/Ausgaben/Checkliste), `ActivityFeed.tsx` („Zuletzt
+im Team", `GET /api/v1/activity`), `FlightDayStatus.tsx` (Live-Flug am Reisetag), `JapanClock.tsx`
+(Live-Uhr 🇯🇵 Japan + 🇩🇪 Deutschland mit Zeitdifferenz; kompakt in der TopNav, volle Karte auf
+`/start`).
 
 ### Branding (Clover Japan)
 
@@ -251,12 +370,38 @@ Eigenes Corporate Design, alle Assets **self-hosted** (kein CDN-Runtime-Fetch):
 - **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`, `public/fonts/`.
 - **Farben:** Tailwind-v4-`@theme`-Tokens → `brand` (`#009BC9`), `brand-dark` (`#0A314C`),
   `brand-tint` (`#B9E7F7`), `accent` (`#F87805`), `danger` (`#E2001A`).
-- **Logo/Favicon:** Kleeblatt (`public/brand/clover*.png`, `src/components/Logo.tsx` via CSS-Maske).
+- **Logo/Favicon:** goldenes Japan-Motiv (Torii/Fuji/Kirschblüte/Shinkansen).
+  `public/brand/japan-mark.png` (transparent, Header — `src/components/Logo.tsx` rendert es als
+  `<img>`, **keine** CSS-Maske mehr) + `public/brand/japan-tile.png` (dunkle Kachel). Tab-/App-/
+  PWA-Icons daraus: `src/app/{favicon.ico,icon.png,apple-icon.png}` + `public/icon-192/512.png`
+  (via `sharp`). Icons kommen aus den **Datei-Konventionen** (kein `metadata.icons`).
 - **Dark-Mode:** klassenbasiert (`@custom-variant dark …`), Umschalter `ThemeToggle.tsx`;
   Inline-Script im Root-Layout setzt `.dark` vor dem ersten Paint (kein FOUC).
   Neue farbige UI immer mit `dark:`-Variante.
 
 Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
+
+## Umgebungs-Variablen & Deployment (Vercel/Neon)
+
+Der Vercel-Build wendet **Migrationen automatisch an** (`vercel.json`). Nach Code-Push
+deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und müssen für die
+**Production**-Umgebung gesetzt sein.
+
+| Variable | Zweck | Pflicht? |
+|---|---|---|
+| `DATABASE_URL` / `DIRECT_URL` | Neon Pooled- / Direct-URL (Direct nur für `migrate deploy`) | **ja** (sonst Deploy-Fehler → nichts Neues live) |
+| `AUTH_SECRET`, `AUTH_TRUST_HOST` | NextAuth | ja |
+| `APP_URL`, `APP_TIMEZONE` | Basis-URL / Zeitzone | ja |
+| `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS) | für Passkeys |
+| `SMTP_*` | E-Mail (Einladung/Verify/Reset, **Koffer-Fund**) | für Mailversand |
+| `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
+| `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`) | **Beleg-Scan** (Claude Vision) | für Beleg-Scan |
+| `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
+| `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) | optional |
+
+**Konbini/Overpass, Regenradar/RainViewer, Geocoding/Routing, Eki-Stamps, Wetter** sind
+**keyfrei** — laufen ohne Env. Fehlt ein optionaler Key, gibt es einen sauberen Fallback
+(422 „nicht konfiguriert" bzw. Schätzung), **kein** Crash.
 
 ## Demo-Daten & Zugänge
 
@@ -280,4 +425,9 @@ Seed (`prisma/seed.ts`) legt nur die 6 Demo-Nutzer an (bestätigt). Passwort: `p
 ## Offen / Ideen
 
 CSV/Export · Charts · Alkohol/Tabak-Mengengrenzen im Zollrechner · Ort-Vorschlag beim
-Tippen im Tagesplaner · getrennte Preview-/Prod-DB bei Vercel.
+Tippen im Tagesplaner · getrennte Preview-/Prod-DB bei Vercel · Nonce-basierte CSP (statt
+`'unsafe-inline'`) · Beleg-Fotos in Object-Store (Vercel Blob) statt Data-URL.
+
+**Verworfen:** Gepäck-Tracker via **Web Bluetooth** — im Web/iOS nicht umsetzbar (Safari
+unterstützt Web Bluetooth nicht; billige Tracker verschlüsseln ihre IDs). Stattdessen der
+**QR-Kofferretter** (s. o.).

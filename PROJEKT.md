@@ -51,24 +51,35 @@ Zollrechner, Tagesplaner, Checkliste, Wetter und eine druckbare Reiseübersicht.
     (keyfrei, zeigt die volle Verbindung in Google Maps).
   - **Wetter** je Stopp; **Reisetag** je Stopp zuweisbar (erscheint im Tagesplaner).
   - **Ort aus Link/Text** einfügen (Google-Maps-Link → exakte Koordinaten; SSRF-geschützt).
+  - **Konbini-Radar**: 7-Eleven/Lawson/FamilyMart… entlang der Route oder um den eigenen
+    **Standort** (Overpass/OSM, keyfrei) + anklickbarer Marken-Filter.
+  - **Regenradar-Overlay** (RainViewer, keyfrei) per Schalter.
+  - **Hotels/Unterkünfte** als eigene Marker (nicht Teil der Routenoptimierung).
 - **Flüge** `/fluege`: per **Flugnummer** abrufen (AeroDataBox, optional) oder manuell;
-  Flugdauer, Hin-/Rückflug-Erkennung, Preis fließt als Ausgabe (Transport) in den Rechner.
-- **Ausgaben** `/ausgaben`: Beträge in **¥**, live nach **€**; Kategorien, **Budget-Bar**
-  + **Donut**.
-- **Zollrechner** `/zoll`: dt. Reisezoll (Freimenge, Pauschalsatz, EUSt).
-- **Tagesplaner** `/tagesplaner`: Aufgaben je Tag, abhaken; **Erinnerung 1 h vorher**;
-  Ort per Knopf in den Reiseplaner übernehmen; zeigt „Orte an diesem Tag".
-- **Checkliste** `/checkliste` · **Wetter** `/wetter` (mehrere Städte + Vorhersage) ·
-  **Reiseübersicht** `/uebersicht` (druckbar / als PDF).
+  Flugdauer, Hin-/Rückflug-Erkennung, Preis fließt als Ausgabe. **Live-Status** (Status/
+  Verspätung, Gate/Terminal/Check-in, Ankunfts-**Kofferband**) + **Sitzplätze**.
+- **Geld** `/geld` (Tabs): **Ausgaben** (¥→€, Kategorien, Budget/Donut, Zahler, Aufteilen,
+  Beleg-Foto, **KI-Beleg-Scan** per Foto), **Abrechnung** (wer-schuldet-wem, „Bezahlt"),
+  **Zollrechner** (dt. Reisezoll), **Wunschliste** (Souvenirs → Zoll).
+- **Programm** `/programm` (Tabs): **Reiseablauf** (Timeline aller datierten Ereignisse),
+  **Tagesplaner** (Aufgaben je Tag, Erinnerung, Ort→Reiseplaner, Zuweisung), **Buchungen/
+  Tickets** (Preis→Ausgabe, Zeitkonflikt-Warnung), **Checkliste** (Japan-Vorlage, Zuweisung).
+- **Info** `/info` (Tabs): **Reiseübersicht** (druckbar), **Wetter** (mehrere Städte),
+  **Eki-Stamp-Album** (GPS-Sammelalbum, 16 Orte), **Kofferanhänger** (QR-Finder mit
+  E-Mail/Discord/WhatsApp-Meldung), **Notfall & Basics** (Notrufe, Botschaft, Tipps).
 - **Mitglieder** `/mitglieder`: **per E-Mail einladen** (14 Tage gültig). Konto-lose
   Person → Registrierungs-Link; **bestehendes Konto → muss die Einladung selbst
   bestätigen** („Einladungen an dich"). Jeder Eintrag zeigt **„von <Name>"**.
 
 ### App-weit
-- **Übersicht/Start** `/start`: kategorisierte Kachel-Hub (Home = `/`).
+- **Start-Dashboard** `/start`: Countdown, „Als Nächstes", **Live-Flug am Reisetag**,
+  Ausgaben/Checkliste, **Aktivitäts-Feed** („zuletzt im Team"), **Japan-Uhr** (🇯🇵/🇩🇪);
+  darunter Kachel-Hub (Home = `/`).
 - **Profil** `/profil`: **Profilbild** oder Initialen-Avatar; **Passkey einrichten**.
-- **Dark/Light-Mode**, **Kleeblatt-Branding**, **Tokio-Wetter-Seitenleiste** (Desktop).
-- **Obere Leiste**: Dropdowns **Japan** + **Mehr** (Admin/API-Doku).
+- **Offline** (PWA): Reiseplan/Buchungen/Ausgaben offline lesbar (nutzergebundener Cache).
+- **Dark/Light-Mode**, **Japan-Logo-Branding** (Torii/Fuji/Shinkansen), **Tokio-Wetter-
+  Seitenleiste** (Desktop), **Toast-Fehlermeldungen**.
+- **Obere Leiste**: Gruppe **Japan** (Reiseplaner·Flüge·Programm·Geld·Info·Mitglieder) + **Mehr**.
 
 ---
 
@@ -128,14 +139,20 @@ docker compose exec app npx playwright test              # E2E (mobil)
 ## 8. Umgebungsvariablen (`.env`)
 | Variable | Zweck |
 |---|---|
-| `DATABASE_URL` | Postgres-Verbindung |
+| `DATABASE_URL` / `DIRECT_URL` | Postgres (Neon: Pooled/Direct; Direct für `migrate deploy`) |
 | `AUTH_SECRET`, `AUTH_TRUST_HOST` | NextAuth (Prod: `openssl rand -base64 32`) |
 | `APP_TIMEZONE` | App-Zeitzone (Europe/Berlin) |
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS-Domain) |
-| `GOOGLE_MAPS_API_KEY` | optional: echte Zugverbindungen |
-| `AERODATABOX_API_KEY` | optional: automatischer Flug-Abruf per Flugnummer |
-| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL` | E-Mails (Einladung/Verifikation/Reset) |
+| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL` | E-Mails (Einladung/Verifikation/Reset, Koffer-Fund) |
+| `AERODATABOX_API_KEY` | optional: Flug-Auto-Abruf **und** Live-Status |
+| `ANTHROPIC_API_KEY` (+ `RECEIPT_MODEL`) | optional: **Beleg-Scan** (Claude Vision) |
+| `DISCORD_WEBHOOK_URL` | optional: Discord-Push bei Koffer-Fund |
+| `GOOGLE_MAPS_API_KEY` | optional (**kostet**): echte Zugverbindungen statt Schätzung |
 | `CAP_SERVER_URL` | Capacitor: URL der gehosteten App |
+
+Keyfrei (kein Env nötig): Konbini-Radar (Overpass), Regenradar (RainViewer), Karte/Route
+(Nominatim/OSRM), Eki-Stamps, Wetter (Open-Meteo), Kurs (open.er-api.com). Fehlt ein
+optionaler Key → sauberer Fallback (422/„manuell"/Schätzung), **kein Crash**.
 
 ---
 

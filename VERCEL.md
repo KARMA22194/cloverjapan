@@ -66,7 +66,22 @@ Vercel deployt am einfachsten aus einem GitHub-Repository.
 | `SMTP_PASS` | dein Gmail-App-Passwort |
 | `SMTP_FROM` | `Clover Japan <deine@gmail.com>` |
 
+**Optionale Feature-Keys** (ohne sie greifen saubere Fallbacks, kein Crash):
+
+| Variable | Schaltet frei | Ohne |
+|---|---|---|
+| `AERODATABOX_API_KEY` | Flüge: Auto-Abruf **und** Live-Status (Gate/Terminal/Band) | 422 → manuell eintragen |
+| `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`) | **Beleg-Scan** (Kassenzettel per KI) | „nicht konfiguriert" → manuell |
+| `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund (E-Mail geht sowieso) | nur E-Mail |
+| `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet** ggf.) | distanzbasierte Schätzung |
+
+Keyfrei (brauchen **nichts**): Konbini-Radar (Overpass), Regenradar (RainViewer), Karte/
+Routing (Nominatim/OSRM), Eki-Stamps, Wetter (Open-Meteo).
+
 3. **Deploy** klicken. Der erste Build legt via Migrationen alle Tabellen in Neon an.
+
+> **Wichtig:** Env-Änderungen greifen **erst nach einem Redeploy** und müssen für **Production**
+> gesetzt sein. Feature-Keys kannst du jederzeit nachtragen → danach **Redeploy**.
 
 ---
 
@@ -89,14 +104,28 @@ Vercel gibt dir eine URL, z. B. `https://cloverjapan.vercel.app`.
 
 ## Schritt E — Am Handy installieren
 1. `https://cloverjapan.vercel.app` im Handy-Browser öffnen, einloggen.
-2. Menü → **„Zum Startbildschirm hinzufügen"** → App-Icon (Kleeblatt) erscheint.
+2. Menü → **„Zum Startbildschirm hinzufügen"** → App-Icon (goldenes Japan-Motiv) erscheint.
 3. Fertig — startet im Vollbild wie eine normale App, auch unterwegs.
 
 ---
+
+## Troubleshooting — „auf der Website geht was nicht"
+- **Neueste Features fehlen ganz / Deploy rot:** Vercel → **Deployments** → Build-Log.
+  Häufigste Ursache: `prisma migrate deploy` scheitert, weil **`DIRECT_URL`** fehlt/falsch
+  ist (der Build kettet mit `&&` → ein Fehler blockiert `next build`, alter Deploy bleibt live).
+- **Feature meldet „nicht konfiguriert" / bringt keine Daten:** zugehöriger Key fehlt in
+  **Production** oder es wurde nach dem Eintragen **nicht neu deployt** (siehe Tabelle oben).
+- **Standort-Features (Konbini „in meiner Nähe", Eki-Stamps, Koffer-Fund) tun nichts:** nur
+  über **HTTPS** möglich (auf Vercel gegeben) und die `Permissions-Policy` muss `geolocation=(self)`
+  sein — kommt aus dem Code, greift also erst mit dem aktuellen Deploy.
+- **Konbini hängt/Fehler:** öffentlicher Overpass-Server ist zäh; der Endpoint hat Timeout +
+  Spiegel-Fallback. Bei Dauerproblemen schlicht später erneut versuchen.
 
 ## Kosten & Grenzen (ehrlich)
 - Vercel Hobby + Neon Free sind **dauerhaft kostenlos** für private Nutzung.
 - Neon Free pausiert die DB bei Inaktivität → der erste Aufruf nach einer Pause
   dauert 1–2 Sekunden länger. Für euch unkritisch.
+- `ANTHROPIC_API_KEY` (Beleg-Scan) läuft über dein Anthropic-Guthaben — pro Scan
+  wenige Cent (Haiku). `AERODATABOX_API_KEY` hat auf RapidAPI ein Gratis-Kontingent.
 - Bei viel Traffic/Speicher greifen irgendwann die Gratis-Limits — für dich und
   deine Reisegruppe weit außer Reichweite.
