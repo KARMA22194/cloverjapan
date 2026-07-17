@@ -92,13 +92,16 @@ function mapsTransitUrl(from: { lat: number; lng: number }, to: { lat: number; l
 }
 
 /**
- * Deep-Link nach Google Maps (keyfrei). Sucht den Ortsnamen an genau diesen
- * Koordinaten (`/maps/search/<Name>/@lat,lng,zoom`) → Maps öffnet bei eindeutigen
- * POIs die volle Ortskarte und bleibt durch die Koordinaten an der richtigen Stelle.
+ * Link auf die `place-link`-Route: löst mit Google-Key (kostenlos, nur place_id)
+ * den exakten Ort an diesen Koordinaten auf und öffnet dessen POI-Karte; ohne Key
+ * greift der keyfreie, koordinaten-zentrierte Fallback. `type` grenzt optional ein
+ * (z. B. `lodging` für Hotels), `q`/`fallback` = Ortsname (erster Teil vor Komma).
  */
-function mapsPlaceUrl(lat: number, lng: number, label: string): string {
+function placeLinkUrl(lat: number, lng: number, label: string, type?: string): string {
   const name = label.split(",")[0].trim();
-  return `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lng},16z`;
+  const p = new URLSearchParams({ lat: String(lat), lng: String(lng), q: name, fallback: name });
+  if (type) p.set("type", type);
+  return `/api/v1/geo/place-link?${p.toString()}`;
 }
 
 function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
@@ -412,7 +415,8 @@ export function TripPlanner() {
               : `${k.lat},${k.lng}`;
         linkEl.href =
           `/api/v1/geo/place-link?lat=${k.lat}&lng=${k.lng}` +
-          `&q=${encodeURIComponent(searchText)}&fallback=${encodeURIComponent(fallbackQuery)}`;
+          `&q=${encodeURIComponent(searchText)}&fallback=${encodeURIComponent(fallbackQuery)}` +
+          `&type=convenience_store`;
         linkEl.target = "_blank";
         linkEl.rel = "noopener noreferrer";
         linkEl.className = "inline-block text-brand hover:underline";
@@ -879,7 +883,7 @@ export function TripPlanner() {
                     <span className="shrink-0 text-base leading-none">🏨</span>
                     <div className="min-w-0 flex-1">
                       <a
-                        href={mapsPlaceUrl(h.lat, h.lng, h.label)}
+                        href={placeLinkUrl(h.lat, h.lng, h.label, "lodging")}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
@@ -980,7 +984,7 @@ export function TripPlanner() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <a
-                        href={mapsPlaceUrl(s.lat, s.lng, s.label)}
+                        href={placeLinkUrl(s.lat, s.lng, s.label)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"

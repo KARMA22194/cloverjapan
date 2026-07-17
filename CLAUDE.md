@@ -297,10 +297,12 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
   Marke/Filialname + Adresse (aus OSM-`addr:*`) + „In Google Maps öffnen" → Route
   `geo/place-link`: mit `GOOGLE_MAPS_API_KEY` exakte Filiale (Places-API „Text Search",
   **nur** `places.id` = kostenlose IDs-only-SKU → `query_place_id`). Wichtig:
-  `rankPreference=DISTANCE` (nächstgelegener Laden zu den Koordinaten, **nicht** der
-  prominenteste) + `includedType=convenience_store` (keine Lawson-Bank-ATMs). Ohne Key/
-  ohne Treffer keyfreier Fallback (Text-/Koordinaten-Suche). Leitet immer per Redirect
-  weiter, nie JSON-Fehler.
+  `rankPreference=DISTANCE` (nächstgelegener Ort zu den Koordinaten, **nicht** der
+  prominenteste) + optionaler `type` (whitelisted: `convenience_store` → keine Lawson-Bank-
+  ATMs; `lodging` → Hotels). Ohne Key/ohne Treffer keyfreier, koordinaten-zentrierter
+  Fallback. Leitet immer per Redirect weiter, nie JSON-Fehler. **Dieselbe Route nutzen auch
+  die Hotel- (`type=lodging`) und Stopp-Links (ohne Typ) im Reiseplaner** (`placeLinkUrl`),
+  damit auch sie genau den gemeinten Ort statt einer Namensliste öffnen.
 - **Regenradar-Overlay** (Schalter): jüngstes RainViewer-Radarbild als halbtransparente
   Kachel-Ebene über der Karte (keyfrei, eigener `TileLayer`).
 - Stopps + Unterkünfte in der **DB** pro Reise (`TripStop`/`TripHotel`, PUT-Replace;
