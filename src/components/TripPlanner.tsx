@@ -104,6 +104,75 @@ function placeLinkUrl(lat: number, lng: number, label: string, type?: string): s
   return `/api/v1/geo/place-link?${p.toString()}`;
 }
 
+/**
+ * Ortsname als Button: statt sofort ein Maps-Tab zu öffnen, klappt beim Klick ein
+ * kleines Menü mit den möglichen Aktionen auf (aktuell „In Google Maps öffnen").
+ * Als Menü angelegt, damit sich weitere Ziele (Apple Maps o. Ä.) leicht ergänzen
+ * lassen. Schließt bei Klick außerhalb bzw. Escape.
+ */
+function PlaceLink({
+  lat,
+  lng,
+  label,
+  display,
+  type,
+}: {
+  lat: number;
+  lng: number;
+  label: string;
+  display: string;
+  type?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={label}
+        className="block w-full truncate text-left text-sm text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+      >
+        {display}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-[1200] mt-1 min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+        >
+          <a
+            href={placeLinkUrl(lat, lng, label, type)}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="block rounded px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            📍 In Google Maps öffnen
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function pinIcon(L: typeof Leaflet, n: number): Leaflet.DivIcon {
   return L.divIcon({
     className: "",
@@ -882,15 +951,13 @@ export function TripPlanner() {
                   <div className="flex items-center gap-2">
                     <span className="shrink-0 text-base leading-none">🏨</span>
                     <div className="min-w-0 flex-1">
-                      <a
-                        href={placeLinkUrl(h.lat, h.lng, h.label, "lodging")}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
-                        title={`${h.label} — in Google Maps öffnen`}
-                      >
-                        {shortLabel(h.label)}
-                      </a>
+                      <PlaceLink
+                        lat={h.lat}
+                        lng={h.lng}
+                        label={h.label}
+                        display={shortLabel(h.label)}
+                        type="lodging"
+                      />
                       {h.by && (
                         <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                           von {h.by}
@@ -983,15 +1050,12 @@ export function TripPlanner() {
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <a
-                        href={placeLinkUrl(s.lat, s.lng, s.label)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block truncate text-sm text-slate-700 hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
-                        title={`${s.label} — in Google Maps öffnen`}
-                      >
-                        {shortLabel(s.label)}
-                      </a>
+                      <PlaceLink
+                        lat={s.lat}
+                        lng={s.lng}
+                        label={s.label}
+                        display={shortLabel(s.label)}
+                      />
                       {s.by && (
                         <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                           von {s.by}
