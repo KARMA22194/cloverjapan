@@ -863,6 +863,26 @@ export function TripPlanner() {
   const inputClass =
     "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
 
+  // Gesamt-Übersicht der Zugverbindungen: Fahrzeit, Umstiege und ¥ über alle
+  // Etappen aufsummiert (Liste ist klein → Berechnung im Render unkritisch).
+  const transitTotals = (() => {
+    const legs = transitLegs.filter((l) => l.conn);
+    if (legs.length === 0) return null;
+    const totalMin = legs.reduce((s, l) => s + (l.conn!.durationMin || 0), 0);
+    const transfers = legs.reduce((s, l) => s + (l.conn!.transfers || 0), 0);
+    const fareLegs = legs.filter((l) => l.conn!.fareYen != null);
+    const totalYen = fareLegs.reduce((s, l) => s + (l.conn!.fareYen || 0), 0);
+    return {
+      count: legs.length,
+      totalMin,
+      transfers,
+      totalYen,
+      hasFare: fareLegs.length > 0,
+      partialFare: fareLegs.length > 0 && fareLegs.length < legs.length,
+      estimated: legs.some((l) => l.conn!.estimated),
+    };
+  })();
+
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_2fr]">
       {/* Steuerung: Orte eingeben + Liste */}
@@ -1284,6 +1304,29 @@ export function TripPlanner() {
             </button>
             {transitError && (
               <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{transitError}</p>
+            )}
+            {transitTotals && (
+              <div className="mt-2 rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+                <span className="font-semibold">Gesamt (ÖPNV):</span>{" "}
+                {Math.floor(transitTotals.totalMin / 60)} h {transitTotals.totalMin % 60} min Fahrt
+                {transitTotals.transfers > 0 && (
+                  <> · {transitTotals.transfers} Umstieg{transitTotals.transfers > 1 ? "e" : ""}</>
+                )}
+                {transitTotals.hasFare && (
+                  <>
+                    {" "}
+                    · ≈ {transitTotals.totalYen.toLocaleString("de-DE")} ¥
+                    {transitTotals.partialFare && (
+                      <span className="text-slate-500 dark:text-slate-400"> (Etappen mit Preis)</span>
+                    )}
+                  </>
+                )}
+                <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                  Summe über {transitTotals.count} Etappe{transitTotals.count > 1 ? "n" : ""}
+                  {route && <> · Strecke {route.distanceKm} km</>}
+                  {transitTotals.estimated && <> · geschätzt</>}
+                </span>
+              </div>
             )}
             {transitLegs.some((l) => l.conn?.estimated) && (
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
