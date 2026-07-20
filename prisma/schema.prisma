@@ -347,6 +347,8 @@ model ChecklistItem {
   position      Int
   createdByName String   @default("")
   assigneeName  String   @default("") // zugewiesenes Mitglied (Namens-Schnappschuss)
+  // Wer den Punkt abgehakt hat (Namens-Schnappschuss); leer, solange nicht erledigt.
+  completedByName String @default("")
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 

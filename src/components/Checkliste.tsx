@@ -11,6 +11,7 @@ interface Item {
   done: boolean;
   by?: string;
   assignee?: string;
+  completedBy?: string;
 }
 
 // Typische Punkte für eine Japan-Reise (per Knopf einfügbar).
@@ -35,6 +36,7 @@ export function Checkliste() {
   const [items, setItems] = useState<Item[]>([]);
   const [text, setText] = useState("");
   const members = useMembers();
+  const myName = members.find((m) => m.isMe)?.name ?? "";
 
   useEffect(() => {
     api
@@ -54,6 +56,7 @@ export function Checkliste() {
           text: it.text,
           done: it.done,
           assigneeName: it.assignee ?? "",
+          completedByName: it.completedBy ?? "",
         })),
       })
       .then(setItems)
@@ -70,8 +73,15 @@ export function Checkliste() {
     setText("");
   }
 
+  // Beim Abhaken den eigenen Namen als „erledigt von" festhalten; beim Zurücksetzen leeren.
   const toggle = (id: string) =>
-    save(items.map((it) => (it.id === id ? { ...it, done: !it.done } : it)));
+    save(
+      items.map((it) => {
+        if (it.id !== id) return it;
+        const done = !it.done;
+        return { ...it, done, completedBy: done ? myName : "" };
+      }),
+    );
   const remove = (id: string) => save(items.filter((it) => it.id !== id));
   const clearDone = () => save(items.filter((it) => !it.done));
 
@@ -166,6 +176,11 @@ export function Checkliste() {
                 {it.assignee && (
                   <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
                     👤 {it.assignee}
+                  </span>
+                )}
+                {it.done && it.completedBy && (
+                  <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                    ✓ {it.completedBy}
                   </span>
                 )}
               </div>

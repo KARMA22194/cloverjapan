@@ -11,6 +11,7 @@ const itemSchema = z.object({
   text: z.string().min(1).max(300),
   done: z.boolean(),
   assigneeName: z.string().max(100).optional().default(""),
+  completedByName: z.string().max(100).optional().default(""),
 });
 const putBody = z.object({ items: z.array(itemSchema).max(500) });
 
@@ -20,12 +21,14 @@ const toDto = (i: {
   done: boolean;
   createdByName: string;
   assigneeName: string;
+  completedByName: string;
 }) => ({
   id: i.id,
   text: i.text,
   done: i.done,
   by: i.createdByName,
   assignee: i.assigneeName,
+  completedBy: i.completedByName,
 });
 
 /** GET /api/v1/checklist — Checkliste des aktuellen Nutzers. */
