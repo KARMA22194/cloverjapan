@@ -10,6 +10,7 @@ import { Avatar } from "@/components/Avatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { JapanClock } from "@/components/JapanClock";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { FxPill } from "@/components/FxPill";
 
 interface NavLink {
   href: string;
@@ -129,6 +130,7 @@ export function TopNav({ groups, userName }: { groups: NavGroup[]; userName: str
 
         <div className="flex items-center gap-3">
           <ConnectionStatus />
+          <FxPill />
           <JapanClock compact />
           <ThemeToggle />
           <Link
