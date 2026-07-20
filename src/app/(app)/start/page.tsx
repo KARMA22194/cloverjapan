@@ -7,6 +7,7 @@ import { TripDashboard } from "@/components/TripDashboard";
 import { JapanClock } from "@/components/JapanClock";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { FlightDayStatus } from "@/components/FlightDayStatus";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -58,6 +59,8 @@ export default async function StartPage() {
           Wähle einen Bereich.
         </p>
       </div>
+
+      <PwaInstallPrompt />
 
       <FlightDayStatus />
 
