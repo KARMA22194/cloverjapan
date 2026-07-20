@@ -264,6 +264,7 @@ export function TripPlanner() {
   const [konbiniMode, setKonbiniMode] = useState<"off" | "route" | "location">("off");
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locatingStart, setLocatingStart] = useState(false);
   const [konbinis, setKonbinis] = useState<Konbini[]>([]);
   const [konbiniLoading, setKonbiniLoading] = useState(false);
   const [konbiniError, setKonbiniError] = useState<string | null>(null);
@@ -606,6 +607,44 @@ export function TripPlanner() {
     }
   }
 
+  // Eigenen Standort (Browser-Geolocation) als **ersten** Stopp = Startpunkt der
+  // Route setzen. Nur über HTTPS/localhost verfügbar.
+  function addMyLocationAsStart() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast("Standort wird von diesem Gerät nicht unterstützt.");
+      return;
+    }
+    setLocatingStart(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocatingStart(false);
+        const me = {
+          id: crypto.randomUUID(),
+          label: "Mein Standort",
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        const next = [me, ...stops]; // an den Anfang → Startpunkt
+        setStops(next);
+        persistStops(next);
+        setMyLocation({ lat: me.lat, lng: me.lng });
+        setRoute(null);
+        setTransitLegs([]);
+        setTransitError(null);
+      },
+      (err) => {
+        setLocatingStart(false);
+        toast(
+          err.code === err.PERMISSION_DENIED
+            ? "Standortzugriff abgelehnt – in den Browser-Einstellungen erlauben."
+            : "Standort konnte nicht ermittelt werden.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
+
   async function loadWeather() {
     if (stops.length === 0) return;
     setWeatherLoading(true);
@@ -862,6 +901,14 @@ export function TripPlanner() {
               {adding ? "…" : "Hinzufügen"}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={addMyLocationAsStart}
+            disabled={locatingStart}
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand transition hover:underline disabled:opacity-60"
+          >
+            📍 {locatingStart ? "Standort…" : "Meinen Standort als Startpunkt"}
+          </button>
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
 
