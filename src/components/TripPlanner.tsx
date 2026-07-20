@@ -3,6 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { api } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
@@ -170,6 +188,40 @@ function PlaceLink({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Sortierbares Listen-Element (Drag & Drop, Maus + Touch via @dnd-kit). Der eigentliche
+ * Zeileninhalt kommt als Render-Prop und bekommt die `handle`-Props für den Greif-Button.
+ */
+function SortableStopLi({
+  id,
+  className,
+  children,
+}: {
+  id: string;
+  className?: string;
+  children: (handle: {
+    attributes: ReturnType<typeof useSortable>["attributes"];
+    listeners: ReturnType<typeof useSortable>["listeners"];
+    isDragging: boolean;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: "relative",
+  };
+  return (
+    <li ref={setNodeRef} style={style} className={className}>
+      {children({ attributes, listeners, isDragging })}
+    </li>
   );
 }
 
@@ -726,11 +778,20 @@ export function TripPlanner() {
   }
 
   // Stopp in der Liste nach oben/unten verschieben (manuelle Reihenfolge).
-  function moveStop(index: number, dir: -1 | 1) {
-    const j = index + dir;
-    if (j < 0 || j >= stops.length) return;
-    const next = [...stops];
-    [next[index], next[j]] = [next[j], next[index]];
+  // Stopps per Drag & Drop sortieren (Maus, Touch mit kurzem Halten, Tastatur).
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function onStopsDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = stops.findIndex((s) => s.id === active.id);
+    const newIndex = stops.findIndex((s) => s.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(stops, oldIndex, newIndex);
     setStops(next);
     persistStops(next);
     setRoute(null); // Route veraltet bei geänderter Reihenfolge
@@ -1142,84 +1203,91 @@ export function TripPlanner() {
               Noch keine Orte. Gib oben einen Ort ein.
             </p>
           ) : (
-            <ol>
-              {stops.map((s, i) => (
-                <li
-                  key={s.id}
-                  className="border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
-                >
-                  {/* Zeile 1: Nummer, Name/„von", Löschen */}
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <PlaceLink
-                        lat={s.lat}
-                        lng={s.lng}
-                        label={s.label}
-                        display={shortLabel(s.label)}
-                      />
-                      {s.by && (
-                        <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
-                          von {s.by}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col leading-none">
-                      <button
-                        type="button"
-                        onClick={() => moveStop(i, -1)}
-                        disabled={i === 0}
-                        aria-label={`„${shortLabel(s.label)}" nach oben`}
-                        className="rounded px-1 text-[10px] text-slate-400 transition hover:text-brand disabled:opacity-30 dark:text-slate-500"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveStop(i, 1)}
-                        disabled={i === stops.length - 1}
-                        aria-label={`„${shortLabel(s.label)}" nach unten`}
-                        className="rounded px-1 text-[10px] text-slate-400 transition hover:text-brand disabled:opacity-30 dark:text-slate-500"
-                      >
-                        ▼
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeStop(s.id)}
-                      aria-label={`Stopp „${shortLabel(s.label)}" entfernen`}
-                      className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={onStopsDragEnd}
+            >
+              <SortableContext
+                items={stops.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ol>
+                  {stops.map((s, i) => (
+                    <SortableStopLi
+                      key={s.id}
+                      id={s.id}
+                      className="border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
                     >
-                      ✕
-                    </button>
-                  </div>
-                  {/* Zeile 2: Wetter + Reisetag — nur zeigen, wenn Wetter geladen ist
-                      oder dem Stopp (über den Tagesplaner) ein Reisetag zugeordnet wurde. */}
-                  {(weather[s.id] || s.date) && (
-                    <div className="mt-1.5 flex items-center gap-2 pl-8">
-                      {weather[s.id] && (
-                        <span
-                          className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
-                          title={weather[s.id].text}
-                        >
-                          {weather[s.id].emoji} {weather[s.id].tempC}°
-                        </span>
+                      {({ attributes, listeners, isDragging }) => (
+                        <>
+                          {/* Zeile 1: Griff, Nummer, Name/„von", Löschen */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              {...attributes}
+                              {...listeners}
+                              aria-label={`Stopp „${shortLabel(s.label)}" verschieben`}
+                              className={`shrink-0 touch-none rounded px-1 text-slate-400 transition hover:text-brand dark:text-slate-500 ${
+                                isDragging ? "cursor-grabbing" : "cursor-grab"
+                              }`}
+                            >
+                              ⠿
+                            </button>
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <PlaceLink
+                                lat={s.lat}
+                                lng={s.lng}
+                                label={s.label}
+                                display={shortLabel(s.label)}
+                              />
+                              {s.by && (
+                                <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                                  von {s.by}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeStop(s.id)}
+                              aria-label={`Stopp „${shortLabel(s.label)}" entfernen`}
+                              className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {/* Zeile 2: Wetter + Reisetag — nur zeigen, wenn Wetter geladen ist
+                              oder dem Stopp (über den Tagesplaner) ein Reisetag zugeordnet wurde. */}
+                          {(weather[s.id] || s.date) && (
+                            <div className="mt-1.5 flex items-center gap-2 pl-8">
+                              {weather[s.id] && (
+                                <span
+                                  className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
+                                  title={weather[s.id].text}
+                                >
+                                  {weather[s.id].emoji} {weather[s.id].tempC}°
+                                </span>
+                              )}
+                              {s.date && (
+                                <span
+                                  title="Reisetag (im Tagesplaner zugeordnet)"
+                                  className="shrink-0 rounded bg-brand-tint/60 px-1.5 py-0.5 text-xs text-brand-dark dark:bg-brand/20 dark:text-brand-tint"
+                                >
+                                  📅 {deDate(s.date)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </>
                       )}
-                      {s.date && (
-                        <span
-                          title="Reisetag (im Tagesplaner zugeordnet)"
-                          className="shrink-0 rounded bg-brand-tint/60 px-1.5 py-0.5 text-xs text-brand-dark dark:bg-brand/20 dark:text-brand-tint"
-                        >
-                          📅 {deDate(s.date)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ol>
+                    </SortableStopLi>
+                  ))}
+                </ol>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
