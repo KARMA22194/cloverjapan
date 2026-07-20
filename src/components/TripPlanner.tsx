@@ -244,8 +244,6 @@ export function TripPlanner() {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paste, setPaste] = useState("");
-  const [pastePending, setPastePending] = useState(false);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
 
@@ -583,6 +581,9 @@ export function TripPlanner() {
     });
   }
 
+  // Einen Ort als Stopp anlegen. Ein Feld für beides: `geo/resolve` behandelt
+  // sowohl einen Ortsnamen/Text (Nominatim-Geocode) als auch einen Google-/Apple-
+  // Maps-Link (exakte Koordinaten) — daher die frühere Zweiteilung nicht mehr nötig.
   async function addStop(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
@@ -590,45 +591,18 @@ export function TripPlanner() {
     setAdding(true);
     setError(null);
     try {
-      const results = await api.get<GeoResult[]>(
-        `/api/v1/geo/search?q=${encodeURIComponent(q)}`,
-      );
-      if (results.length === 0) {
-        setError(`Kein Ort in Japan gefunden für „${q}".`);
-        return;
-      }
-      const r = results[0];
+      const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
       const next = [...stops, { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng }];
       setStops(next);
       persistStops(next);
       setQuery("");
       setRoute(null); // Route veraltet, sobald sich die Stopps ändern
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler bei der Ortssuche.");
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function addFromPaste(e: React.FormEvent) {
-    e.preventDefault();
-    const q = paste.trim();
-    if (q.length < 2) return;
-    setPastePending(true);
-    setError(null);
-    try {
-      const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(q)}`);
-      const next = [...stops, { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng }];
-      setStops(next);
-      persistStops(next);
-      setPaste("");
-      setRoute(null);
       setTransitLegs([]);
       setTransitError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Konnte keinen Ort ermitteln.");
     } finally {
-      setPastePending(false);
+      setAdding(false);
     }
   }
 
@@ -854,20 +828,32 @@ export function TripPlanner() {
     <div className="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_2fr]">
       {/* Steuerung: Orte eingeben + Liste */}
       <div className="flex flex-col gap-3">
+        {/* Ein Feld für beides: Ortsname/Text ODER Google-/Apple-Maps-Link. */}
         <form
           onSubmit={addStop}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
         >
           <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-            Ort in Japan
+            Ort hinzufügen
           </label>
-          <div className="flex gap-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="z. B. Tokyo Tower, Kyoto, Osaka Castle"
-              className={inputClass}
-            />
+          <textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter fügt hinzu (Shift+Enter = Zeilenumbruch, z. B. bei langen Links).
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+            rows={2}
+            placeholder="Ortsname oder Google-Maps-Link (z. B. „Tokyo Tower“, „Fushimi Inari“)"
+            className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Maps-Link = exakt · Name/Text = geschätzt
+            </span>
             <button
               type="submit"
               disabled={adding || query.trim().length < 2}
@@ -877,35 +863,6 @@ export function TripPlanner() {
             </button>
           </div>
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
-        </form>
-
-        {/* Ort aus Link oder Text (z. B. Google-Maps-Link oder Caption) einfügen. */}
-        <form
-          onSubmit={addFromPaste}
-          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
-        >
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-            Ort aus Link/Text einfügen
-          </label>
-          <textarea
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            rows={2}
-            placeholder="Google-Maps-Link oder Ortsname/Caption (z. B. „Fushimi Inari“)"
-            className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              Maps-Link = exakt · Text/Caption = geschätzt
-            </span>
-            <button
-              type="submit"
-              disabled={pastePending || paste.trim().length < 2}
-              className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {pastePending ? "…" : "Einfügen"}
-            </button>
-          </div>
         </form>
 
         {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
