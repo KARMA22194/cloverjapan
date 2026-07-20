@@ -65,6 +65,37 @@ function Donut({ segments }: { segments: { color: string; frac: number }[] }) {
   );
 }
 
+/**
+ * Horizontale Balken (eine Serie → eine Markenfarbe, keine Legende nötig). Wert
+ * direkt an der Zeile beschriftet; recessiver Track. `frac` = Anteil am Maximum.
+ */
+function BarList({
+  rows,
+}: {
+  rows: { label: string; value: string; frac: number; title?: string }[];
+}) {
+  return (
+    <div className="space-y-2">
+      {rows.map((r, i) => (
+        <div key={i} title={r.title}>
+          <div className="flex items-baseline justify-between gap-2 text-xs">
+            <span className="truncate text-slate-600 dark:text-slate-300">{r.label}</span>
+            <span className="shrink-0 tabular-nums font-medium text-slate-700 dark:text-slate-200">
+              {r.value}
+            </span>
+          </div>
+          <div className="mt-0.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-brand"
+              style={{ width: `${Math.max(r.frac * 100, 2)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ExpenseCalculator() {
   const [rate, setRate] = useState<number | null>(null);
   const [rateDate, setRateDate] = useState<string | null>(null);
@@ -170,6 +201,31 @@ export function ExpenseCalculator() {
     const yen = totals.perCat.get(c.value) ?? 0;
     return { ...c, yen, eur: eur(yen), frac: totals.yen > 0 ? yen / totals.yen : 0 };
   });
+
+  // Wer hat wie viel bezahlt (nach paidById; Name über die Mitgliederliste).
+  const perPerson = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of items) m.set(it.paidById ?? "?", (m.get(it.paidById ?? "?") ?? 0) + it.yen);
+    const rows = [...m.entries()].map(([id, yen]) => ({
+      name: members.find((x) => x.id === id)?.name ?? "Unbekannt",
+      yen,
+    }));
+    return rows.sort((a, b) => b.yen - a.yen);
+  }, [items, members]);
+
+  // Ausgaben je Tag (aus createdAt), chronologisch — Verlauf über die Reise.
+  const perDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of items) {
+      const day = it.createdAt?.slice(0, 10);
+      if (day) m.set(day, (m.get(day) ?? 0) + it.yen);
+    }
+    return [...m.entries()]
+      .map(([day, yen]) => ({ day, yen }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+  }, [items]);
+  const maxPerson = Math.max(1, ...perPerson.map((p) => p.yen));
+  const maxDay = Math.max(1, ...perDay.map((d) => d.yen));
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -634,6 +690,45 @@ export function ExpenseCalculator() {
               })}
             </ul>
           </div>
+
+          {/* Wer hat bezahlt (nur sinnvoll ab 2 Zahlern) */}
+          {perPerson.length > 1 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                Wer hat bezahlt
+              </p>
+              <BarList
+                rows={perPerson.map((p) => ({
+                  label: p.name,
+                  value: `${yenFmt.format(p.yen)} · ${eurFmt.format(eur(p.yen))}`,
+                  frac: p.yen / maxPerson,
+                  title: `${p.name}: ${yenFmt.format(p.yen)}`,
+                }))}
+              />
+            </div>
+          )}
+
+          {/* Verlauf: Ausgaben je Tag (ab 2 Tagen) */}
+          {perDay.length > 1 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                Ausgaben je Tag
+              </p>
+              <BarList
+                rows={perDay.map((d) => ({
+                  label: new Date(`${d.day}T00:00:00Z`).toLocaleDateString("de-DE", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit",
+                    timeZone: "UTC",
+                  }),
+                  value: `${yenFmt.format(d.yen)} · ${eurFmt.format(eur(d.yen))}`,
+                  frac: d.yen / maxDay,
+                  title: `${d.day}: ${yenFmt.format(d.yen)}`,
+                }))}
+              />
+            </div>
+          )}
         </div>
       )}
 

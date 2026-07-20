@@ -28,6 +28,7 @@ export interface ExpenseItem {
   paidById?: string | null;
   shared?: boolean;
   hasReceipt?: boolean;
+  createdAt?: string; // ISO; von der API geliefert, u. a. für den Zeitverlauf-Chart
 }
 
 /**
