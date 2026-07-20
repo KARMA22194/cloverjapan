@@ -243,6 +243,9 @@ export function TripPlanner() {
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  const [suggestions, setSuggestions] = useState<GeoResult[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const suggestRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
@@ -582,6 +585,52 @@ export function TripPlanner() {
     });
   }
 
+  // Autocomplete: bei einem Ortsnamen (kein Link) live Vorschläge holen (Nominatim
+  // via geo/search), entprellt (schont Nominatim). Bei Links/kurzer Eingabe: aus.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3 || /https?:\/\//i.test(q)) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      api
+        .get<GeoResult[]>(`/api/v1/geo/search?q=${encodeURIComponent(q)}`)
+        .then((rs) => !cancelled && setSuggestions(rs.slice(0, 5)))
+        .catch(() => !cancelled && setSuggestions([]));
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  // Vorschlagsliste bei Klick außerhalb des Eingabefelds schließen.
+  useEffect(() => {
+    if (!showSuggest) return;
+    const onDown = (e: MouseEvent) => {
+      if (suggestRef.current && !suggestRef.current.contains(e.target as Node)) {
+        setShowSuggest(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [showSuggest]);
+
+  // Einen Vorschlag direkt als Stopp übernehmen (Koordinaten sind schon bekannt).
+  function pickSuggestion(r: GeoResult) {
+    const next = [...stops, { id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng }];
+    setStops(next);
+    persistStops(next);
+    setQuery("");
+    setSuggestions([]);
+    setShowSuggest(false);
+    setRoute(null);
+    setTransitLegs([]);
+    setTransitError(null);
+  }
+
   // Einen Ort als Stopp anlegen. Ein Feld für beides: `geo/resolve` behandelt
   // sowohl einen Ortsnamen/Text (Nominatim-Geocode) als auch einen Google-/Apple-
   // Maps-Link (exakte Koordinaten) — daher die frühere Zweiteilung nicht mehr nötig.
@@ -895,20 +944,51 @@ export function TripPlanner() {
           <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Ort hinzufügen
           </label>
-          <textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter fügt hinzu (Shift+Enter = Zeilenumbruch, z. B. bei langen Links).
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-            rows={2}
-            placeholder="Ortsname oder Google-Maps-Link (z. B. „Tokyo Tower“, „Fushimi Inari“)"
-            className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
-          />
+          <div ref={suggestRef} className="relative">
+            <textarea
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowSuggest(true);
+              }}
+              onFocus={() => setShowSuggest(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setShowSuggest(false);
+                  return;
+                }
+                // Enter fügt hinzu (Shift+Enter = Zeilenumbruch, z. B. bei langen Links).
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+              rows={2}
+              placeholder="Ortsname oder Google-Maps-Link (z. B. „Tokyo Tower“, „Fushimi Inari“)"
+              className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            {showSuggest && suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                className="absolute left-0 right-0 top-full z-[1200] mt-1 max-h-64 overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+              >
+                {suggestions.map((r, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onClick={() => pickSuggestion(r)}
+                      className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      title={r.label}
+                    >
+                      📍 {r.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-xs text-slate-400 dark:text-slate-500">
               Maps-Link = exakt · Name/Text = geschätzt
