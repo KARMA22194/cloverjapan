@@ -16,6 +16,8 @@
 // personenbezogenen Seiten/Daten eines anderen Kontos.
 const STATIC_CACHE = "tt-static-v4";
 const DATA_CACHE = "tt-data-v1";
+const TILE_CACHE = "tt-tiles-v1";
+const MAX_TILES = 600; // grobe Obergrenze (mehrere Zoomstufen einer Region)
 const OWNER_KEY = "/__owner";
 
 function isStaticAsset(url) {
@@ -37,6 +39,41 @@ function isDataRequest(request, url) {
   return url.pathname.startsWith("/api/");
 }
 
+// Basemap-Kacheln (extern, CARTO) → offline verfügbar halten. RainViewer-Radar
+// bewusst NICHT (Echtzeit; alte Radar-Kacheln wären irreführend).
+function isTile(url) {
+  return url.hostname.endsWith(".basemaps.cartocdn.com");
+}
+
+async function trimCache(name, max) {
+  const cache = await caches.open(name);
+  const keys = await cache.keys();
+  if (keys.length > max) {
+    // Älteste zuerst (keys in Einfüge-Reihenfolge) entfernen.
+    await Promise.all(keys.slice(0, keys.length - max).map((k) => cache.delete(k)));
+  }
+}
+
+// Cache-first: einmal geladene Kacheln bleiben offline verfügbar. <img>-Tiles sind
+// „no-cors" → opaque (status 0); die cachen wir bewusst mit.
+async function tileFirst(request) {
+  const cache = await caches.open(TILE_CACHE);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  try {
+    const res = await fetch(request);
+    if (res.ok || res.type === "opaque") {
+      cache
+        .put(request, res.clone())
+        .then(() => trimCache(TILE_CACHE, MAX_TILES))
+        .catch(() => {});
+    }
+    return res;
+  } catch {
+    return cached || Response.error();
+  }
+}
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -47,7 +84,9 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((k) => k !== STATIC_CACHE && k !== DATA_CACHE).map((k) => caches.delete(k)),
+          keys
+            .filter((k) => k !== STATIC_CACHE && k !== DATA_CACHE && k !== TILE_CACHE)
+            .map((k) => caches.delete(k)),
         ),
       )
       .then(() => self.clients.claim()),
@@ -79,7 +118,16 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (request.method !== "GET") return;
+
+  // Externe Basemap-Kacheln offline verfügbar halten (cache-first) — vor dem
+  // Same-Origin-Filter, da die Kacheln von einem fremden Host kommen.
+  if (isTile(url)) {
+    event.respondWith(tileFirst(request));
+    return;
+  }
+
+  if (url.origin !== self.location.origin) return;
 
   if (isStaticAsset(url)) {
     // Statisch: network-first, Fallback auf Cache.
