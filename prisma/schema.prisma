@@ -45,6 +45,20 @@ model User {
   credentials    Credential[]
   tokens         Token[]
   expensesPaid   Expense[]   @relation("ExpensePaidBy")
+  pushSubscriptions PushSubscription[]
+}
+
+// Web-Push-Abo eines Geräts (ein Nutzer kann mehrere Geräte haben).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Einmal-Token für E-Mail-Bestätigung und Passwort-Reset.

@@ -123,3 +123,42 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// --- Web-Push: Team-Benachrichtigungen ---------------------------------------
+// Zeigt eine System-Benachrichtigung, auch wenn die App geschlossen ist.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    /* kein/ungültiges Payload → Standardtext */
+  }
+  const title = data.title || "Clover Japan";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: "clover-activity",
+      data: { url: data.url || "/start" },
+    }),
+  );
+});
+
+// Klick auf die Benachrichtigung → App-Fenster fokussieren bzw. öffnen.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/start";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          client.focus();
+          if ("navigate" in client) client.navigate(url).catch(() => {});
+          return undefined;
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});

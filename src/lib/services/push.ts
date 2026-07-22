@@ -1,0 +1,87 @@
+import webpush from "web-push";
+
+import { db } from "@/lib/db";
+
+let configured = false;
+
+/** VAPID einmalig konfigurieren; false, wenn keine Keys gesetzt sind (Feature aus). */
+function ensureConfigured(): boolean {
+  if (configured) return true;
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey) return false;
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || "mailto:admin@clover.japan",
+    publicKey,
+    privateKey,
+  );
+  configured = true;
+  return true;
+}
+
+/** Ist Web-Push serverseitig einsatzbereit (VAPID-Keys vorhanden)? */
+export function pushConfigured(): boolean {
+  return Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+}
+
+export interface WebPushSub {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+/** Abo eines Geräts speichern (idempotent über den unique endpoint). */
+export async function savePushSubscription(userId: string, sub: WebPushSub): Promise<void> {
+  await db.pushSubscription.upsert({
+    where: { endpoint: sub.endpoint },
+    create: { userId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+    update: { userId, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+  });
+}
+
+/** Abo eines Geräts löschen (beim Abmelden der Benachrichtigungen). */
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  await db.pushSubscription.deleteMany({ where: { endpoint } });
+}
+
+export interface PushPayload {
+  title: string;
+  body: string;
+  url?: string;
+}
+
+/**
+ * Push an alle Geräte der Reise-Mitglieder senden — außer dem Auslöser selbst.
+ * Best-effort: Fehler werden geschluckt; abgelaufene Abos (404/410) werden entfernt.
+ */
+export async function sendPushToTrip(
+  tripId: string,
+  exceptUserId: string | null,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  const members = await db.tripMember.findMany({ where: { tripId }, select: { userId: true } });
+  const userIds = members.map((m) => m.userId).filter((id) => id !== exceptUserId);
+  if (userIds.length === 0) return;
+
+  const subs = await db.pushSubscription.findMany({ where: { userId: { in: userIds } } });
+  if (subs.length === 0) return;
+
+  const data = JSON.stringify(payload);
+  await Promise.all(
+    subs.map(async (s) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          data,
+        );
+      } catch (err) {
+        // Abgelaufenes/ungültiges Abo → aufräumen, damit es nicht ewig scheitert.
+        const code = (err as { statusCode?: number })?.statusCode;
+        if (code === 404 || code === 410) {
+          await db.pushSubscription.deleteMany({ where: { endpoint: s.endpoint } }).catch(() => {});
+        }
+      }
+    }),
+  );
+}

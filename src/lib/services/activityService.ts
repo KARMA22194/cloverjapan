@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { sendPushToTrip } from "@/lib/services/push";
 
 export interface ActivityInput {
   tripId: string;
@@ -8,9 +9,20 @@ export interface ActivityInput {
   summary: string;
 }
 
+// Maschinen-Key → lesbarer Titel für die Push-Benachrichtigung.
+const ACTION_LABELS: Record<string, string> = {
+  "booking.create": "Neue Buchung",
+  "expense.create": "Neue Ausgabe",
+  "flight.create": "Neuer Flug",
+  "stamp.collect": "Eki-Stempel gesammelt",
+  "task.create": "Neue Aufgabe",
+  "wishlist.create": "Neuer Wunsch",
+};
+
 /**
  * Ereignis in den Aktivitäts-Feed schreiben. Best-effort: ein Fehler hier darf
- * die eigentliche Mutation nie scheitern lassen.
+ * die eigentliche Mutation nie scheitern lassen. Zusätzlich Web-Push an die
+ * übrigen Reise-Mitglieder (übersprungen, wenn Push nicht konfiguriert ist).
  */
 export async function logActivity(input: ActivityInput): Promise<void> {
   try {
@@ -25,6 +37,16 @@ export async function logActivity(input: ActivityInput): Promise<void> {
     });
   } catch {
     /* Feed ist unkritisch – Haupt-Request nicht blockieren. */
+  }
+
+  try {
+    await sendPushToTrip(input.tripId, input.userId ?? null, {
+      title: ACTION_LABELS[input.action] ?? "Neue Aktivität",
+      body: input.userName ? `${input.userName}: ${input.summary}` : input.summary,
+      url: "/start",
+    });
+  } catch {
+    /* Push ist unkritisch. */
   }
 }
 
