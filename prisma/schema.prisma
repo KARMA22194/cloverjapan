@@ -146,6 +146,7 @@ model TripStop {
   lng           Float
   position      Int
   date          String? // optionaler Reisetag (YYYY-MM-DD) → Verknüpfung mit Tagesplaner
+  note          String  @default("") // kurze Notiz/Absprache am Ort (geteilt im Team)
   createdByName String  @default("")
   trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 

@@ -34,6 +34,7 @@ interface Stop {
   lng: number;
   date?: string | null;
   by?: string;
+  note?: string;
 }
 
 interface Hotel {
@@ -350,10 +351,17 @@ export function TripPlanner() {
           lat: s.lat,
           lng: s.lng,
           date: s.date ?? null,
+          note: s.note ?? "",
         })),
       })
       .then(setStops)
       .catch(() => {});
+  }
+
+  // Notiz zu einem Stopp: beim Tippen nur lokal (kein PUT je Tastendruck),
+  // gespeichert wird beim Verlassen des Feldes (onBlur → persistStops).
+  function setStopNote(id: string, note: string) {
+    setStops((prev) => prev.map((s) => (s.id === id ? { ...s, note } : s)));
   }
 
   // Karte einmalig initialisieren (nur im Client → dynamischer Import).
@@ -1281,6 +1289,16 @@ export function TripPlanner() {
                               )}
                             </div>
                           )}
+                          {/* Kurze Notiz/Absprache am Ort (im Team geteilt) */}
+                          <input
+                            value={s.note ?? ""}
+                            onChange={(e) => setStopNote(s.id, e.target.value)}
+                            onBlur={() => persistStops(stops)}
+                            placeholder="📝 Notiz…"
+                            maxLength={500}
+                            aria-label={`Notiz zu „${shortLabel(s.label)}"`}
+                            className="mt-1.5 ml-8 w-[calc(100%-2rem)] rounded border border-transparent bg-slate-50 px-2 py-1 text-xs text-slate-600 outline-none transition focus:border-brand focus:bg-transparent dark:bg-slate-800/50 dark:text-slate-300"
+                          />
                         </>
                       )}
                     </SortableStopLi>

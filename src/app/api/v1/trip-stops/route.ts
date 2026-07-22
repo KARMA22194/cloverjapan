@@ -19,6 +19,7 @@ const stopSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   date: dateStr,
+  note: z.string().max(500).optional().default(""),
 });
 const putBody = z.object({ stops: z.array(stopSchema).max(200) });
 
@@ -28,6 +29,7 @@ const toDto = (s: {
   lat: number;
   lng: number;
   date: string | null;
+  note: string;
   createdByName: string;
 }) => ({
   id: s.id,
@@ -35,6 +37,7 @@ const toDto = (s: {
   lat: s.lat,
   lng: s.lng,
   date: s.date,
+  note: s.note,
   by: s.createdByName,
 });
 

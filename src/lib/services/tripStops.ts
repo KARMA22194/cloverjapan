@@ -37,7 +37,14 @@ export async function addTripStop(
  *  Ersteller-Name bleibt für bestehende ids erhalten; neue bekommen den aktuellen Nutzer. */
 export async function replaceTripStops(
   tripId: string,
-  stops: { id: string; label: string; lat: number; lng: number; date?: string | null }[],
+  stops: {
+    id: string;
+    label: string;
+    lat: number;
+    lng: number;
+    date?: string | null;
+    note?: string;
+  }[],
   createdByName: string,
 ) {
   const existing = await db.tripStop.findMany({
@@ -55,6 +62,7 @@ export async function replaceTripStops(
         lat: s.lat,
         lng: s.lng,
         date: s.date ?? null,
+        note: s.note ?? "",
         position: i,
         createdByName: prev.get(s.id) || createdByName,
       })),
