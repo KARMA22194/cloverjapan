@@ -11,6 +11,8 @@ interface Member {
   email: string;
   image?: string | null;
   isMe: boolean;
+  isOwner: boolean;
+  canManage: boolean;
   lastSeenAt?: string | null;
 }
 
@@ -85,16 +87,24 @@ export function TripMembers() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [iCanManage, setICanManage] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   const reload = useCallback(() => {
     return api
-      .get<{ members: Member[]; invitations: Invitation[]; incoming: Incoming[] }>(
-        "/api/v1/trip/members",
-      )
+      .get<{
+        members: Member[];
+        invitations: Invitation[];
+        incoming: Incoming[];
+        canManage: boolean;
+        isOwner: boolean;
+      }>("/api/v1/trip/members")
       .then((d) => {
         setMembers(d.members);
         setInvitations(d.invitations);
         setIncoming(d.incoming);
+        setICanManage(d.canManage);
+        setIsOwner(d.isOwner);
       })
       .catch(() => {});
   }, []);
@@ -171,7 +181,17 @@ export function TripMembers() {
 
   function remove(id: string) {
     setMembers((prev) => prev.filter((m) => m.id !== id));
-    api.delete(`/api/v1/trip/members/${id}`).catch(() => {});
+    // Bei Fehler (z. B. 403) macht der api-Client einen Toast; Liste zurückholen.
+    api.delete(`/api/v1/trip/members/${id}`).catch(() => reload());
+  }
+
+  // Verwalter-Recht setzen/entziehen (nur der Owner sieht diesen Schalter).
+  function setManage(id: string, canManage: boolean) {
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, canManage } : m)));
+    api
+      .patch(`/api/v1/trip/members/${id}`, { canManage })
+      .then(() => reload())
+      .catch(() => reload());
   }
 
   async function acceptIncoming(id: string) {
@@ -324,9 +344,25 @@ export function TripMembers() {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                {m.name}
-                {m.isMe && <span className="ml-1 text-xs text-slate-400">(du)</span>}
+              <p className="flex items-center gap-1.5 truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                <span className="truncate">{m.name}</span>
+                {m.isMe && <span className="text-xs text-slate-400">(du)</span>}
+                {m.isOwner && (
+                  <span
+                    title="Ersteller der Reise"
+                    className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300"
+                  >
+                    👑 Ersteller
+                  </span>
+                )}
+                {!m.isOwner && m.canManage && (
+                  <span
+                    title="Darf Mitglieder verwalten"
+                    className="shrink-0 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] font-medium text-brand-dark dark:bg-brand/20 dark:text-brand-tint"
+                  >
+                    Verwalter
+                  </span>
+                )}
               </p>
               <p className="flex items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
                 <span className="truncate">{m.email}</span>
@@ -347,7 +383,33 @@ export function TripMembers() {
                 )}
               </p>
             </div>
-            {!m.isMe && (
+            {/* Verwalter-Recht vergeben/entziehen — nur der Owner, für andere Mitglieder. */}
+            {isOwner && !m.isMe && !m.isOwner && (
+              <button
+                type="button"
+                onClick={() => setManage(m.id, !m.canManage)}
+                title={m.canManage ? "Verwalter-Recht entziehen" : "Zum Verwalter machen"}
+                className={`shrink-0 rounded border px-2 py-1 text-xs transition ${
+                  m.canManage
+                    ? "border-brand text-brand hover:bg-brand/10"
+                    : "border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                {m.canManage ? "Verwalter ✓" : "Zum Verwalter"}
+              </button>
+            )}
+            {/* Sich selbst entfernen (verlassen) — außer der Owner. */}
+            {m.isMe && !m.isOwner && (
+              <button
+                type="button"
+                onClick={() => remove(m.id)}
+                className="shrink-0 rounded px-2 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+              >
+                Verlassen
+              </button>
+            )}
+            {/* Andere entfernen — nur mit Recht, nie den Owner; Verwalter nur der Owner. */}
+            {!m.isMe && iCanManage && !m.isOwner && (isOwner || !m.canManage) && (
               <button
                 type="button"
                 onClick={() => remove(m.id)}

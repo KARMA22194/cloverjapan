@@ -16,7 +16,9 @@ export async function getActiveTripId(userId: string): Promise<string> {
   const member = await db.tripMember.findUnique({ where: { userId } });
   if (member) return member.tripId;
   try {
-    const trip = await db.trip.create({ data: { members: { create: { userId } } } });
+    const trip = await db.trip.create({
+      data: { ownerId: userId, members: { create: { userId } } },
+    });
     return trip.id;
   } catch (err) {
     // Race: paralleler erster Zugriff (SSR + PWA) hat die Mitgliedschaft schon
@@ -36,9 +38,27 @@ export async function getTripMembers(tripId: string) {
     orderBy: { joinedAt: "asc" },
     select: {
       joinedAt: true,
+      canManage: true,
       user: { select: { id: true, name: true, email: true, image: true, lastSeenAt: true } },
     },
   });
+}
+
+/** Owner-User-Id der Reise (Ersteller) — null bei verwaisten (leeren) Reisen. */
+export async function getTripOwnerId(tripId: string): Promise<string | null> {
+  const trip = await db.trip.findUnique({ where: { id: tripId }, select: { ownerId: true } });
+  return trip?.ownerId ?? null;
+}
+
+/** Darf `userId` in dieser Reise Mitglieder verwalten (= Owner oder Verwalter)? */
+export async function canManageMembers(tripId: string, userId: string): Promise<boolean> {
+  const ownerId = await getTripOwnerId(tripId);
+  if (ownerId === userId) return true;
+  const member = await db.tripMember.findUnique({
+    where: { userId },
+    select: { tripId: true, canManage: true },
+  });
+  return Boolean(member && member.tripId === tripId && member.canManage);
 }
 
 /**
@@ -234,7 +254,9 @@ export async function registerSelf(
         data: { name, email: normalized, passwordHash },
       });
       // Eigene Reise, damit die Japan-Tools sofort nutzbar sind.
-      await tx.trip.create({ data: { members: { create: { userId: created.id } } } });
+      await tx.trip.create({
+        data: { ownerId: created.id, members: { create: { userId: created.id } } },
+      });
       return created;
     });
     return { ok: true, user: { id: user.id, name: user.name, email: user.email } };
@@ -306,15 +328,82 @@ export async function acceptInvitation(
   }
 }
 
-/** Entfernt ein Mitglied aus der Reise → verschiebt es in eine eigene neue Reise. */
-export async function removeFromTrip(tripId: string, userId: string): Promise<boolean> {
-  const member = await db.tripMember.findUnique({ where: { userId } });
-  if (!member || member.tripId !== tripId) return false;
+export type RemoveResult =
+  | "ok"
+  | "not_found" // Ziel ist nicht (mehr) Mitglied dieser Reise
+  | "forbidden" // Aufrufer darf dieses Ziel nicht entfernen
+  | "owner_protected" // der Owner kann nicht entfernt werden
+  | "owner_cannot_leave"; // der Owner kann die Reise nicht selbst verlassen
+
+/**
+ * Entfernt ein Mitglied aus der Reise → verschiebt es in eine eigene neue Reise.
+ * Berechtigung:
+ *  - sich selbst entfernen (verlassen) darf jeder — außer dem Owner (müsste erst
+ *    übertragen werden);
+ *  - andere entfernen darf nur der Owner oder ein Verwalter (canManage);
+ *  - ein Verwalter darf den Owner und andere Verwalter NICHT entfernen (nur der Owner);
+ *  - der Owner ist grundsätzlich nicht entfernbar.
+ */
+export async function removeFromTrip(
+  tripId: string,
+  actingUserId: string,
+  targetUserId: string,
+): Promise<RemoveResult> {
+  const target = await db.tripMember.findUnique({
+    where: { userId: targetUserId },
+    select: { tripId: true, canManage: true },
+  });
+  if (!target || target.tripId !== tripId) return "not_found";
+
+  const ownerId = await getTripOwnerId(tripId);
+  const isSelf = actingUserId === targetUserId;
+
+  if (isSelf) {
+    if (ownerId === targetUserId) return "owner_cannot_leave";
+  } else {
+    if (ownerId === targetUserId) return "owner_protected"; // Owner unantastbar
+    const actingIsOwner = ownerId === actingUserId;
+    if (!actingIsOwner) {
+      // Kein Owner → nur Verwalter, und nur gegen einfache Mitglieder.
+      const acting = await db.tripMember.findUnique({
+        where: { userId: actingUserId },
+        select: { tripId: true, canManage: true },
+      });
+      const actingCanManage = Boolean(acting && acting.tripId === tripId && acting.canManage);
+      if (!actingCanManage || target.canManage) return "forbidden";
+    }
+  }
+
   // Neue Solo-Reise anlegen + Mitgliedschaft umhängen atomar — sonst kann eine
   // leere Reise ohne Mitglied zurückbleiben, wenn der zweite Write scheitert.
   await db.$transaction(async (tx) => {
-    const fresh = await tx.trip.create({ data: {} });
-    await tx.tripMember.update({ where: { userId }, data: { tripId: fresh.id } });
+    const fresh = await tx.trip.create({ data: { ownerId: targetUserId } });
+    await tx.tripMember.update({
+      where: { userId: targetUserId },
+      data: { tripId: fresh.id, canManage: false },
+    });
   });
-  return true;
+  return "ok";
+}
+
+/**
+ * Verwalter-Recht eines Mitglieds setzen/entziehen — nur der Owner darf das.
+ * Der Owner selbst braucht kein Flag (Recht ergibt sich aus Trip.ownerId).
+ */
+export async function setMemberManage(
+  tripId: string,
+  actingUserId: string,
+  targetUserId: string,
+  canManage: boolean,
+): Promise<"ok" | "forbidden" | "not_found" | "owner_self"> {
+  const ownerId = await getTripOwnerId(tripId);
+  if (ownerId !== actingUserId) return "forbidden"; // nur der Owner
+  if (targetUserId === ownerId) return "owner_self"; // Owner hat das Recht ohnehin
+  const target = await db.tripMember.findUnique({
+    where: { userId: targetUserId },
+    select: { tripId: true },
+  });
+  if (!target || target.tripId !== tripId) return "not_found";
+  await db.tripMember.update({ where: { userId: targetUserId }, data: { canManage } });
+  return "ok";
 }

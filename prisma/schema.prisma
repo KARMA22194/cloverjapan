@@ -104,6 +104,9 @@ model Credential {
 model Trip {
   id        String   @id @default(cuid())
   name      String   @default("Japan-Reise")
+  // Ersteller der Reise (Owner). Darf Mitglieder entfernen und Verwalter ernennen.
+  // Nullable: leere Reisen (nach removeFromTrip) können ohne Owner zurückbleiben.
+  ownerId   String?
   createdAt DateTime @default(now())
 
   members        TripMember[]
@@ -141,12 +144,15 @@ model TripInvitation {
 
 // Ein Nutzer ist in genau einer Reise (userId @unique).
 model TripMember {
-  id       String   @id @default(cuid())
-  tripId   String
-  userId   String   @unique
-  joinedAt DateTime @default(now())
-  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String   @unique
+  // Darf Mitglieder verwalten (entfernen) — vom Owner vergeben. Owner selbst
+  // hat das Recht implizit über Trip.ownerId.
+  canManage Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tripId])
 }

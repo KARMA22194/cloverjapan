@@ -9,6 +9,7 @@ import {
   getIncomingInvitations,
   getPendingInvitations,
   getTripMembers,
+  getTripOwnerId,
   inviteToTrip,
 } from "@/lib/services/trip";
 import { sendRegistrationInviteEmail, sendTripInviteEmail } from "@/lib/mailer";
@@ -24,18 +25,27 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
-    const [members, invitations, incoming] = await Promise.all([
+    const [members, invitations, incoming, ownerId] = await Promise.all([
       getTripMembers(tripId),
       getPendingInvitations(tripId),
       getIncomingInvitations(user.email, tripId),
+      getTripOwnerId(tripId),
     ]);
+    // Darf der aktuelle Nutzer verwalten (Owner oder Verwalter)?
+    const iCanManage =
+      ownerId === user.id || members.some((m) => m.user.id === user.id && m.canManage);
     return ok({
+      // Steuert die UI: nur mit diesem Recht erscheinen „Entfernen"/Rechte-Schalter.
+      canManage: iCanManage,
+      isOwner: ownerId === user.id,
       members: members.map((m) => ({
         id: m.user.id,
         name: m.user.name,
         email: m.user.email,
         image: m.user.image,
         isMe: m.user.id === user.id,
+        isOwner: m.user.id === ownerId,
+        canManage: m.canManage,
         // Für den Präsenz-Status; eigener Eintrag gilt immer als „jetzt online".
         lastSeenAt: m.user.id === user.id ? new Date().toISOString() : m.user.lastSeenAt?.toISOString() ?? null,
       })),
