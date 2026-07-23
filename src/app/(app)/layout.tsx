@@ -15,9 +15,7 @@ export default async function AppLayout({
 
   const isAdmin = session.user.role === "ADMIN";
 
-  // Ausklappbare Kategorien in der oberen Leiste (nur noch Japan-Bereich + Verwaltung).
-  // „Mehr" ist rein administrativ (Admin-Verwaltung + API-Doku) → nur für ADMIN;
-  // leere Gruppen werden ausgeblendet, damit kein leeres Dropdown erscheint.
+  // Ausklappbare Kategorien in der oberen Leiste (nur noch der Japan-Bereich).
   const groups = [
     {
       label: "Japan",
@@ -30,16 +28,16 @@ export default async function AppLayout({
         { href: "/mitglieder", label: "Mitglieder", match: "/mitglieder" },
       ],
     },
-    {
-      label: "Mehr",
-      items: isAdmin
-        ? [
-            { href: "/admin", label: "Admin", match: "/admin" },
-            { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
-          ]
-        : [],
-    },
-  ].filter((g) => g.items.length > 0);
+  ];
+
+  // Verwaltung (Admin + API-Doku) — nur für ADMIN; landet im Profil-Menü,
+  // statt in einem eigenen „Mehr"-Reiter.
+  const adminItems = isAdmin
+    ? [
+        { href: "/admin", label: "Admin", match: "/admin" },
+        { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
+      ]
+    : [];
 
   return (
     <BiometricLock>
@@ -48,6 +46,7 @@ export default async function AppLayout({
         <OfflineBanner />
         <TopNav
           groups={groups}
+          adminItems={adminItems}
           userName={session.user.name ?? session.user.email ?? "Nutzer"}
         />
         <main className="mx-auto max-w-6xl px-4 py-6">
