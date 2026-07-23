@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
-
+import { handle, ok } from "@/lib/api/http";
+import { requireAdmin } from "@/lib/api/session";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
 
-// OpenAPI-3.1-Dokument. Öffentlich (kein Auth) — beschreibt nur die Schnittstelle.
+// OpenAPI-3.1-Dokument — nur für ADMIN (die interaktive Doku ist Admin-only).
 export function GET() {
-  return NextResponse.json(buildOpenApiDocument());
+  return handle(async () => {
+    await requireAdmin();
+    return ok(buildOpenApiDocument());
+  });
 }

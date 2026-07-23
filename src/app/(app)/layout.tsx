@@ -16,6 +16,8 @@ export default async function AppLayout({
   const isAdmin = session.user.role === "ADMIN";
 
   // Ausklappbare Kategorien in der oberen Leiste (nur noch Japan-Bereich + Verwaltung).
+  // „Mehr" ist rein administrativ (Admin-Verwaltung + API-Doku) → nur für ADMIN;
+  // leere Gruppen werden ausgeblendet, damit kein leeres Dropdown erscheint.
   const groups = [
     {
       label: "Japan",
@@ -30,12 +32,14 @@ export default async function AppLayout({
     },
     {
       label: "Mehr",
-      items: [
-        ...(isAdmin ? [{ href: "/admin", label: "Admin", match: "/admin" }] : []),
-        { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
-      ],
+      items: isAdmin
+        ? [
+            { href: "/admin", label: "Admin", match: "/admin" },
+            { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
+          ]
+        : [],
     },
-  ];
+  ].filter((g) => g.items.length > 0);
 
   return (
     <BiometricLock>

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
+import { auth } from "@/auth";
 import { SwaggerView } from "@/components/SwaggerView";
 import { Logo } from "@/components/Logo";
 
@@ -9,7 +11,13 @@ export const metadata: Metadata = {
   description: "Interaktive REST-API-Referenz (OpenAPI 3.1)",
 };
 
-export default function ApiDocsPage() {
+export default async function ApiDocsPage() {
+  // API-Doku ist ADMIN-only (die Seite liegt außerhalb des (app)-Layouts und
+  // wird von der Middleware nicht erfasst → hier selbst absichern).
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.role !== "ADMIN") redirect("/start");
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
       <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">

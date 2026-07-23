@@ -169,6 +169,11 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - **Rollen-Gating doppelt:** Middleware (Seiten) **und** in jeder Page/jedem Handler.
 - **API-Docs:** `/api/v1/openapi` (JSON) + Swagger UI unter `/api-docs` (self-hosted,
   dynamischer Client-Import). Middleware schützt `/api*` **nicht** — Auth pro Handler.
+  **ADMIN-only:** `/api-docs` liegt außerhalb des `(app)`-Layouts und wird vom
+  Middleware-Matcher (`(?!api…)`) nicht erfasst → die Seite prüft die Rolle selbst
+  (`auth()` → sonst Redirect) **und** der `openapi`-Endpunkt nutzt `requireAdmin()`
+  (sonst ließe sich die Spec direkt laden). Der Nav-Eintrag „Mehr" ist komplett
+  Admin-only (leere Gruppen werden ausgeblendet).
 
 ### Sicherheit (nach Audit umgesetzt)
 
@@ -248,7 +253,7 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
   (`InfoTabs.tsx`)
 - `/k/[token]` — **öffentliche** Kofferfinder-Seite (kein Login), dreisprachig (DE/EN/日本語)
 - `/mitglieder` · `/profil` (Profilbild 128×128 Data-URL, `PATCH /api/v1/me`) · `/admin` (nur
-  ADMIN) · `/api-docs` (Swagger UI)
+  ADMIN) · `/api-docs` (Swagger UI, **nur ADMIN**)
 - **Redirect-Altrouten:** `/ausgaben`,`/zoll`,`/wunschliste`,`/abrechnung` → `/geld?tab=…`;
   `/ablauf`,`/tagesplaner`,`/buchungen`,`/checkliste` → `/programm?tab=…`;
   `/wetter`,`/uebersicht` → `/info?tab=…`.
