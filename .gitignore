@@ -9,9 +9,10 @@ next-env.d.ts
 *.tsbuildinfo
 
 # --- Secrets / Environment ---
-# .env enthält AUTH_SECRET & DB-Credentials — niemals committen.
-# .env.example bleibt als Template getrackt.
+# .env / .env.prod enthalten AUTH_SECRET & DB-Credentials — niemals committen.
+# .env.example / .env.prod.example bleiben als Templates getrackt.
 .env
+.env.prod
 .env*.local
 
 # --- Zertifikate / Keys (Corporate-Proxy Root-CA, siehe CLAUDE.md) ---

@@ -39,6 +39,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Eigenständiges Server-Bundle (server.js + minimales node_modules) für
+  // schlanke Docker-Images beim Self-Hosting. Auf Vercel unschädlich.
+  output: "standalone",
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

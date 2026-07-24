@@ -1,0 +1,64 @@
+# Produktions-Stack für Self-Hosting (CasaOS o. Ä.).
+# Start:  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Erreichbarkeit über Cloudflare Tunnel: cloudflared verbindet sich ausgehend
+# mit Cloudflare (kein Port-Forwarding, TLS automatisch). Im Cloudflare-
+# Dashboard zeigt der Public-Hostname auf den internen Service http://app:3000.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clover}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
+      POSTGRES_DB: ${POSTGRES_DB:-clover}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clover} -d ${POSTGRES_DB:-clover}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-Shot: wendet ausstehende Migrationen an und beendet sich. Die App
+  # startet erst, wenn dies erfolgreich durchgelaufen ist.
+  migrate:
+    build:
+      context: .
+      target: migrator
+    env_file:
+      - .env.prod
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Cloudflare Tunnel — verbindet den Public-Hostname mit http://app:3000.
+  # TUNNEL_TOKEN aus dem Cloudflare Zero-Trust-Dashboard (Tunnel anlegen).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?TUNNEL_TOKEN fehlt}
+    depends_on:
+      - app
+
+volumes:
+  db-data:

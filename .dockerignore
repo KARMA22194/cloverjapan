@@ -1,0 +1,29 @@
+# Build-Artefakte & Abhängigkeiten (werden im Image frisch erzeugt)
+node_modules
+.next
+out
+
+# Secrets & lokale Umgebung (NIE ins Image!)
+.env
+.env.*
+!.env.example
+!.env.prod.example
+
+# Native Store-Builds (Capacitor) — für den Server irrelevant
+ios
+android
+
+# Entwicklung / Tests / VCS
+.git
+.gitignore
+e2e
+playwright-report
+test-results
+certs
+*.md
+!README.md
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
