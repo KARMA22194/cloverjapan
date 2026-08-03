@@ -97,6 +97,9 @@ interface TransitLeg {
 
 const JAPAN_CENTER: [number, number] = [36.2, 138.25];
 
+// localStorage-Schlüssel für die (persönliche) Import-Zwischenablage.
+const IMPORT_LS_KEY = "reiseplaner:import";
+
 /** Kurzer, lesbarer Ortsname aus dem langen Nominatim-display_name. */
 function shortLabel(label: string): string {
   return label.split(",").slice(0, 2).join(", ");
@@ -426,6 +429,8 @@ export function TripPlanner() {
   const konbiniRef = useRef<Leaflet.LayerGroup | null>(null);
   const rainRef = useRef<Leaflet.TileLayer | null>(null);
   const tileRef = useRef<Leaflet.TileLayer | null>(null);
+  // Erst nach dem Laden aus localStorage darf zurückgeschrieben werden (kein Clobber).
+  const importReady = useRef(false);
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -488,6 +493,45 @@ export function TripPlanner() {
       .then(setHotels)
       .catch(() => {});
   }, []);
+
+  // Import-Zwischenablage aus localStorage laden (einmalig, nur im Client → keine
+  // Hydration-Mismatch, da initial leer gerendert wird).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(IMPORT_LS_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as { candidates?: unknown; text?: unknown };
+        if (Array.isArray(d.candidates)) {
+          setImportCandidates(
+            d.candidates.filter(
+              (c): c is { id: string; label: string; lat: number; lng: number } =>
+                !!c &&
+                typeof c === "object" &&
+                typeof (c as { lat?: unknown }).lat === "number" &&
+                typeof (c as { lng?: unknown }).lng === "number",
+            ),
+          );
+        }
+        if (typeof d.text === "string") setImportText(d.text);
+      }
+    } catch {
+      /* localStorage nicht verfügbar / defekt – ignorieren */
+    }
+    importReady.current = true;
+  }, []);
+
+  // Import-Zwischenablage bei Änderung zurückschreiben (erst nach dem Laden).
+  useEffect(() => {
+    if (!importReady.current) return;
+    try {
+      localStorage.setItem(
+        IMPORT_LS_KEY,
+        JSON.stringify({ candidates: importCandidates, text: importText }),
+      );
+    } catch {
+      /* Quota/!verfügbar – unkritisch */
+    }
+  }, [importCandidates, importText]);
 
   // Komplette Stopp-Liste speichern (PUT-Replace); Antwort enthält den Ersteller (by).
   function persistStops(next: Stop[]) {
