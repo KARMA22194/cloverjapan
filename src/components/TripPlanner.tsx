@@ -425,6 +425,7 @@ export function TripPlanner() {
   const routeRef = useRef<Leaflet.Polyline | null>(null);
   const konbiniRef = useRef<Leaflet.LayerGroup | null>(null);
   const rainRef = useRef<Leaflet.TileLayer | null>(null);
+  const tileRef = useRef<Leaflet.TileLayer | null>(null);
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -525,11 +526,14 @@ export function TripPlanner() {
       // CARTO „Voyager": keyfrei, CDN-schnell, erlaubt Fremd-Domains und zeigt
       // überwiegend lateinische Beschriftung (z. B. „Tokyo" statt „東京").
       // (Wikimedia-Tiles blockieren Fremd-Domains mit 403 → leere Karte.)
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd",
-        attribution: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
-        maxZoom: 20,
-      }).addTo(map);
+      tileRef.current = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          attribution: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
+          maxZoom: 20,
+        },
+      ).addTo(map);
       markersRef.current = L.layerGroup().addTo(map);
       konbiniRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
@@ -548,13 +552,26 @@ export function TripPlanner() {
     };
   }, []);
 
-  // Die Karte war im Listen-Tab ausgeblendet (display:none → Größe 0). Beim
-  // Zurückwechseln neu vermessen, sonst bleibt der Kartenbereich grau/halb.
+  // Die Karte war im Import-Tab ausgeblendet (display:none → Größe 0, Kacheln nicht
+  // geladen). Nach dem Sichtbarwerden per rAF (Layout gesetzt) neu vermessen UND die
+  // Basemap-Kacheln neu laden — sonst bleibt der Kartenbereich leer/grau.
   useEffect(() => {
-    if (view === "map" && mapRef.current) {
-      const id = setTimeout(() => mapRef.current?.invalidateSize(), 0);
-      return () => clearTimeout(id);
-    }
+    if (view !== "map") return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        map.invalidateSize();
+        tileRef.current?.redraw();
+        // Ansicht neu setzen erzwingt das Nachladen der Kacheln für den Ausschnitt.
+        map.setView(map.getCenter(), map.getZoom(), { animate: false });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [view]);
 
   // Marker + Route neu zeichnen, wenn sich Stopps/Route ändern.
