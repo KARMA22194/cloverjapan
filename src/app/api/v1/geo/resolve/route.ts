@@ -58,11 +58,18 @@ function isAttractionResult(cls?: string, type?: string): boolean {
 export function GET(req: NextRequest) {
   return handle(async () => {
     const user = await requireUser();
-    // Server-seitiger Fetch beliebiger URLs → drosseln (Outbound-/Scanning-Vektor).
-    await enforceRateLimit(`resolve:${user.id}`, 30, 60 * 1000);
     const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
     if (q.length < 2) throw badRequest("Bitte einen Ortsnamen oder Link einfügen.");
     if (q.length > 2000) throw badRequest("Eingabe zu lang.");
+    // URL-Eingaben lösen serverseitige Fetches beliebiger Ziele aus (SSRF-/Scanning-
+    // Vektor) → strenger drosseln (30/min) als reines Text-Geocoding via Nominatim
+    // (90/min, damit ein Listen-Import mit vielen Ortsnamen in einem Durchgang klappt).
+    const hasUrl = /https?:\/\/[^\s]+/.test(q);
+    await enforceRateLimit(
+      hasUrl ? `resolve-url:${user.id}` : `resolve-text:${user.id}`,
+      hasUrl ? 30 : 90,
+      60 * 1000,
+    );
 
     const urlMatch = q.match(/https?:\/\/[^\s]+/);
     if (urlMatch) {
@@ -74,7 +81,15 @@ export function GET(req: NextRequest) {
         /* ignore */
       }
       if (/(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com)/.test(url)) {
-        return ok(await resolveMapsLink(url));
+        try {
+          return ok(await resolveMapsLink(url));
+        } catch (err) {
+          // Manche Maps-Links (z. B. Google-Takeout „maps/search?query_place_id=…")
+          // enthalten keine Koordinaten → als Fallback den Begleittext geocoden.
+          const geo = await geocode(q, "text");
+          if (geo) return ok(geo);
+          throw err;
+        }
       }
       if (/instagram\.com/.test(host)) {
         throw new ApiError(

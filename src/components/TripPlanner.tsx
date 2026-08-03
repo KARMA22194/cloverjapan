@@ -287,6 +287,9 @@ function sampleGeometry(geom: [number, number][], max = 40): [number, number][] 
   return out;
 }
 
+/** Kurze Pause (Import-Drosselung: Nominatim erlaubt ~1 Anfrage/Sekunde). */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** Minimaler CSV-Parser: „"“-Quoting inkl. ""-Escape, \n und \r\n als Zeilenende. */
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -1019,6 +1022,8 @@ export function TripPlanner() {
     const found: { id: string; label: string; lat: number; lng: number }[] = [];
     const failed: string[] = [];
     for (let i = 0; i < lines.length; i++) {
+      // Drosseln: Nominatim blockt schnelle Serien (Policy ~1 Anfrage/Sekunde).
+      if (i > 0) await sleep(1100);
       setImportProgress({ done: i, total: lines.length });
       try {
         const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(lines[i])}`);
@@ -1032,9 +1037,9 @@ export function TripPlanner() {
     setImporting(false);
     setImportText(failed.join("\n"));
     setImportNote(
-      `${found.length} Orte gefunden${
-        failed.length > 0 ? `, ${failed.length} nicht erkannt (bleiben im Feld)` : ""
-      }.`,
+      failed.length > 0
+        ? `${found.length} gefunden, ${failed.length} nicht erkannt (bleiben im Feld). Tipp: Für Google-Listen die GeoJSON-Datei aus Takeout laden — die enthält Koordinaten.`
+        : `${found.length} Orte gefunden.`,
     );
   }
 
@@ -1458,8 +1463,9 @@ export function TripPlanner() {
                   />
                 </label>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  Google Takeout (CSV/GeoJSON), Google My Maps (KML) oder GPX. Orte mit
-                  Koordinaten kommen direkt in die Vorschau, reine Namen landen oben im Feld.
+                  Am besten <strong>GeoJSON/KML/GPX</strong> (enthalten Koordinaten → direkt in
+                  die Vorschau). CSV (Google Takeout) hat nur Namen/Links → werden geocodiert;
+                  sehr spezielle Shop-Namen findet der Geocoder evtl. nicht.
                 </p>
                 {importNote && (
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{importNote}</p>
