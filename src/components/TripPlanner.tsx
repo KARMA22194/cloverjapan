@@ -287,6 +287,133 @@ function sampleGeometry(geom: [number, number][], max = 40): [number, number][] 
   return out;
 }
 
+/** Minimaler CSV-Parser: „"“-Quoting inkl. ""-Escape, \n und \r\n als Zeilenende. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      field = "";
+      rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((c) => c.trim().length > 0));
+}
+
+interface FileImportResult {
+  direct: { label: string; lat: number; lng: number }[]; // enthält Koordinaten → sofort übernehmen
+  queries: string[]; // nur Name/Link → erst über geo/resolve auflösen
+  error?: string;
+}
+
+/**
+ * Parst eine hochgeladene Orte-Datei. Unterstützt GeoJSON/KML/GPX (mit Koordinaten →
+ * direkt) und CSV (Google-Takeout „Gespeicherte Orte" → Name/Link → aufzulösen).
+ * Format wird aus der Endung bzw. dem Inhalt (`{` / `<`) erkannt.
+ */
+function parsePlacesFile(name: string, text: string): FileImportResult {
+  const direct: { label: string; lat: number; lng: number }[] = [];
+  const queries: string[] = [];
+  const trimmed = text.trimStart();
+  const ext = name.toLowerCase().split(".").pop() || "";
+  const looksJson = ext === "geojson" || ext === "json" || trimmed.startsWith("{");
+  const looksXml = ext === "kml" || ext === "gpx" || trimmed.startsWith("<");
+
+  try {
+    if (looksJson) {
+      const j = JSON.parse(text);
+      const feats = Array.isArray(j.features) ? j.features : Array.isArray(j) ? j : [];
+      for (const f of feats) {
+        const props = (f && f.properties) || {};
+        const loc = props.location || {};
+        const label = loc.name || props.name || props.title || props.Title || "Ort";
+        const g = f && f.geometry;
+        const coords = g && g.type === "Point" ? g.coordinates : null;
+        if (Array.isArray(coords) && coords.length >= 2) {
+          const lng = Number(coords[0]);
+          const lat = Number(coords[1]);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            direct.push({ label, lat, lng });
+            continue;
+          }
+        }
+        const q = props.google_maps_url || props.url || props.URL || label;
+        if (q) queries.push(String(q));
+      }
+    } else if (looksXml) {
+      const doc = new DOMParser().parseFromString(text, "text/xml");
+      const placemarks = Array.from(doc.getElementsByTagName("Placemark"));
+      const wpts = Array.from(doc.getElementsByTagName("wpt"));
+      if (placemarks.length > 0) {
+        for (const pm of placemarks) {
+          const label = pm.getElementsByTagName("name")[0]?.textContent?.trim() || "Ort";
+          const raw = pm.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+          if (raw) {
+            const [lngS, latS] = raw.split(/\s+/)[0].split(",");
+            const lng = Number(lngS);
+            const lat = Number(latS);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              direct.push({ label, lat, lng });
+              continue;
+            }
+          }
+          queries.push(label);
+        }
+      } else if (wpts.length > 0) {
+        for (const w of wpts) {
+          const lat = Number(w.getAttribute("lat"));
+          const lng = Number(w.getAttribute("lon"));
+          const label = w.getElementsByTagName("name")[0]?.textContent?.trim() || "Wegpunkt";
+          if (Number.isFinite(lat) && Number.isFinite(lng)) direct.push({ label, lat, lng });
+          else queries.push(label);
+        }
+      } else {
+        return { direct, queries, error: "Keine Placemarks/Wegpunkte in der Datei gefunden." };
+      }
+    } else {
+      // CSV (z. B. Google-Takeout „Gespeicherte Orte": Spalten Title, Note, URL).
+      const rows = parseCsv(text);
+      if (rows.length === 0) return { direct, queries, error: "Leere oder unlesbare CSV." };
+      const header = rows[0].map((c) => c.trim().toLowerCase());
+      const titleIdx = header.indexOf("title");
+      const urlIdx = header.indexOf("url");
+      const hasHeader = titleIdx >= 0 || urlIdx >= 0;
+      for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
+        const r = rows[i];
+        const title = (titleIdx >= 0 ? r[titleIdx] : r[0]) || "";
+        const url = (urlIdx >= 0 ? r[urlIdx] : r.find((c) => /^https?:\/\//i.test(c))) || "";
+        const q = title.trim() || url.trim();
+        if (q) queries.push(q);
+      }
+    }
+  } catch {
+    return { direct, queries, error: "Datei konnte nicht ausgewertet werden (Format?)." };
+  }
+  return { direct, queries };
+}
+
 export function TripPlanner() {
   const mapEl = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
@@ -311,6 +438,7 @@ export function TripPlanner() {
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [importNote, setImportNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
@@ -819,6 +947,67 @@ export function TripPlanner() {
     setRoute(null);
   }
 
+  // Neue Stopps anhängen (Backend-Limit 200); gibt zurück, wie viele Platz hatten.
+  function appendStops(newStops: Stop[]): number {
+    const room = Math.max(0, 200 - stops.length);
+    const take = newStops.slice(0, room);
+    if (take.length > 0) {
+      const next = [...stops, ...take];
+      setStops(next);
+      persistStops(next);
+      setRoute(null);
+    }
+    return take.length;
+  }
+
+  // Orte-Datei importieren (CSV/GeoJSON/KML/GPX). Einträge mit Koordinaten werden
+  // sofort übernommen; reine Namen/Links landen im Textfeld und werden per
+  // „Importieren" über geo/resolve aufgelöst.
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // gleiche Datei erneut wählbar
+    if (!file) return;
+    setImportNote(null);
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setImportNote("⚠️ Datei konnte nicht gelesen werden.");
+      return;
+    }
+    const { direct, queries, error } = parsePlacesFile(file.name, text);
+    if (error) {
+      setImportNote(`⚠️ ${error}`);
+      return;
+    }
+    if (direct.length === 0 && queries.length === 0) {
+      setImportNote("⚠️ Keine Orte in der Datei gefunden.");
+      return;
+    }
+    const addedCount =
+      direct.length > 0
+        ? appendStops(
+            direct.map((d) => ({
+              id: crypto.randomUUID(),
+              label: d.label,
+              lat: d.lat,
+              lng: d.lng,
+              active: true,
+            })),
+          )
+        : 0;
+    if (queries.length > 0) {
+      setImportText((prev) => [prev.trim(), ...queries].filter(Boolean).join("\n"));
+    }
+    const parts: string[] = [];
+    if (addedCount > 0) parts.push(`${addedCount} Orte mit Koordinaten direkt übernommen`);
+    if (direct.length > addedCount)
+      parts.push(`${direct.length - addedCount} wegen Limit (200) übersprungen`);
+    if (queries.length > 0)
+      parts.push(`${queries.length} Namen/Links ins Feld gelegt — „Importieren" tippen`);
+    setImportNote(parts.join(" · "));
+  }
+
   // Mehrere Orte auf einmal übernehmen: jede Zeile (Ortsname ODER Maps-Link) wird
   // nacheinander über geo/resolve aufgelöst (schont Nominatim), Treffer angehängt.
   // Nicht erkannte Zeilen bleiben zur Korrektur im Feld stehen.
@@ -1243,6 +1432,26 @@ export function TripPlanner() {
                 >
                   {importing ? "Importiere…" : "Importieren"}
                 </button>
+              </div>
+
+              {/* Alternativ: Orte-Datei importieren (Takeout/My Maps/GPX). */}
+              <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                <label className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-brand transition hover:underline">
+                  📁 Datei importieren
+                  <input
+                    type="file"
+                    accept=".geojson,.json,.kml,.gpx,.csv,text/csv,application/json,application/geo+json"
+                    onChange={onFile}
+                    className="hidden"
+                  />
+                </label>
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  Google Takeout (CSV/GeoJSON), Google My Maps (KML) oder GPX. Orte mit
+                  Koordinaten werden direkt übernommen, reine Namen landen oben im Feld.
+                </p>
+                {importNote && (
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{importNote}</p>
+                )}
               </div>
             </div>
           )}

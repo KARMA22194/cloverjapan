@@ -320,10 +320,15 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
   Stopps werden nummeriert, auf der Karte gezeigt, geroutet und in die Zugverbindungen
   einbezogen; abgewählte bleiben gespeichert (z. B. teamLab für später), erscheinen
   abgeblendet in der Liste. `computeRoute` sortiert nur die aktiven, hängt inaktive hinten an.
-- **Listen-Import**: Textfeld (eine Zeile = ein Ort/Maps-Link) → jede Zeile wird per
-  `geo/resolve` aufgelöst und angehängt (sequenziell, schont Nominatim; nicht erkannte
-  Zeilen bleiben zur Korrektur stehen). Ein einzelner Google-Maps-**Listen**-Link lässt
-  sich mangels API nicht aufklappen — nur die Einzel-Orte/-Links.
+- **Listen-Import** (eigener Tab „📋 Import"): Textfeld (eine Zeile = ein Ort/Maps-Link) →
+  jede Zeile per `geo/resolve` aufgelöst und angehängt (sequenziell, schont Nominatim; nicht
+  erkannte Zeilen bleiben zur Korrektur stehen). Ein einzelner Google-Maps-**Listen**-Link
+  lässt sich mangels API nicht aufklappen — nur die Einzel-Orte/-Links.
+- **Datei-Import** (`parsePlacesFile`, rein clientseitig): **CSV** (Google-Takeout
+  „Gespeicherte Orte" → Name/Link → aufzulösen), **GeoJSON** (Takeout), **KML** (Google My
+  Maps) und **GPX**. Formate mit Koordinaten (GeoJSON/KML/GPX) werden **direkt** übernommen
+  (kein Geocoding); CSV-Namen landen im Textfeld. Format-Erkennung aus Endung bzw. Inhalt
+  (`{`/`<`). KMZ (gezippt) wird nicht unterstützt.
 
 ### Flüge (`/fluege`)
 
