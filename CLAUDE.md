@@ -338,8 +338,11 @@ Dashboard gespiegelt.
 - **Abrechnung** (`Abrechnung.tsx`): wer-schuldet-wem (Gleichteilung, greedy), „Bezahlt"
   markieren (`Settlement`).
 - **Zollrechner** (`CustomsCalculator.tsx`): dt. Reisezoll — Freimenge 430 €/Person,
-  Pauschalsatz 17,5 % bis 700 €, sonst Zoll + 19 % EUSt. Rein rechnerisch (keine DB),
-  optional Warenwert aus Ausgaben/Wunschliste übernehmen.
+  Pauschalsatz 17,5 % **nur bis 700 € Warenwert/Person** (nicht nach Abzug der Freimenge!),
+  darüber zwingend reguläre Verzollung (Zoll je Warenart + 19 % EUSt). „Aus Ausgaben
+  übernehmen" gruppiert die Waren je Kategorie (Figuren 0 % / Kleidung 12 % / Sonstiges ≈4 %)
+  und verzollt **pro Warenart**; die Freimenge wird zugunsten des Reisenden zuerst auf die
+  höchstverzollten Waren angerechnet. Rein rechnerisch (keine DB).
 - **Wunschliste** (`Wunschliste.tsx`): Einkaufs-/Souvenirliste (¥, gekauft-Haken); Summe → Zoll.
 
 ### Tagesplaner → Reiseplaner
