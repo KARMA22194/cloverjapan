@@ -298,6 +298,8 @@ export function TripPlanner() {
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
+  // Tab-Umschalter: Karte & Route vs. Orte-Liste (Import + Stopps + Hotels).
+  const [view, setView] = useState<"map" | "list">("map");
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [suggestions, setSuggestions] = useState<GeoResult[]>([]);
@@ -410,6 +412,15 @@ export function TripPlanner() {
       }
     };
   }, []);
+
+  // Die Karte war im Listen-Tab ausgeblendet (display:none → Größe 0). Beim
+  // Zurückwechseln neu vermessen, sonst bleibt der Kartenbereich grau/halb.
+  useEffect(() => {
+    if (view === "map" && mapRef.current) {
+      const id = setTimeout(() => mapRef.current?.invalidateSize(), 0);
+      return () => clearTimeout(id);
+    }
+  }, [view]);
 
   // Marker + Route neu zeichnen, wenn sich Stopps/Route ändern.
   useEffect(() => {
@@ -1079,13 +1090,44 @@ export function TripPlanner() {
   const activeCount = runningNo;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_2fr]">
+    <div className="space-y-4">
+      {/* Tab-Umschalter: entlastet den vollen Reiseplaner (Karte vs. Liste). */}
+      <div className="inline-flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+        {([
+          ["map", "🗺️ Karte & Route"],
+          ["list", `📋 Orte-Liste (${activeCount}${stops.length > activeCount ? `/${stops.length}` : ""})`],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            aria-pressed={view === key}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              view === key
+                ? "bg-brand text-white"
+                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={
+          view === "map"
+            ? "grid gap-4 lg:grid-cols-[minmax(280px,1fr)_2fr]"
+            : "space-y-4"
+        }
+      >
       {/* Steuerung: Orte eingeben + Liste */}
       <div className="flex flex-col gap-3">
         {/* Ein Feld für beides: Ortsname/Text ODER Google-/Apple-Maps-Link. */}
         <form
           onSubmit={addStop}
-          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+          className={`rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 ${
+            view === "map" ? "" : "hidden"
+          }`}
         >
           <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Ort hinzufügen
@@ -1158,6 +1200,8 @@ export function TripPlanner() {
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
 
+        {/* Orte-Liste-Tab: Import + Hotels + Stopp-Liste (entlastet den Karten-Tab). */}
+        <div className={view === "list" ? "flex flex-col gap-3" : "hidden"}>
         {/* Sammel-Import: mehrere Orte/Maps-Links auf einmal (eine Zeile pro Ort). */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
           <button
@@ -1449,7 +1493,9 @@ export function TripPlanner() {
             </DndContext>
           )}
         </div>
-
+        </div>
+        {/* Karten-Tab: Routen-/Konbini-/Regen-/Zug-Steuerung (ohne die lange Liste). */}
+        <div className={view === "map" ? "flex flex-col gap-3" : "hidden"}>
         <button
           type="button"
           onClick={computeRoute}
@@ -1709,13 +1755,17 @@ export function TripPlanner() {
           Karte © OpenStreetMap / Wikimedia (intl. Beschriftung) · Routing OSRM · Orte werden
           lokal in diesem Browser gespeichert.
         </p>
+        </div>
       </div>
 
-      {/* Karte */}
+      {/* Karte — bleibt gemountet, im Listen-Tab nur ausgeblendet. */}
       <div
         ref={mapEl}
-        className="z-0 h-[420px] w-full rounded-lg border border-slate-200 dark:border-slate-700 lg:h-[600px]"
+        className={`z-0 h-[420px] w-full rounded-lg border border-slate-200 dark:border-slate-700 lg:h-[600px] ${
+          view === "map" ? "" : "hidden"
+        }`}
       />
+      </div>
     </div>
   );
 }

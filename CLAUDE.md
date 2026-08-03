@@ -284,6 +284,10 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 
 `TripPlanner.tsx` (Client, dynamischer Leaflet-Import → kein SSR-`window`). Externe
 Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles lädt der Browser.
+- **Zwei interne Tabs** (`view`-State, kein eigener Route/`?tab=`): „🗺️ Karte & Route"
+  (Ort-Eingabe, Karte, Route/Konbini/Regen/Zug) und „📋 Orte-Liste" (Listen-Import, Hotels,
+  Stopp-Liste). Die Leaflet-Karte bleibt **immer gemountet** (im Listen-Tab nur `hidden`);
+  beim Zurückwechseln `map.invalidateSize()` (sonst grauer Kartenbereich).
 - `GET /api/v1/geo/search?q=` — Geocoding via **Nominatim** (Japan, romanisiert).
 - `GET /api/v1/geo/route?points=` — beste Route via **OSRM-Trip**.
 - `GET /api/v1/geo/resolve?q=` — Maps-Link/Text → Koordinaten (SSRF-geschützt).
