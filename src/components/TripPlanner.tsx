@@ -1200,7 +1200,7 @@ export function TripPlanner() {
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
 
-        {/* Orte-Liste-Tab: Import + Hotels + Stopp-Liste (entlastet den Karten-Tab). */}
+        {/* Orte-Liste-Tab: Listen-Import (entlastet den Karten-Tab). */}
         <div className={view === "list" ? "flex flex-col gap-3" : "hidden"}>
         {/* Sammel-Import: mehrere Orte/Maps-Links auf einmal (eine Zeile pro Ort). */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
@@ -1247,7 +1247,9 @@ export function TripPlanner() {
             </div>
           )}
         </div>
-
+        </div>
+        {/* Hotel/Unterkunft: zurück im Karten-Tab (an alter Stelle). */}
+        <div className={view === "map" ? "flex flex-col gap-3" : "hidden"}>
         {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
           <form onSubmit={addHotel}>
@@ -1347,7 +1349,9 @@ export function TripPlanner() {
             </ul>
           )}
         </div>
-
+        </div>
+        {/* Orte-Liste-Tab: Stopp-Liste (Route-Häkchen, Notizen, Sortierung). */}
+        <div className={view === "list" ? "flex flex-col gap-3" : "hidden"}>
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
