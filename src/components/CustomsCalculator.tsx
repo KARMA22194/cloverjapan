@@ -7,8 +7,11 @@ import { eurFmt } from "@/lib/format";
 
 // Deutscher Reisezoll (Nicht-EU → Deutschland), Stand 2024:
 const ALLOWANCE_PER_PERSON = 430; // € Reisefreimenge für Flug-/Seereisende
-const FLAT_RATE = 0.175; // pauschaler Abgabensatz (bis 700 € zu verzollendem Wert)
-const FLAT_CAP = 700; // € Obergrenze für den Pauschalsatz
+const FLAT_RATE = 0.175; // pauschaler Abgabensatz
+// Obergrenze für die Pauschalierung: bezieht sich laut Zoll auf den WARENWERT
+// je Reisender (nicht auf den Betrag nach Abzug der Freimenge!). Übersteigt der
+// Warenwert 700 €/Person, ist nur die reguläre Verzollung zulässig.
+const FLAT_CAP = 700; // € Warenwert-Obergrenze je Person
 const EUST = 0.19; // Einfuhrumsatzsteuer (Regelsatz)
 const FALLBACK_RATE = 0.0058; // JPY→EUR-Fallback
 
@@ -50,18 +53,23 @@ export function CustomsCalculator() {
   const calc = useMemo(() => {
     const p = Math.max(1, Math.floor(Number(persons) || 1));
     const allowance = ALLOWANCE_PER_PERSON * p;
+    const flatCap = FLAT_CAP * p;
     const dutiable = Math.max(0, goodsEur - allowance);
 
-    const flatAvailable = dutiable > 0 && dutiable <= FLAT_CAP;
+    // Pauschalierung nur, wenn der WARENWERT die 700-€-Grenze/Person nicht
+    // übersteigt (nicht der Betrag nach Abzug der Freimenge). Der Satz selbst
+    // wird auf den zu verzollenden Betrag angewendet.
+    const flatAvailable = dutiable > 0 && goodsEur <= flatCap;
     const flat = flatAvailable ? dutiable * FLAT_RATE : null;
 
     const duty = dutiable * (dutyPct / 100);
     const eust = (dutiable + duty) * EUST;
     const regular = dutiable > 0 ? duty + eust : 0;
 
-    // Empfehlung: bis 700 € ist der Pauschalsatz zulässig und meist einfacher/günstiger.
+    // Empfehlung: wo zulässig, ist der Pauschalsatz meist einfacher/günstiger;
+    // über der Warenwert-Grenze bleibt nur die reguläre Verzollung.
     const recommended = flatAvailable ? "flat" : dutiable > 0 ? "regular" : "none";
-    return { p, allowance, dutiable, flatAvailable, flat, duty, eust, regular, recommended };
+    return { p, allowance, flatCap, dutiable, flatAvailable, flat, duty, eust, regular, recommended };
   }, [goodsEur, persons, dutyPct]);
 
   async function prefillFromExpenses() {
@@ -153,7 +161,7 @@ export function CustomsCalculator() {
         )}
 
         <div>
-          <label className={labelClass}>Warenart (für „regulär" über 700 €)</label>
+          <label className={labelClass}>Warenart (für „regulär" ab 700 € Warenwert)</label>
           <select
             value={dutyPct}
             onChange={(e) => setDutyPct(Number(e.target.value))}
@@ -233,7 +241,9 @@ export function CustomsCalculator() {
               </div>
               {!calc.flatAvailable && (
                 <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-                  Nur bis {eurFmt.format(FLAT_CAP)} zu verzollendem Wert möglich.
+                  Nicht zulässig: Warenwert über {eurFmt.format(calc.flatCap)}
+                  {calc.p > 1 ? ` (${eurFmt.format(FLAT_CAP)}/Person)` : ""} — Pauschalierung
+                  nur bis dahin.
                 </p>
               )}
             </div>
@@ -262,9 +272,12 @@ export function CustomsCalculator() {
         )}
 
         <p className="mt-4 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-          Schätzung nach deutschem Reisezoll (Flugreisende): Freimenge 430 €/Person, Pauschalsatz
-          17,5 % bis 700 € zu verzollendem Wert, sonst Zoll + 19 % EUSt. Alkohol & Tabak haben
-          eigene Mengengrenzen (hier nicht berechnet). Angaben ohne Gewähr — verbindlich ist der Zoll.
+          Schätzung nach deutschem Reisezoll (Flugreisende): Freimenge 430 €/Person; der
+          Pauschalsatz 17,5 % ist nur bis 700 € Warenwert/Person zulässig, darüber gilt zwingend
+          die reguläre Verzollung (Zoll + 19 % EUSt). Der Satz wird auf den Wert nach Abzug der
+          Freimenge angewandt. Alkohol & Tabak haben eigene Mengengrenzen (hier nicht berechnet).
+          Wechselkurs = tagesaktueller Marktkurs; der Zoll rechnet mit eigenen Monatskursen.
+          Angaben ohne Gewähr — verbindlich ist der Zoll.
         </p>
       </div>
     </div>
