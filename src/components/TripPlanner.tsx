@@ -450,7 +450,7 @@ export function TripPlanner() {
   const [importNote, setImportNote] = useState<string | null>(null);
   // Vorschau-Liste aufgelöster Import-Orte (erst prüfen, dann „In Stopps übernehmen").
   const [importCandidates, setImportCandidates] = useState<
-    { id: string; label: string; lat: number; lng: number }[]
+    { id: string; label: string; lat: number; lng: number; note?: string }[]
   >([]);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
@@ -504,7 +504,7 @@ export function TripPlanner() {
         if (Array.isArray(d.candidates)) {
           setImportCandidates(
             d.candidates.filter(
-              (c): c is { id: string; label: string; lat: number; lng: number } =>
+              (c): c is { id: string; label: string; lat: number; lng: number; note?: string } =>
                 !!c &&
                 typeof c === "object" &&
                 typeof (c as { lat?: unknown }).lat === "number" &&
@@ -1109,12 +1109,17 @@ export function TripPlanner() {
     setImportCandidates((prev) => prev.filter((c) => c.id !== id));
   }
 
+  // Notiz an einem gefundenen Ort setzen (wandert beim Übernehmen in den Stopp).
+  function setCandidateNote(id: string, note: string) {
+    setImportCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, note } : c)));
+  }
+
   // Einen einzelnen Vorschlag in die Stopps übernehmen (und aus der Vorschau nehmen).
   function commitCandidate(id: string) {
     const c = importCandidates.find((x) => x.id === id);
     if (!c) return;
     const added = appendStops([
-      { id: c.id, label: c.label, lat: c.lat, lng: c.lng, active: true },
+      { id: c.id, label: c.label, lat: c.lat, lng: c.lng, active: true, note: c.note ?? "" },
     ]);
     if (added > 0) {
       setImportCandidates((prev) => prev.filter((x) => x.id !== id));
@@ -1132,7 +1137,14 @@ export function TripPlanner() {
     const take = importCandidates.slice(0, room);
     const rest = importCandidates.slice(room);
     const added = appendStops(
-      take.map((c) => ({ id: c.id, label: c.label, lat: c.lat, lng: c.lng, active: true })),
+      take.map((c) => ({
+        id: c.id,
+        label: c.label,
+        lat: c.lat,
+        lng: c.lng,
+        active: true,
+        note: c.note ?? "",
+      })),
     );
     setImportCandidates(rest);
     setImportNote(
@@ -1567,33 +1579,43 @@ export function TripPlanner() {
                     {importCandidates.map((c, i) => (
                       <li
                         key={c.id}
-                        className="flex items-center gap-2 rounded-md border border-slate-100 px-2 py-1.5 text-sm dark:border-slate-800"
+                        className="rounded-md border border-slate-100 px-2 py-1.5 text-sm dark:border-slate-800"
                       >
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
-                          {i + 1}
-                        </span>
-                        <span
-                          className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200"
-                          title={c.label}
-                        >
-                          {shortLabel(c.label)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => commitCandidate(c.id)}
-                          aria-label={`„${shortLabel(c.label)}" als Stopp übernehmen`}
-                          className="shrink-0 rounded border border-brand px-2 py-0.5 text-xs font-medium text-brand transition hover:bg-brand hover:text-white"
-                        >
-                          + Stopp
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeCandidate(c.id)}
-                          aria-label={`„${shortLabel(c.label)}" aus der Vorschau entfernen`}
-                          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
-                        >
-                          ✕
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                            {i + 1}
+                          </span>
+                          <span
+                            className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200"
+                            title={c.label}
+                          >
+                            {shortLabel(c.label)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => commitCandidate(c.id)}
+                            aria-label={`„${shortLabel(c.label)}" als Stopp übernehmen`}
+                            className="shrink-0 rounded border border-brand px-2 py-0.5 text-xs font-medium text-brand transition hover:bg-brand hover:text-white"
+                          >
+                            + Stopp
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeCandidate(c.id)}
+                            aria-label={`„${shortLabel(c.label)}" aus der Vorschau entfernen`}
+                            className="shrink-0 rounded px-1.5 py-0.5 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <input
+                          value={c.note ?? ""}
+                          onChange={(e) => setCandidateNote(c.id, e.target.value)}
+                          placeholder="📝 Notiz…"
+                          maxLength={500}
+                          aria-label={`Notiz zu „${shortLabel(c.label)}"`}
+                          className="mt-1 ml-7 w-[calc(100%-1.75rem)] rounded border border-transparent bg-slate-50 px-2 py-1 text-xs text-slate-600 outline-none transition focus:border-brand focus:bg-transparent dark:bg-slate-800/50 dark:text-slate-300"
+                        />
                       </li>
                     ))}
                   </ul>
