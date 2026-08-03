@@ -2080,13 +2080,16 @@ export function TripPlanner() {
         </div>
       </div>
 
-      {/* Karte — bleibt gemountet, im Listen-Tab nur ausgeblendet. */}
-      <div
-        ref={mapEl}
-        className={`z-0 h-[420px] w-full rounded-lg border border-slate-200 dark:border-slate-700 lg:h-[600px] ${
-          view === "map" ? "" : "hidden"
-        }`}
-      />
+      {/* Karte — bleibt gemountet; Sichtbarkeit über DIESEN Wrapper, NICHT über die
+          className des Leaflet-Containers: React würde die von Leaflet dynamisch
+          gesetzten Klassen (u. a. `leaflet-container`) sonst bei jedem Tab-Wechsel
+          überschreiben → Hintergrund/Positionierung weg, Karte bleibt leer. */}
+      <div className={view === "map" ? "" : "hidden"}>
+        <div
+          ref={mapEl}
+          className="z-0 h-[420px] w-full rounded-lg border border-slate-200 dark:border-slate-700 lg:h-[600px]"
+        />
+      </div>
       </div>
     </div>
   );
