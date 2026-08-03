@@ -307,7 +307,7 @@ export function TripPlanner() {
   const suggestRef = useRef<HTMLDivElement>(null);
 
   // Sammel-Import: mehrere Orte/Maps-Links (eine Zeile pro Ort) auf einmal.
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(true);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
@@ -1095,7 +1095,7 @@ export function TripPlanner() {
       <div className="inline-flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
         {([
           ["map", "🗺️ Karte & Route"],
-          ["list", `📋 Orte-Liste (${activeCount}${stops.length > activeCount ? `/${stops.length}` : ""})`],
+          ["list", "📋 Import"],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -1350,8 +1350,8 @@ export function TripPlanner() {
           )}
         </div>
         </div>
-        {/* Orte-Liste-Tab: Stopp-Liste (Route-Häkchen, Notizen, Sortierung). */}
-        <div className={view === "list" ? "flex flex-col gap-3" : "hidden"}>
+        {/* Karten-Tab: Stopp-Liste (Route-Häkchen, Notizen, Sortierung) — an alter Stelle. */}
+        <div className={view === "map" ? "flex flex-col gap-3" : "hidden"}>
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
