@@ -1048,6 +1048,21 @@ export function TripPlanner() {
     setImportCandidates((prev) => prev.filter((c) => c.id !== id));
   }
 
+  // Einen einzelnen Vorschlag in die Stopps übernehmen (und aus der Vorschau nehmen).
+  function commitCandidate(id: string) {
+    const c = importCandidates.find((x) => x.id === id);
+    if (!c) return;
+    const added = appendStops([
+      { id: c.id, label: c.label, lat: c.lat, lng: c.lng, active: true },
+    ]);
+    if (added > 0) {
+      setImportCandidates((prev) => prev.filter((x) => x.id !== id));
+      setImportNote(`„${shortLabel(c.label)}" in die Stopps übernommen.`);
+    } else {
+      setImportNote("Kein Platz mehr — Limit von 200 Stopps erreicht.");
+    }
+  }
+
   // Die geprüfte Vorschau-Liste in die echten Stopps übernehmen (Limit 200 beachtet)
   // und danach zur Karte wechseln, damit man das Ergebnis sieht.
   function commitCandidates() {
@@ -1502,6 +1517,14 @@ export function TripPlanner() {
                         >
                           {shortLabel(c.label)}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => commitCandidate(c.id)}
+                          aria-label={`„${shortLabel(c.label)}" als Stopp übernehmen`}
+                          className="shrink-0 rounded border border-brand px-2 py-0.5 text-xs font-medium text-brand transition hover:bg-brand hover:text-white"
+                        >
+                          + Stopp
+                        </button>
                         <button
                           type="button"
                           onClick={() => removeCandidate(c.id)}
