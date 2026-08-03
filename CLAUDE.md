@@ -312,6 +312,14 @@ Dienste server-seitig über die API (Proxy-CA, sauberer User-Agent); nur Tiles l
   Kachel-Ebene über der Karte (keyfrei, eigener `TileLayer`).
 - Stopps + Unterkünfte in der **DB** pro Reise (`TripStop`/`TripHotel`, PUT-Replace;
   `from-text` hängt einen einzelnen geocodeten Ort an).
+- **`TripStop.active`** (Bool, Default true): Häkchen „in Route" pro Stopp. Nur aktive
+  Stopps werden nummeriert, auf der Karte gezeigt, geroutet und in die Zugverbindungen
+  einbezogen; abgewählte bleiben gespeichert (z. B. teamLab für später), erscheinen
+  abgeblendet in der Liste. `computeRoute` sortiert nur die aktiven, hängt inaktive hinten an.
+- **Listen-Import**: Textfeld (eine Zeile = ein Ort/Maps-Link) → jede Zeile wird per
+  `geo/resolve` aufgelöst und angehängt (sequenziell, schont Nominatim; nicht erkannte
+  Zeilen bleiben zur Korrektur stehen). Ein einzelner Google-Maps-**Listen**-Link lässt
+  sich mangels API nicht aufklappen — nur die Einzel-Orte/-Links.
 
 ### Flüge (`/fluege`)
 

@@ -165,6 +165,7 @@ model TripStop {
   lat           Float
   lng           Float
   position      Int
+  active        Boolean @default(true) // false = gespeichert, aber NICHT Teil der aktuellen Route
   date          String? // optionaler Reisetag (YYYY-MM-DD) → Verknüpfung mit Tagesplaner
   note          String  @default("") // kurze Notiz/Absprache am Ort (geteilt im Team)
   createdByName String  @default("")

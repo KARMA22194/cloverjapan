@@ -32,10 +32,14 @@ interface Stop {
   label: string;
   lat: number;
   lng: number;
+  active?: boolean; // false = gespeichert, aber nicht Teil der aktuellen Route
   date?: string | null;
   by?: string;
   note?: string;
 }
+
+/** Ein Stopp gilt als aktiv (Teil der Route), solange er nicht ausdrücklich abgewählt ist. */
+const isActive = (s: Stop) => s.active !== false;
 
 interface Hotel {
   id: string;
@@ -299,6 +303,12 @@ export function TripPlanner() {
   const [suggestions, setSuggestions] = useState<GeoResult[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
+
+  // Sammel-Import: mehrere Orte/Maps-Links (eine Zeile pro Ort) auf einmal.
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
@@ -350,6 +360,7 @@ export function TripPlanner() {
           label: s.label,
           lat: s.lat,
           lng: s.lng,
+          active: isActive(s),
           date: s.date ?? null,
           note: s.note ?? "",
         })),
@@ -408,7 +419,10 @@ export function TripPlanner() {
     if (!L || !map || !layer) return;
 
     layer.clearLayers();
-    stops.forEach((s, i) => {
+    // Nur aktive Stopps erscheinen (nummeriert) auf der Karte; abgewählte bleiben
+    // gespeichert, verschwinden aber aus Karte/Route.
+    const active = stops.filter(isActive);
+    active.forEach((s, i) => {
       // Label als DOM-Element mit textContent binden (nicht als HTML-String) —
       // Leaflet rendert String-Inhalte sonst als HTML → Stored XSS über den Stopp-Namen.
       const tooltipEl = document.createElement("span");
@@ -450,8 +464,8 @@ export function TripPlanner() {
         opacity: 0.85,
       }).addTo(map);
       map.fitBounds(routeRef.current.getBounds(), { padding: [40, 40] });
-    } else if (stops.length > 0) {
-      const group = L.featureGroup(stops.map((s) => L.marker([s.lat, s.lng])));
+    } else if (active.length > 0) {
+      const group = L.featureGroup(active.map((s) => L.marker([s.lat, s.lng])));
       map.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 9 });
     } else {
       map.setView(JAPAN_CENTER, 5);
@@ -785,6 +799,57 @@ export function TripPlanner() {
     setRoute(null);
   }
 
+  // Stopp in die Route auf-/abwählen: bleibt gespeichert, verschwindet aber aus
+  // Karte/Route/Zugverbindungen. Route wird ungültig, sobald sich die Auswahl ändert.
+  function toggleActive(id: string) {
+    const next = stops.map((s) => (s.id === id ? { ...s, active: !isActive(s) } : s));
+    setStops(next);
+    persistStops(next);
+    setRoute(null);
+  }
+
+  // Mehrere Orte auf einmal übernehmen: jede Zeile (Ortsname ODER Maps-Link) wird
+  // nacheinander über geo/resolve aufgelöst (schont Nominatim), Treffer angehängt.
+  // Nicht erkannte Zeilen bleiben zur Korrektur im Feld stehen.
+  async function importList() {
+    const lines = importText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    const room = 200 - stops.length; // Backend-Limit: max. 200 Stopps
+    const todo = lines.slice(0, Math.max(0, room));
+    setImporting(true);
+    setError(null);
+    const added: Stop[] = [];
+    const failed: string[] = [...lines.slice(todo.length)]; // Überzählige als „übrig"
+    for (let i = 0; i < todo.length; i++) {
+      setImportProgress({ done: i, total: todo.length });
+      try {
+        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(todo[i])}`);
+        added.push({ id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng, active: true });
+      } catch {
+        failed.push(todo[i]);
+      }
+    }
+    setImportProgress(null);
+    if (added.length > 0) {
+      const next = [...stops, ...added];
+      setStops(next);
+      persistStops(next);
+      setRoute(null);
+    }
+    setImporting(false);
+    setImportText(failed.join("\n"));
+    if (failed.length > 0) {
+      setError(
+        `${added.length} übernommen, ${failed.length} nicht erkannt (bleiben im Feld — bitte prüfen).`,
+      );
+    } else {
+      setImportOpen(false);
+    }
+  }
+
   // Stopp in der Liste nach oben/unten verschieben (manuelle Reihenfolge).
   // Stopps per Drag & Drop sortieren (Maus, Touch mit kurzem Halten, Tastatur).
   const dndSensors = useSensors(
@@ -900,20 +965,23 @@ export function TripPlanner() {
   }
 
   async function computeRoute() {
-    if (stops.length < 2) return;
+    const act = stops.filter(isActive);
+    if (act.length < 2) return;
     setRouting(true);
     setError(null);
     setTransitLegs([]);
     setTransitError(null);
     try {
-      const points = stops.map((s) => `${s.lat},${s.lng}`).join(";");
+      const points = act.map((s) => `${s.lat},${s.lng}`).join(";");
       const data = await api.get<RouteInfo>(
         `/api/v1/geo/route?points=${encodeURIComponent(points)}`,
       );
-      // Stopps in die optimale Reihenfolge bringen (passt zur gezeichneten Route).
-      const ordered = data.order.map((i) => stops[i]).filter(Boolean);
-      setStops(ordered);
-      persistStops(ordered);
+      // Aktive Stopps in die optimale Reihenfolge bringen (passt zur gezeichneten
+      // Route), abgewählte hängen wir unverändert hinten an.
+      const orderedActive = data.order.map((i) => act[i]).filter(Boolean);
+      const next = [...orderedActive, ...stops.filter((s) => !isActive(s))];
+      setStops(next);
+      persistStops(next);
       setRoute(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Route nicht berechenbar.");
@@ -939,14 +1007,15 @@ export function TripPlanner() {
   }
 
   async function loadTransit() {
-    if (stops.length < 2) return;
+    const act = stops.filter(isActive);
+    if (act.length < 2) return;
     setTransitLoading(true);
     setTransitError(null);
     setAddedLegs({});
     try {
       const pairs: { from: Stop; to: Stop }[] = [];
-      for (let i = 0; i < stops.length - 1; i++) {
-        pairs.push({ from: stops[i], to: stops[i + 1] });
+      for (let i = 0; i < act.length - 1; i++) {
+        pairs.push({ from: act[i], to: act[i + 1] });
       }
       const results = await Promise.all(
         pairs.map(async (p): Promise<TransitLeg> => {
@@ -1000,6 +1069,14 @@ export function TripPlanner() {
       estimated: legs.some((l) => l.conn!.estimated),
     };
   })();
+
+  // Route-Nummerierung: nur aktive Stopps zählen (entspricht der Karte).
+  let runningNo = 0;
+  const routeNo = new Map<string, number>();
+  stops.forEach((s) => {
+    if (isActive(s)) routeNo.set(s.id, ++runningNo);
+  });
+  const activeCount = runningNo;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_2fr]">
@@ -1080,6 +1157,52 @@ export function TripPlanner() {
           </button>
           {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
         </form>
+
+        {/* Sammel-Import: mehrere Orte/Maps-Links auf einmal (eine Zeile pro Ort). */}
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <button
+            type="button"
+            onClick={() => setImportOpen((o) => !o)}
+            aria-expanded={importOpen}
+            className="flex w-full items-center justify-between text-sm font-medium text-slate-700 dark:text-slate-200"
+          >
+            <span>📋 Liste importieren</span>
+            <span
+              className={`text-[10px] transition-transform duration-200 ${importOpen ? "rotate-180" : ""}`}
+              aria-hidden
+            >
+              ▾
+            </span>
+          </button>
+          {importOpen && (
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                rows={5}
+                placeholder={
+                  "Ein Ort pro Zeile — Name oder Google-Maps-Link, z. B.:\nteamLab Planets\nFushimi Inari\nhttps://maps.app.goo.gl/…"
+                }
+                className="w-full resize-y rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {importing && importProgress
+                    ? `Löse auf… ${importProgress.done + 1}/${importProgress.total}`
+                    : "Jede Zeile wird als Stopp angehängt."}
+                </span>
+                <button
+                  type="button"
+                  onClick={importList}
+                  disabled={importing || importText.trim().length === 0}
+                  className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {importing ? "Importiere…" : "Importieren"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
@@ -1184,7 +1307,8 @@ export function TripPlanner() {
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Stopps ({stops.length})
+              Stopps ({activeCount}
+              {stops.length > activeCount ? ` in Route · ${stops.length - activeCount} gespeichert` : ""})
             </span>
             {stops.length > 0 && (
               <div className="flex items-center gap-3">
@@ -1229,8 +1353,8 @@ export function TripPlanner() {
                     >
                       {({ attributes, listeners, isDragging }) => (
                         <>
-                          {/* Zeile 1: Griff, Nummer, Name/„von", Löschen */}
-                          <div className="flex items-center gap-2">
+                          {/* Zeile 1: Griff, „in Route", Nummer, Name/„von", Löschen */}
+                          <div className={`flex items-center gap-2 ${isActive(s) ? "" : "opacity-60"}`}>
                             <button
                               type="button"
                               {...attributes}
@@ -1242,9 +1366,26 @@ export function TripPlanner() {
                             >
                               ⠿
                             </button>
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-                              {i + 1}
-                            </span>
+                            <input
+                              type="checkbox"
+                              checked={isActive(s)}
+                              onChange={() => toggleActive(s.id)}
+                              aria-label={`„${shortLabel(s.label)}" in der Route`}
+                              title={isActive(s) ? "In der Route — abwählen zum Aufheben" : "Nicht in der Route — anhaken, um sie aufzunehmen"}
+                              className="h-4 w-4 shrink-0 cursor-pointer accent-brand"
+                            />
+                            {isActive(s) ? (
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+                                {routeNo.get(s.id)}
+                              </span>
+                            ) : (
+                              <span
+                                title="Gespeichert, nicht in der Route"
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400 dark:border-slate-600 dark:text-slate-500"
+                              >
+                                –
+                              </span>
+                            )}
                             <div className="min-w-0 flex-1">
                               <PlaceLink
                                 lat={s.lat}
@@ -1312,7 +1453,7 @@ export function TripPlanner() {
         <button
           type="button"
           onClick={computeRoute}
-          disabled={routing || stops.length < 2}
+          disabled={routing || activeCount < 2}
           className="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {routing ? "Berechne beste Route…" : "Beste Route berechnen"}

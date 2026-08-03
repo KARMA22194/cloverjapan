@@ -18,6 +18,7 @@ const stopSchema = z.object({
     .transform((s) => s.slice(0, 300)),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  active: z.boolean().optional().default(true),
   date: dateStr,
   note: z.string().max(500).optional().default(""),
 });
@@ -28,6 +29,7 @@ const toDto = (s: {
   label: string;
   lat: number;
   lng: number;
+  active: boolean;
   date: string | null;
   note: string;
   createdByName: string;
@@ -36,6 +38,7 @@ const toDto = (s: {
   label: s.label,
   lat: s.lat,
   lng: s.lng,
+  active: s.active,
   date: s.date,
   note: s.note,
   by: s.createdByName,

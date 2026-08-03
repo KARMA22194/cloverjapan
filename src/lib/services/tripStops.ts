@@ -42,6 +42,7 @@ export async function replaceTripStops(
     label: string;
     lat: number;
     lng: number;
+    active?: boolean;
     date?: string | null;
     note?: string;
   }[],
@@ -61,6 +62,7 @@ export async function replaceTripStops(
         label: s.label,
         lat: s.lat,
         lng: s.lng,
+        active: s.active ?? true,
         date: s.date ?? null,
         note: s.note ?? "",
         position: i,
