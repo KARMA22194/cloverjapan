@@ -439,6 +439,10 @@ export function TripPlanner() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [importNote, setImportNote] = useState<string | null>(null);
+  // Vorschau-Liste aufgelöster Import-Orte (erst prüfen, dann „In Stopps übernehmen").
+  const [importCandidates, setImportCandidates] = useState<
+    { id: string; label: string; lat: number; lng: number }[]
+  >([]);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routing, setRouting] = useState(false);
@@ -984,70 +988,78 @@ export function TripPlanner() {
       setImportNote("⚠️ Keine Orte in der Datei gefunden.");
       return;
     }
-    const addedCount =
-      direct.length > 0
-        ? appendStops(
-            direct.map((d) => ({
-              id: crypto.randomUUID(),
-              label: d.label,
-              lat: d.lat,
-              lng: d.lng,
-              active: true,
-            })),
-          )
-        : 0;
+    // Orte mit Koordinaten kommen in die Vorschau-Liste (nicht direkt in die Stopps).
+    if (direct.length > 0) {
+      setImportCandidates((prev) => [
+        ...prev,
+        ...direct.map((d) => ({ id: crypto.randomUUID(), label: d.label, lat: d.lat, lng: d.lng })),
+      ]);
+    }
     if (queries.length > 0) {
       setImportText((prev) => [prev.trim(), ...queries].filter(Boolean).join("\n"));
     }
     const parts: string[] = [];
-    if (addedCount > 0) parts.push(`${addedCount} Orte mit Koordinaten direkt übernommen`);
-    if (direct.length > addedCount)
-      parts.push(`${direct.length - addedCount} wegen Limit (200) übersprungen`);
+    if (direct.length > 0) parts.push(`${direct.length} Orte mit Koordinaten in der Vorschau`);
     if (queries.length > 0)
-      parts.push(`${queries.length} Namen/Links ins Feld gelegt — „Importieren" tippen`);
+      parts.push(`${queries.length} Namen/Links ins Feld gelegt — „Auflösen" tippen`);
     setImportNote(parts.join(" · "));
   }
 
-  // Mehrere Orte auf einmal übernehmen: jede Zeile (Ortsname ODER Maps-Link) wird
-  // nacheinander über geo/resolve aufgelöst (schont Nominatim), Treffer angehängt.
-  // Nicht erkannte Zeilen bleiben zur Korrektur im Feld stehen.
+  // Textfeld auflösen: jede Zeile über geo/resolve zu einem Ort machen und in die
+  // Vorschau-Liste legen (noch NICHT in die Stopps). Nicht erkannte Zeilen bleiben
+  // zur Korrektur im Feld.
   async function importList() {
     const lines = importText
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
     if (lines.length === 0) return;
-    const room = 200 - stops.length; // Backend-Limit: max. 200 Stopps
-    const todo = lines.slice(0, Math.max(0, room));
     setImporting(true);
-    setError(null);
-    const added: Stop[] = [];
-    const failed: string[] = [...lines.slice(todo.length)]; // Überzählige als „übrig"
-    for (let i = 0; i < todo.length; i++) {
-      setImportProgress({ done: i, total: todo.length });
+    setImportNote(null);
+    const found: { id: string; label: string; lat: number; lng: number }[] = [];
+    const failed: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      setImportProgress({ done: i, total: lines.length });
       try {
-        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(todo[i])}`);
-        added.push({ id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng, active: true });
+        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(lines[i])}`);
+        found.push({ id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng });
       } catch {
-        failed.push(todo[i]);
+        failed.push(lines[i]);
       }
     }
     setImportProgress(null);
-    if (added.length > 0) {
-      const next = [...stops, ...added];
-      setStops(next);
-      persistStops(next);
-      setRoute(null);
-    }
+    if (found.length > 0) setImportCandidates((prev) => [...prev, ...found]);
     setImporting(false);
     setImportText(failed.join("\n"));
-    if (failed.length > 0) {
-      setError(
-        `${added.length} übernommen, ${failed.length} nicht erkannt (bleiben im Feld — bitte prüfen).`,
-      );
-    } else {
-      setImportOpen(false);
-    }
+    setImportNote(
+      `${found.length} Orte gefunden${
+        failed.length > 0 ? `, ${failed.length} nicht erkannt (bleiben im Feld)` : ""
+      }.`,
+    );
+  }
+
+  // Einen Vorschlag aus der Vorschau-Liste entfernen.
+  function removeCandidate(id: string) {
+    setImportCandidates((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  // Die geprüfte Vorschau-Liste in die echten Stopps übernehmen (Limit 200 beachtet)
+  // und danach zur Karte wechseln, damit man das Ergebnis sieht.
+  function commitCandidates() {
+    if (importCandidates.length === 0) return;
+    const room = Math.max(0, 200 - stops.length);
+    const take = importCandidates.slice(0, room);
+    const rest = importCandidates.slice(room);
+    const added = appendStops(
+      take.map((c) => ({ id: c.id, label: c.label, lat: c.lat, lng: c.lng, active: true })),
+    );
+    setImportCandidates(rest);
+    setImportNote(
+      added > 0
+        ? `${added} in die Stopps übernommen${rest.length > 0 ? `, ${rest.length} wegen Limit (200) übrig` : ""}.`
+        : "Kein Platz mehr — Limit von 200 Stopps erreicht.",
+    );
+    if (added > 0 && rest.length === 0) setView("map");
   }
 
   // Stopp in der Liste nach oben/unten verschieben (manuelle Reihenfolge).
@@ -1422,7 +1434,7 @@ export function TripPlanner() {
                 <span className="text-[11px] text-slate-400 dark:text-slate-500">
                   {importing && importProgress
                     ? `Löse auf… ${importProgress.done + 1}/${importProgress.total}`
-                    : "Jede Zeile wird als Stopp angehängt."}
+                    : "Jede Zeile wird gesucht und unten als Vorschau aufgelistet."}
                 </span>
                 <button
                   type="button"
@@ -1430,7 +1442,7 @@ export function TripPlanner() {
                   disabled={importing || importText.trim().length === 0}
                   className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {importing ? "Importiere…" : "Importieren"}
+                  {importing ? "Suche…" : "Auflösen"}
                 </button>
               </div>
 
@@ -1447,12 +1459,63 @@ export function TripPlanner() {
                 </label>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                   Google Takeout (CSV/GeoJSON), Google My Maps (KML) oder GPX. Orte mit
-                  Koordinaten werden direkt übernommen, reine Namen landen oben im Feld.
+                  Koordinaten kommen direkt in die Vorschau, reine Namen landen oben im Feld.
                 </p>
                 {importNote && (
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{importNote}</p>
                 )}
               </div>
+
+              {/* Vorschau-Liste: gefundene Orte prüfen, dann in die Stopps übernehmen. */}
+              {importCandidates.length > 0 && (
+                <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      Gefundene Orte ({importCandidates.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setImportCandidates([])}
+                      className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                    >
+                      Leeren
+                    </button>
+                  </div>
+                  <ul className="mt-2 max-h-72 space-y-1 overflow-auto">
+                    {importCandidates.map((c, i) => (
+                      <li
+                        key={c.id}
+                        className="flex items-center gap-2 rounded-md border border-slate-100 px-2 py-1.5 text-sm dark:border-slate-800"
+                      >
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                          {i + 1}
+                        </span>
+                        <span
+                          className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200"
+                          title={c.label}
+                        >
+                          {shortLabel(c.label)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeCandidate(c.id)}
+                          aria-label={`„${shortLabel(c.label)}" aus der Vorschau entfernen`}
+                          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={commitCandidates}
+                    className="mt-2 w-full rounded-md bg-brand-dark px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    → {importCandidates.length} in die Stopps übernehmen
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
