@@ -21,7 +21,8 @@ export async function addTripStop(
   const position = await db.tripStop.count({ where: { tripId } });
   return db.tripStop.create({
     data: {
-      id: randomUUID(),
+      // id: server-generiert (cuid). clientId ist die stabile Kennung für den Client.
+      clientId: randomUUID(),
       tripId,
       label: stop.label,
       lat: stop.lat,
@@ -48,16 +49,19 @@ export async function replaceTripStops(
   }[],
   createdByName: string,
 ) {
+  // Ersteller-Name je stabiler Client-Kennung (clientId) übernehmen.
   const existing = await db.tripStop.findMany({
     where: { tripId },
-    select: { id: true, createdByName: true },
+    select: { clientId: true, createdByName: true },
   });
-  const prev = new Map(existing.map((e) => [e.id, e.createdByName]));
+  const prev = new Map(existing.map((e) => [e.clientId, e.createdByName]));
   await db.$transaction([
     db.tripStop.deleteMany({ where: { tripId } }),
     db.tripStop.createMany({
+      // Kein `id` vom Client — der PK wird server-seitig vergeben (cuid); die
+      // vom Client gelieferte `id` ist nur die stabile Kennung → clientId.
       data: stops.map((s, i) => ({
-        id: s.id,
+        clientId: s.id,
         tripId,
         label: s.label,
         lat: s.lat,

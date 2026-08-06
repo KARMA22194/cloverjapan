@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-
-import { auth } from "@/auth";
+import { requireSessionUser } from "@/lib/auth-session";
 import { TopNav } from "@/components/TopNav";
 import { BiometricLock } from "@/components/BiometricLock";
 import { WeatherWidget } from "@/components/WeatherWidget";
@@ -10,10 +8,10 @@ import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-
-  const isAdmin = session.user.role === "ADMIN";
+  // Frischer DB-Check (Revocation) statt reinem Cookie: deaktivierte/degradierte
+  // Konten verlieren den SSR-Zugriff sofort. isAdmin aus der DB-Rolle, nicht dem JWT.
+  const user = await requireSessionUser();
+  const isAdmin = user.role === "ADMIN";
 
   // Ausklappbare Kategorien in der oberen Leiste (nur noch der Japan-Bereich).
   const groups = [
@@ -47,7 +45,7 @@ export default async function AppLayout({
         <TopNav
           groups={groups}
           adminItems={adminItems}
-          userName={session.user.name ?? session.user.email ?? "Nutzer"}
+          userName={user.name || user.email || "Nutzer"}
         />
         <main className="mx-auto max-w-6xl px-4 py-6">
           <div className="lg:flex lg:items-start lg:gap-6">

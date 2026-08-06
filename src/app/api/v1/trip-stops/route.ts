@@ -25,7 +25,7 @@ const stopSchema = z.object({
 const putBody = z.object({ stops: z.array(stopSchema).max(200) });
 
 const toDto = (s: {
-  id: string;
+  clientId: string;
   label: string;
   lat: number;
   lng: number;
@@ -34,7 +34,9 @@ const toDto = (s: {
   note: string;
   createdByName: string;
 }) => ({
-  id: s.id,
+  // Dem Client seine stabile Kennung als `id` zurückgeben (der server-seitige PK
+  // bleibt intern) — so bleibt der Client-Code unverändert.
+  id: s.clientId,
   label: s.label,
   lat: s.lat,
   lng: s.lng,

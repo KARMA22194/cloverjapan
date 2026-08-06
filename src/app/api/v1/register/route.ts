@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { conflict, handle, ok, readJson } from "@/lib/api/http";
+import { ApiError, conflict, handle, ok, readJson } from "@/lib/api/http";
 import { registerSelf } from "@/lib/services/trip";
 import { createToken } from "@/lib/services/tokens";
 import { sendVerificationEmail } from "@/lib/mailer";
@@ -41,14 +41,25 @@ export function POST(req: NextRequest) {
     ).toString();
     const emailSent = await sendVerificationEmail(result.user.email, verifyUrl);
 
-    // Token/Link nur zurückgeben, wenn keine Mail rausging (lokaler Fallback) —
-    // sonst bleibt der Verify-Token nicht unnötig im Client hängen.
+    // Sicherheit: Der Verify-Link ist eine Bearer-Credential (der Klick gilt als
+    // Adressbesitz-Nachweis). Er darf NUR im Dev-Fallback in der Antwort landen —
+    // sonst könnte man ein „bestätigtes" Konto auf fremder Adresse aktivieren.
+    const isDev = process.env.NODE_ENV !== "production";
+    if (!emailSent && !isDev) {
+      // In Produktion keinen Link ausgeben; der ungenutzte Token verfällt (24 h),
+      // niemand hat ihn erhalten. Klartext-Fehler statt stiller 201.
+      throw new ApiError(
+        503,
+        "Die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte später erneut versuchen.",
+      );
+    }
     return ok(
       {
         pendingVerification: true,
         email: result.user.email,
         emailSent,
-        verifyUrl: emailSent ? undefined : verifyUrl,
+        // Lokaler Fallback ohne SMTP: Link nur in der Entwicklung mitgeben.
+        verifyUrl: !emailSent && isDev ? verifyUrl : undefined,
       },
       201,
     );

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
+import { requireSessionUser } from "@/lib/auth-session";
 import { UserCreateForm } from "@/components/AdminForms";
 import { UserActiveButton } from "@/components/AdminToggles";
 import { listUsers } from "@/lib/services/users";
@@ -12,9 +12,9 @@ const roleLabel: Record<string, string> = {
 };
 
 export default async function AdminPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/");
+  // Frische DB-Rolle: ein soeben degradierter Ex-Admin verliert /admin sofort.
+  const me = await requireSessionUser();
+  if (me.role !== "ADMIN") redirect("/");
 
   const users = await listUsers();
 
@@ -44,7 +44,7 @@ export default async function AdminPage() {
                   {u.email} · {roleLabel[u.role]}
                 </p>
               </div>
-              {u.id === session.user.id ? (
+              {u.id === me.id ? (
                 <span className="text-xs text-slate-400 dark:text-slate-500">du</span>
               ) : (
                 <UserActiveButton id={u.id} active={u.active} />

@@ -7,7 +7,7 @@ import { getActiveTripId } from "@/lib/services/trip";
 import { getChecklist, replaceChecklist } from "@/lib/services/checklist";
 
 const itemSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).max(100),
   text: z.string().min(1).max(300),
   done: z.boolean(),
   assigneeName: z.string().max(100).optional().default(""),
@@ -16,14 +16,15 @@ const itemSchema = z.object({
 const putBody = z.object({ items: z.array(itemSchema).max(500) });
 
 const toDto = (i: {
-  id: string;
+  clientId: string;
   text: string;
   done: boolean;
   createdByName: string;
   assigneeName: string;
   completedByName: string;
 }) => ({
-  id: i.id,
+  // Stabile Client-Kennung als `id` (server-seitiger PK bleibt intern).
+  id: i.clientId,
   text: i.text,
   done: i.done,
   by: i.createdByName,

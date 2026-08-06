@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { handle, notFound, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import {
+  canManageMembers,
   declineIncomingInvitation,
   getActiveTripId,
   revokeInvitation,
@@ -21,7 +22,10 @@ export function DELETE(_req: NextRequest, ctx: Ctx) {
     const tripId = await getActiveTripId(user.id);
     const { id } = await ctx.params;
 
-    const revoked = await revokeInvitation(tripId, id);
+    // Ausgehende Einladungen der Reise widerrufen dürfen nur Owner/Verwalter;
+    // eine an die eigene E-Mail gerichtete Einladung darf jeder selbst ablehnen.
+    const canManage = await canManageMembers(tripId, user.id);
+    const revoked = canManage ? await revokeInvitation(tripId, id) : false;
     const removed = revoked || (await declineIncomingInvitation(user.email, id));
     if (!removed) throw notFound("Einladung nicht gefunden.");
     return ok({ id, removed: true });

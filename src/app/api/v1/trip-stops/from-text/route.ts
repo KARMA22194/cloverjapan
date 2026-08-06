@@ -32,6 +32,10 @@ export function POST(req: NextRequest) {
     if (!hit) throw new ApiError(422, "Kein Ort in Japan erkannt.");
 
     const stop = await addTripStop(tripId, { ...hit, date: date ?? null }, user.name);
-    return ok({ id: stop.id, label: stop.label, lat: stop.lat, lng: stop.lng, by: stop.createdByName }, 201);
+    // Dem Client die stabile Kennung (clientId) als `id` zurückgeben (wie im GET-DTO).
+    return ok(
+      { id: stop.clientId, label: stop.label, lat: stop.lat, lng: stop.lng, by: stop.createdByName },
+      201,
+    );
   });
 }

@@ -159,7 +159,8 @@ model TripMember {
 
 // Reiseplaner-Stopp. id ist client-generiert (stabil über PUT-Replace).
 model TripStop {
-  id            String @id
+  id            String @id @default(cuid()) // server-generiert (NIE vom Client)
+  clientId      String // stabile Kennung des Clients (für Diff/Reihenfolge), pro Reise eindeutig
   tripId        String
   label         String
   lat           Float
@@ -171,6 +172,7 @@ model TripStop {
   createdByName String  @default("")
   trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
+  @@unique([tripId, clientId])
   @@index([tripId, position])
 }
 
@@ -362,7 +364,8 @@ model Activity {
 }
 
 model ChecklistItem {
-  id            String   @id @default(cuid())
+  id            String   @id @default(cuid()) // server-generiert (NIE vom Client)
+  clientId      String // stabile Client-Kennung, pro Reise eindeutig
   tripId        String
   text          String
   done          Boolean  @default(false)
@@ -374,5 +377,6 @@ model ChecklistItem {
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
+  @@unique([tripId, clientId])
   @@index([tripId, position])
 }

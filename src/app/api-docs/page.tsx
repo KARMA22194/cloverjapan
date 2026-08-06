@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
+import { requireSessionUser } from "@/lib/auth-session";
 import { SwaggerView } from "@/components/SwaggerView";
 import { Logo } from "@/components/Logo";
 
@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 
 export default async function ApiDocsPage() {
   // API-Doku ist ADMIN-only (die Seite liegt außerhalb des (app)-Layouts und
-  // wird von der Middleware nicht erfasst → hier selbst absichern).
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/start");
+  // wird von der Middleware nicht erfasst → hier selbst absichern). Frische DB-Rolle,
+  // damit ein degradierter Ex-Admin die Spec nicht weiter sieht.
+  const me = await requireSessionUser();
+  if (me.role !== "ADMIN") redirect("/start");
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">

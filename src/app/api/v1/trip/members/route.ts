@@ -1,10 +1,11 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { conflict, handle, ok, readJson } from "@/lib/api/http";
+import { conflict, forbidden, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 import {
+  canManageMembers,
   getActiveTripId,
   getIncomingInvitations,
   getPendingInvitations,
@@ -56,7 +57,9 @@ export function GET(req: NextRequest) {
         createdAt: inv.createdAt,
         expiresAt: inv.expiresAt,
         expired: inv.expired,
-        inviteUrl: inviteUrl(inv.token, req),
+        // Der Token IST eine Credential (Account-Pre-Hijacking, wenn er kursiert):
+        // die einladbare URL nur an Verwalter/Owner ausliefern, nie an einfache Mitglieder.
+        inviteUrl: iCanManage ? inviteUrl(inv.token, req) : undefined,
       })),
       incoming,
     });
@@ -70,6 +73,11 @@ export function POST(req: NextRequest) {
     // Mail-Spam-/Relay-Schutz: max. 20 Einladungen pro Nutzer und Stunde.
     await enforceRateLimit(`invite:${user.id}`, 20, 60 * 60 * 1000);
     const tripId = await getActiveTripId(user.id);
+    // Nur Owner/Verwalter dürfen einladen (sonst könnte jedes Mitglied Fremde mit
+    // Voll-Zugriff in die Reise holen; Entfernen ist bereits privilegiert).
+    if (!(await canManageMembers(tripId, user.id))) {
+      throw forbidden("Nur der Ersteller oder Verwalter dürfen einladen.");
+    }
     const { email } = inviteBody.parse(await readJson(req));
 
     const result = await inviteToTrip(tripId, email, user.name);

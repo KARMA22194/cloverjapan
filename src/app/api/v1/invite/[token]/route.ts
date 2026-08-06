@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { badRequest, conflict, handle, notFound, ok, readJson } from "@/lib/api/http";
+import { clientIp, enforceRateLimit } from "@/lib/rate";
 import { acceptInvitation, getValidInvitation } from "@/lib/services/trip";
 
 type Ctx = { params: Promise<{ token: string }> };
@@ -27,6 +28,8 @@ const acceptBody = z.object({
 /** POST /api/v1/invite/{token} — Einladung einlösen: Konto anlegen + Reise beitreten. */
 export function POST(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
+    // Öffentliche, kontoerzeugende Route → gegen Token-Erraten/Missbrauch drosseln.
+    await enforceRateLimit(`invite-accept:${clientIp(req)}`, 10, 60 * 60 * 1000);
     const { token } = await ctx.params;
     const { name, password } = acceptBody.parse(await readJson(req));
 
