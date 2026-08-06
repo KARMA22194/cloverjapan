@@ -331,6 +331,9 @@ function parseCsv(text: string): string[][] {
 interface FileImportResult {
   direct: { label: string; lat: number; lng: number }[]; // enthält Koordinaten → sofort übernehmen
   queries: string[]; // nur Name/Link → erst über geo/resolve auflösen
+  // Fallback-Link je Ortsname (aus der CSV-URL-Spalte): wird benutzt, wenn der
+  // Name selbst nicht geocodiert werden kann.
+  fallbacks: Record<string, string>;
   error?: string;
 }
 
@@ -342,6 +345,7 @@ interface FileImportResult {
 function parsePlacesFile(name: string, text: string): FileImportResult {
   const direct: { label: string; lat: number; lng: number }[] = [];
   const queries: string[] = [];
+  const fallbacks: Record<string, string> = {};
   const trimmed = text.trimStart();
   const ext = name.toLowerCase().split(".").pop() || "";
   const looksJson = ext === "geojson" || ext === "json" || trimmed.startsWith("{");
@@ -396,12 +400,17 @@ function parsePlacesFile(name: string, text: string): FileImportResult {
           else queries.push(label);
         }
       } else {
-        return { direct, queries, error: "Keine Placemarks/Wegpunkte in der Datei gefunden." };
+        return {
+          direct,
+          queries,
+          fallbacks,
+          error: "Keine Placemarks/Wegpunkte in der Datei gefunden.",
+        };
       }
     } else {
       // CSV (z. B. Google-Takeout „Gespeicherte Orte": Spalten Title, Note, URL).
       const rows = parseCsv(text);
-      if (rows.length === 0) return { direct, queries, error: "Leere oder unlesbare CSV." };
+      if (rows.length === 0) return { direct, queries, fallbacks, error: "Leere oder unlesbare CSV." };
       const header = rows[0].map((c) => c.trim().toLowerCase());
       const titleIdx = header.indexOf("title");
       const urlIdx = header.indexOf("url");
@@ -410,14 +419,21 @@ function parsePlacesFile(name: string, text: string): FileImportResult {
         const r = rows[i];
         const title = (titleIdx >= 0 ? r[titleIdx] : r[0]) || "";
         const url = (urlIdx >= 0 ? r[urlIdx] : r.find((c) => /^https?:\/\//i.test(c))) || "";
-        const q = title.trim() || url.trim();
-        if (q) queries.push(q);
+        const name = title.trim();
+        const link = url.trim();
+        // Primär den Namen auflösen; die URL als Fallback merken (Name → Link).
+        if (name) {
+          queries.push(name);
+          if (link) fallbacks[name] = link;
+        } else if (link) {
+          queries.push(link);
+        }
       }
     }
   } catch {
-    return { direct, queries, error: "Datei konnte nicht ausgewertet werden (Format?)." };
+    return { direct, queries, fallbacks, error: "Datei konnte nicht ausgewertet werden (Format?)." };
   }
-  return { direct, queries };
+  return { direct, queries, fallbacks };
 }
 
 export function TripPlanner() {
@@ -431,6 +447,8 @@ export function TripPlanner() {
   const tileRef = useRef<Leaflet.TileLayer | null>(null);
   // Erst nach dem Laden aus localStorage darf zurückgeschrieben werden (kein Clobber).
   const importReady = useRef(false);
+  // Fallback-Link je Ortsname aus einer importierten CSV (Name nicht geocodierbar → Link).
+  const importFallback = useRef<Map<string, string>>(new Map());
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -1043,11 +1061,13 @@ export function TripPlanner() {
       setImportNote("⚠️ Datei konnte nicht gelesen werden.");
       return;
     }
-    const { direct, queries, error } = parsePlacesFile(file.name, text);
+    const { direct, queries, fallbacks, error } = parsePlacesFile(file.name, text);
     if (error) {
       setImportNote(`⚠️ ${error}`);
       return;
     }
+    // Name→Link-Fallbacks merken (für „Auflösen": Name scheitert → Link versuchen).
+    for (const [k, v] of Object.entries(fallbacks)) importFallback.current.set(k, v);
     if (direct.length === 0 && queries.length === 0) {
       setImportNote("⚠️ Keine Orte in der Datei gefunden.");
       return;
@@ -1086,11 +1106,27 @@ export function TripPlanner() {
       // Drosseln: Nominatim blockt schnelle Serien (Policy ~1 Anfrage/Sekunde).
       if (i > 0) await sleep(1100);
       setImportProgress({ done: i, total: lines.length });
+      const line = lines[i];
       try {
-        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(lines[i])}`);
+        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(line)}`);
         found.push({ id: crypto.randomUUID(), label: r.label, lat: r.lat, lng: r.lng });
+        continue;
       } catch {
-        failed.push(lines[i]);
+        /* Name nicht gefunden → ggf. Fallback-Link versuchen */
+      }
+      // Fallback: der zum Namen gemerkte Google-Maps-Link aus der CSV.
+      const link = importFallback.current.get(line);
+      if (!link) {
+        failed.push(line);
+        continue;
+      }
+      await sleep(1100);
+      try {
+        const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(link)}`);
+        // Ursprünglichen Namen als Label behalten (lesbarer als der Link/Koordinaten).
+        found.push({ id: crypto.randomUUID(), label: line, lat: r.lat, lng: r.lng });
+      } catch {
+        failed.push(line);
       }
     }
     setImportProgress(null);
