@@ -54,12 +54,20 @@ export function TagesPlaner() {
   }
 
   // Erinnerungen (1 h vorher) neu planen, wenn sich Aufgaben/Datum/Freigabe ändern.
+  // `scheduleReminders` ist async (dyn. Capacitor-Import) → das Cleanup muss SYNCHRON
+  // greifen. Sonst ist beim Aufräumen `cleanup` fast immer noch undefined und alte
+  // setTimeout-Timer bleiben liegen → dieselbe Erinnerung feuert n-fach (H5).
   useEffect(() => {
+    const alive = { v: true };
     let cleanup: (() => void) | undefined;
     scheduleReminders(tasks, date).then((c) => {
-      cleanup = c;
+      if (alive.v) cleanup = c;
+      else c?.(); // Effekt schon aufgeräumt, bevor die Planung fertig war → sofort abräumen
     });
-    return () => cleanup?.();
+    return () => {
+      alive.v = false;
+      cleanup?.();
+    };
   }, [tasks, date, remindersOn]);
 
   async function enableReminders() {

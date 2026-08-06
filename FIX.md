@@ -5,9 +5,10 @@
 (3) externe Integrationen/SSRF/Header/Secrets, (4) DB- & Server-Performance, (5) Frontend/React.
 Funde, die von zwei Audits unabhängig bestätigt wurden, sind mit **✔✔** markiert.
 
-> **Update 2026-08-06:** Alle 5 **kritischen** Befunde (K1–K5) sind behoben (Commit s. Git-Log).
-> Migration `20260806120000_trip_stop_checklist_client_id` (K5) läuft beim Deploy automatisch mit.
-> Die 🟠/🟡/🟢-Backlogs sind noch offen.
+> **Update 2026-08-06:** Alle 5 **kritischen** (K1–K5) **und alle 9 hohen** (H1–H9) Befunde
+> sind behoben (Commits s. Git-Log). Migrationen `20260806120000_trip_stop_checklist_client_id`
+> (K5) und `20260806130000_expense_has_receipt` (H7) laufen beim Deploy automatisch mit.
+> Die 🟡/🟢-Backlogs sind noch offen.
 
 Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachstum)` erst bei mehr Daten/Nutzern
 
@@ -129,7 +130,7 @@ non-interaktiv ab, siehe CLAUDE.md.)
 
 ## 🟠 Hoch
 
-### [ ] H1 · Rate-Limits vollständig umgehbar (XFF-Spoofing) ✔✔
+### [x] H1 · Rate-Limits vollständig umgehbar (XFF-Spoofing) ✔✔
 
 **Ort:** `src/lib/rate.ts:52-56` (`clientIp()`) — genutzt in `luggage/found/[token]:24`, `register:28`,
 `password/forgot:21`, `src/auth.ts:37`
@@ -148,7 +149,7 @@ kein gemeinsamer `"unknown"`-Bucket. Zusätzlich beim Koffer-Endpunkt ein IP-**u
 
 ---
 
-### [ ] H2 · Rate-Limit ist check-then-act → durch Parallelität wirkungslos
+### [x] H2 · Rate-Limit ist check-then-act → durch Parallelität wirkungslos
 
 **Ort:** `src/lib/rate.ts:20-36`
 
@@ -168,7 +169,7 @@ RETURNING count;
 
 ---
 
-### [ ] H3 · `geo/transit` ohne Rate-Limit → Kosten-DoS auf die kostenpflichtige Google-API
+### [x] H3 · `geo/transit` ohne Rate-Limit → Kosten-DoS auf die kostenpflichtige Google-API
 
 **Ort:** `src/app/api/v1/geo/transit/route.ts:14-32` (Google-Call in `googleTransit`, `:67-79`)
 
@@ -182,7 +183,7 @@ Caching pro `(from,to,mode)`-Paar.
 
 ---
 
-### [ ] H4 · Karte baut sich bei jedem Tastendruck neu auf und springt zurück (jetzt)
+### [x] H4 · Karte baut sich bei jedem Tastendruck neu auf und springt zurück (jetzt)
 
 **Ort:** `src/components/TripPlanner.tsx:602-660` (Effekt-Deps `[stops, hotels, route, ready]`) · `:1867-1875`
 (Notiz-Input → `setStopNote` → neues `stops`-Array)
@@ -198,7 +199,7 @@ N Tooltip-/Popup-DOM-Knoten neu erzeugt, danach `map.fitBounds(...)` (`:653/656`
 
 ---
 
-### [ ] H5 · Erinnerungs-Timer werden nie abgeräumt → n-fache Benachrichtigungen
+### [x] H5 · Erinnerungs-Timer werden nie abgeräumt → n-fache Benachrichtigungen
 
 **Ort:** `src/components/TagesPlaner.tsx:57-63` · `src/lib/reminders.ts:91-103`
 
@@ -218,7 +219,7 @@ und Deps von `tasks` auf `id/time/done` reduzieren.
 
 ---
 
-### [ ] H6 · Live-Flug-Polling ignoriert Tab-Sichtbarkeit → eigenes Rate-Limit reißt
+### [x] H6 · Live-Flug-Polling ignoriert Tab-Sichtbarkeit → eigenes Rate-Limit reißt
 
 **Ort:** `src/components/FlightLiveStatus.tsx:91-96` (`setInterval(load, 90_000)` ohne Gate) ·
 `src/components/FlightPlanner.tsx:120-133` (klappt am Abreisetag mehrere Flüge automatisch auf)
@@ -232,7 +233,7 @@ vorbildlich) + Sofort-Refresh bei Rückkehr.
 
 ---
 
-### [ ] H7 · `GET /api/v1/expenses` lädt jede Beleg-Data-URL mit — für ein Boolean (jetzt)
+### [x] H7 · `GET /api/v1/expenses` lädt jede Beleg-Data-URL mit — für ein Boolean (jetzt)
 
 **Ort:** `src/lib/services/expensesService.ts:4` (kein `select`) · DTO `src/app/api/v1/expenses/route.ts:37`
 
@@ -249,7 +250,7 @@ in beiden Fällen explizites `select` ohne `receipt`.
 
 ---
 
-### [ ] H8 · Mitgliederliste pollt alle 30 s inkl. aller Profilbilder (jetzt)
+### [x] H8 · Mitgliederliste pollt alle 30 s inkl. aller Profilbilder (jetzt)
 
 **Ort:** `src/lib/services/trip.ts:42` (`image: true`) · `src/components/TripMembers.tsx:122` ·
 `src/app/api/v1/trip/members/route.ts:28-51`
@@ -264,7 +265,7 @@ Der Poll dient nur der Presence (`lastSeenAt`), liefert aber jedes Mal die kompl
 
 ---
 
-### [ ] H9 · Jede Create-Mutation wartet synchron auf Activity-Insert + Web-Push (jetzt)
+### [x] H9 · Jede Create-Mutation wartet synchron auf Activity-Insert + Web-Push (jetzt)
 
 **Ort:** `src/lib/services/activityService.ts:43` · `src/lib/services/push.ts:63,67,71` ·
 Aufrufer u. a. `expenses/route.ts:58`, `bookings/route.ts:26`, `flights/route.ts:26`, `stamps/collect/route.ts:47`

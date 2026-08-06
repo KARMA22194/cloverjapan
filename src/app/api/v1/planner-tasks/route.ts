@@ -55,7 +55,7 @@ export function POST(req: NextRequest) {
       { dateParam: body.date, time: body.time, text: body.text, assigneeName: body.assigneeName },
       user.name,
     );
-    await logActivity({
+    logActivity({
       tripId,
       userId: user.id,
       userName: user.name,

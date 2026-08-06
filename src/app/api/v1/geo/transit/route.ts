@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 
 /**
  * GET /api/v1/geo/transit?from=lat,lng&to=lat,lng&mode=direct|any
@@ -12,7 +13,10 @@ import { requireUser } from "@/lib/api/session";
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    await requireUser();
+    const user = await requireUser();
+    // Einziger *wirklich* abgerechneter Google-Call (Directions) → drosseln wie die
+    // anderen Kostenrouten (60/h/Nutzer), sonst Kosten-DoS per Schleife.
+    await enforceRateLimit(`transit:${user.id}`, 60, 60 * 60 * 1000);
 
     const from = parsePoint(req.nextUrl.searchParams.get("from"));
     const to = parsePoint(req.nextUrl.searchParams.get("to"));
@@ -72,10 +76,13 @@ async function googleTransit(from: Point, to: Point, preferDirect: boolean, key:
   url.searchParams.set("transit_mode", "rail");
   url.searchParams.set("alternatives", "true");
   url.searchParams.set("language", "de");
-  url.searchParams.set("departure_time", String(Math.floor(Date.now() / 1000)));
+  // departure_time auf 5-min-Raster runden → identische Route teilt sich denselben
+  // Fetch-Cache-Eintrag (sonst wäre jede URL wegen der Sekunde einzigartig).
+  url.searchParams.set("departure_time", String(Math.floor(Date.now() / 1000 / 300) * 300));
   url.searchParams.set("key", key);
 
-  const res = await fetch(url, { cache: "no-store" });
+  // 5 min serverseitig cachen: dieselbe Verbindung wird nicht erneut abgerechnet.
+  const res = await fetch(url, { next: { revalidate: 300 } });
   if (!res.ok) throw new ApiError(502, "Directions-Dienst nicht erreichbar.");
   const data = (await res.json()) as GoogleDirections;
   if (data.status !== "OK" || !data.routes?.length) {

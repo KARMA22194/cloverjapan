@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
 
@@ -77,22 +77,49 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Kein State-Update nach dem Unmount (sonst React-Warnung + toter Request-Effekt).
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   const load = useCallback(() => {
     api
       .get<Live>(`/api/v1/flights/live?number=${encodeURIComponent(number)}&date=${date}`)
       .then((d) => {
+        if (!alive.current) return;
         setData(d);
         setErr(null);
       })
-      .catch((e) => setErr(e instanceof Error ? e.message : "Live-Status nicht verfügbar."))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (alive.current) setErr(e instanceof Error ? e.message : "Live-Status nicht verfügbar.");
+      })
+      .finally(() => {
+        if (alive.current) setLoading(false);
+      });
   }, [number, date]);
 
   useEffect(() => {
-    load();
-    // Alle 90 s aktualisieren (Endpunkt ist zusätzlich server-seitig 2 min gecacht).
-    const id = setInterval(load, 90_000);
-    return () => clearInterval(id);
+    load(); // initial immer laden
+    // Alle 90 s aktualisieren — aber NUR bei sichtbarem, online Tab, sonst reißt das
+    // eigene 60/h-Limit im Hintergrund (H6). Bei Rückkehr/Online sofort aktualisieren.
+    const tick = () => {
+      if (document.visibilityState === "visible" && navigator.onLine !== false) load();
+    };
+    const id = setInterval(tick, 90_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", load);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", load);
+    };
   }, [load]);
 
   if (loading && !data) {

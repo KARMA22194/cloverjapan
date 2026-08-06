@@ -211,6 +211,9 @@ model Expense {
   shared        Boolean  @default(true)
   // Optionales Beleg-Foto als (verkleinerte) Data-URL.
   receipt       String?
+  // Spiegelt `receipt IS NOT NULL` — damit die Listen-Abfrage den (großen) Blob NICHT
+  // laden muss, nur um „Beleg vorhanden?" anzuzeigen.
+  hasReceipt    Boolean  @default(false)
   // Optional an einen Flug gekoppelt: der Flugpreis erscheint als Ausgabe und wird
   // beim Löschen des Flugs mitgelöscht (Cascade).
   flightId      String?  @unique

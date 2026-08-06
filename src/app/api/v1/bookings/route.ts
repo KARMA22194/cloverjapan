@@ -23,7 +23,7 @@ export function POST(req: NextRequest) {
     const tripId = await getActiveTripId(user.id);
     const body = bookingBody.parse(await readJson(req));
     const created = await createBooking(tripId, body, user.name);
-    await logActivity({
+    logActivity({
       tripId,
       userId: user.id,
       userName: user.name,

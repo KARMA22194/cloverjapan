@@ -1,7 +1,23 @@
 import { db } from "@/lib/db";
 
 export function listExpenses(tripId: string) {
-  return db.expense.findMany({ where: { tripId }, orderBy: { createdAt: "asc" } });
+  // Explizites select OHNE `receipt`: der (bis 1,5 MB große) Beleg-Blob gehört nicht
+  // in die Liste — `hasReceipt` genügt für die Anzeige.
+  return db.expense.findMany({
+    where: { tripId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      category: true,
+      label: true,
+      yen: true,
+      createdByName: true,
+      createdAt: true,
+      paidById: true,
+      shared: true,
+      hasReceipt: true,
+    },
+  });
 }
 
 export function createExpense(
@@ -40,7 +56,11 @@ export function getExpenseReceipt(id: string, tripId: string) {
 
 /** Beleg-Foto setzen/entfernen (null = entfernen); gibt Anzahl betroffener Zeilen zurück. */
 export async function setExpenseReceipt(id: string, tripId: string, receipt: string | null) {
-  const res = await db.expense.updateMany({ where: { id, tripId }, data: { receipt } });
+  // hasReceipt synchron halten (Grundlage der Listen-Anzeige ohne Blob-Load).
+  const res = await db.expense.updateMany({
+    where: { id, tripId },
+    data: { receipt, hasReceipt: receipt !== null },
+  });
   return res.count;
 }
 

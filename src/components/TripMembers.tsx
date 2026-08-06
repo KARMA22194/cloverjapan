@@ -113,11 +113,24 @@ export function TripMembers() {
     reload();
   }, [reload]);
 
-  // Präsenz aktuell halten: alle 30 s neu laden (nur bei sichtbarem Tab) und
-  // beim Zurückkehren in den Tab sofort. So wechselt der Online-Status live.
+  // Nur die Präsenz aktualisieren (id + lastSeenAt) — ohne Profilbilder/Einladungen.
+  const refreshPresence = useCallback(() => {
+    return api
+      .get<{ id: string; lastSeenAt: string | null }[]>("/api/v1/trip/presence")
+      .then((rows) => {
+        const seen = new Map(rows.map((r) => [r.id, r.lastSeenAt]));
+        setMembers((prev) =>
+          prev.map((m) => (seen.has(m.id) ? { ...m, lastSeenAt: seen.get(m.id) ?? null } : m)),
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  // Präsenz alle 30 s aktualisieren (nur bei sichtbarem Tab) und beim Zurückkehren
+  // sofort. Der schlanke Endpunkt spart pro Tick ~1 MB Bilder + 5 Einladungs-Queries.
   useEffect(() => {
     const tick = () => {
-      if (document.visibilityState === "visible") reload();
+      if (document.visibilityState === "visible") refreshPresence();
     };
     const timer = setInterval(tick, 30_000);
     document.addEventListener("visibilitychange", tick);
@@ -125,7 +138,7 @@ export function TripMembers() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [reload]);
+  }, [refreshPresence]);
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();

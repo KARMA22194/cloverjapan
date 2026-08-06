@@ -70,6 +70,23 @@ export async function touchPresence(userId: string): Promise<void> {
   await db.user.update({ where: { id: userId }, data: { lastSeenAt: new Date() } });
 }
 
+/**
+ * Schlanke Präsenz der Reise-Mitglieder (nur id + lastSeenAt) — für den 30-s-Poll,
+ * ohne die (bis 300 KB großen) Profilbilder und ohne die Einladungs-Queries.
+ */
+export async function getTripPresence(
+  tripId: string,
+): Promise<{ id: string; lastSeenAt: string | null }[]> {
+  const rows = await db.tripMember.findMany({
+    where: { tripId },
+    select: { user: { select: { id: true, lastSeenAt: true } } },
+  });
+  return rows.map((r) => ({
+    id: r.user.id,
+    lastSeenAt: r.user.lastSeenAt ? r.user.lastSeenAt.toISOString() : null,
+  }));
+}
+
 type InviteResult =
   | { ok: true; email: string; token: string; hasAccount: boolean }
   | { ok: false; reason: "already" };

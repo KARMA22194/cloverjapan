@@ -5,9 +5,10 @@ import { ApiError } from "@/lib/api/http";
  * Postgres-basiertes Fixed-Window-Rate-Limit (kein Redis nötig; überlebt auch den
  * serverlosen Vercel-Betrieb, da der Zähler in der DB liegt).
  *
- * Best-effort: der Increment ist nicht streng atomar (check-then-act), im Worst Case
- * rutschen bei exakt gleichzeitigen Requests ein paar zu viel durch — für
- * Missbrauchsschutz (Brute-Force, Mail-Spam) völlig ausreichend.
+ * **Atomar** über ein einziges `INSERT … ON CONFLICT … RETURNING` — kein
+ * check-then-act mehr. Damit greift die Schranke auch bei vielen exakt gleichzeitigen
+ * Requests (Brute-Force), statt dass alle mit `count = 0` durchrutschen. Spart zugleich
+ * einen Roundtrip.
  *
  * @returns true, wenn der Request erlaubt ist; false, wenn das Limit erreicht ist.
  */
@@ -16,24 +17,18 @@ export async function consumeRateLimit(
   limit: number,
   windowMs: number,
 ): Promise<boolean> {
-  const now = new Date();
-  const rec = await db.rateLimit.findUnique({ where: { key } });
-
-  // Kein Eintrag oder Fenster abgelaufen → neues Fenster starten.
-  if (!rec || rec.resetAt <= now) {
-    const resetAt = new Date(now.getTime() + windowMs);
-    await db.rateLimit.upsert({
-      where: { key },
-      create: { key, count: 1, resetAt },
-      update: { count: 1, resetAt },
-    });
-    return true;
-  }
-
-  if (rec.count >= limit) return false;
-
-  await db.rateLimit.update({ where: { key }, data: { count: { increment: 1 } } });
-  return true;
+  const resetAt = new Date(Date.now() + windowMs);
+  // Fenster abgelaufen → auf 1 zurücksetzen; sonst hochzählen. Alles in einem Statement.
+  const rows = await db.$queryRaw<{ count: number | bigint }[]>`
+    INSERT INTO "RateLimit" ("key", "count", "resetAt")
+    VALUES (${key}, 1, ${resetAt})
+    ON CONFLICT ("key") DO UPDATE SET
+      "count"   = CASE WHEN "RateLimit"."resetAt" <= now() THEN 1 ELSE "RateLimit"."count" + 1 END,
+      "resetAt" = CASE WHEN "RateLimit"."resetAt" <= now() THEN ${resetAt} ELSE "RateLimit"."resetAt" END
+    RETURNING "count";
+  `;
+  const count = Number(rows[0]?.count ?? 1);
+  return count <= limit;
 }
 
 /** Wie {@link consumeRateLimit}, wirft aber bei Überschreitung eine 429-ApiError. */
@@ -48,9 +43,39 @@ export async function enforceRateLimit(
   }
 }
 
-/** Client-IP aus den (Proxy-)Headern; hinter Vercel steht sie in x-forwarded-for. */
+/**
+ * Client-IP aus einer **vertrauenswürdigen** Quelle — NICHT aus dem frei vom Client
+ * setzbaren ersten `X-Forwarded-For`-Eintrag (der ließe alle IP-Limits per Header-
+ * Spoofing umgehen).
+ *
+ *  - **Vercel:** `x-vercel-forwarded-for` (von Vercel gesetzt, Client-XFF ignoriert).
+ *  - **Self-hosted hinter Cloudflare Tunnel** (siehe SELFHOST.md): `cf-connecting-ip`
+ *    — Cloudflare überschreibt einen Client-Versuch; nicht fälschbar, solange der
+ *    Origin nur über den Tunnel erreichbar ist.
+ *  - **Sonstiger Reverse-Proxy:** der Client kann nur die vordersten (linken) XFF-
+ *    Einträge fälschen → wir nehmen den Eintrag `TRUSTED_PROXY_HOPS` von rechts.
+ */
 export function clientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  const h = req.headers;
+
+  if (process.env.VERCEL) {
+    const v = h.get("x-vercel-forwarded-for");
+    if (v) return v.split(",")[0]!.trim();
+  } else {
+    const cf = h.get("cf-connecting-ip");
+    if (cf) return cf.trim();
+    const xff = h.get("x-forwarded-for");
+    if (xff) {
+      const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length) {
+        const hops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
+        const back = Number.isFinite(hops) && hops > 0 ? Math.floor(hops) : 0;
+        return parts[Math.max(0, parts.length - 1 - back)]!;
+      }
+    }
+  }
+
+  const real = h.get("x-real-ip");
+  if (real) return real.trim();
+  return "unknown";
 }

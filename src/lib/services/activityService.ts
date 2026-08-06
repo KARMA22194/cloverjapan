@@ -1,5 +1,7 @@
+import { after } from "next/server";
+
 import { db } from "@/lib/db";
-import { sendPushToTrip } from "@/lib/services/push";
+import { pushConfigured, sendPushToTrip } from "@/lib/services/push";
 
 export interface ActivityInput {
   tripId: string;
@@ -20,34 +22,39 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 /**
- * Ereignis in den Aktivitäts-Feed schreiben. Best-effort: ein Fehler hier darf
- * die eigentliche Mutation nie scheitern lassen. Zusätzlich Web-Push an die
- * übrigen Reise-Mitglieder (übersprungen, wenn Push nicht konfiguriert ist).
+ * Ereignis in den Aktivitäts-Feed schreiben + Web-Push an die übrigen Mitglieder.
+ *
+ * Beides ist **best-effort** und läuft über `after()` **nach** der HTTP-Antwort — die
+ * eigentliche Mutation (Ausgabe/Flug/Buchung anlegen) wartet also nicht mehr auf den
+ * Activity-Insert und die N HTTPS-Calls an FCM/Mozilla (vorher +0,5–1 s pro Mutation).
  */
-export async function logActivity(input: ActivityInput): Promise<void> {
-  try {
-    await db.activity.create({
-      data: {
-        tripId: input.tripId,
-        userId: input.userId ?? null,
-        userName: input.userName || "",
-        action: input.action,
-        summary: input.summary,
-      },
-    });
-  } catch {
-    /* Feed ist unkritisch – Haupt-Request nicht blockieren. */
-  }
+export function logActivity(input: ActivityInput): void {
+  after(async () => {
+    try {
+      await db.activity.create({
+        data: {
+          tripId: input.tripId,
+          userId: input.userId ?? null,
+          userName: input.userName || "",
+          action: input.action,
+          summary: input.summary,
+        },
+      });
+    } catch {
+      /* Feed ist unkritisch. */
+    }
 
-  try {
-    await sendPushToTrip(input.tripId, input.userId ?? null, {
-      title: ACTION_LABELS[input.action] ?? "Neue Aktivität",
-      body: input.userName ? `${input.userName}: ${input.summary}` : input.summary,
-      url: "/start",
-    });
-  } catch {
-    /* Push ist unkritisch. */
-  }
+    if (!pushConfigured()) return;
+    try {
+      await sendPushToTrip(input.tripId, input.userId ?? null, {
+        title: ACTION_LABELS[input.action] ?? "Neue Aktivität",
+        body: input.userName ? `${input.userName}: ${input.summary}` : input.summary,
+        url: "/start",
+      });
+    } catch {
+      /* Push ist unkritisch. */
+    }
+  });
 }
 
 export interface ActivityEntry {

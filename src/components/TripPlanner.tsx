@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -598,7 +598,19 @@ export function TripPlanner() {
     };
   }, [view]);
 
-  // Marker + Route neu zeichnen, wenn sich Stopps/Route ändern.
+  // Nur die MARKER-relevanten Felder (id/lat/lng/active/label) als Signatur — bewusst
+  // OHNE `note`/`date`. So löst das Tippen im „📝 Notiz…"-Feld KEIN Neuzeichnen samt
+  // fitBounds mehr aus (die Karte sprang bisher bei jedem Zeichen zurück, H4).
+  const stopSig = useMemo(
+    () => stops.map((s) => `${s.id}|${s.lat}|${s.lng}|${isActive(s) ? 1 : 0}|${s.label}`).join("~"),
+    [stops],
+  );
+  const hotelSig = useMemo(
+    () => hotels.map((h) => `${h.id}|${h.lat}|${h.lng}|${h.label}`).join("~"),
+    [hotels],
+  );
+
+  // Marker + Route neu zeichnen, wenn sich die Punktmenge/Route ändert (nicht bei Notizen).
   useEffect(() => {
     const L = LRef.current;
     const map = mapRef.current;
@@ -657,7 +669,11 @@ export function TripPlanner() {
     } else {
       map.setView(JAPAN_CENTER, 5);
     }
-  }, [stops, hotels, route, ready]);
+    // Effekt hängt bewusst an den Signaturen (nicht an `stops`/`hotels`), damit
+    // Notiz-Änderungen die Karte nicht neu aufbauen. stops/hotels werden im Body frisch
+    // gelesen (aktuell, da der Effekt bei jeder Signatur-Änderung neu läuft).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopSig, hotelSig, route, ready]);
 
   // Konbinis laden – entlang der Route (~120 m Korridor) oder um den Standort (~400 m).
   useEffect(() => {

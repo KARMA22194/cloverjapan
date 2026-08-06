@@ -43,7 +43,7 @@ export function POST(req: NextRequest) {
     }
 
     await collectStamp(tripId, hit.spot.key, user.name);
-    await logActivity({
+    logActivity({
       tripId,
       userId: user.id,
       userName: user.name,

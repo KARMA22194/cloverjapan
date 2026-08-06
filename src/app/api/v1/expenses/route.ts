@@ -24,7 +24,7 @@ const toDto = (e: {
   createdAt: Date;
   paidById: string | null;
   shared: boolean;
-  receipt: string | null;
+  hasReceipt: boolean;
 }) => ({
   id: e.id,
   category: e.category,
@@ -34,7 +34,7 @@ const toDto = (e: {
   createdAt: e.createdAt.toISOString(),
   paidById: e.paidById,
   shared: e.shared,
-  hasReceipt: !!e.receipt, // Blob wird nicht in der Liste ausgeliefert (nur bei Bedarf)
+  hasReceipt: e.hasReceipt, // Blob (receipt) wird in der Liste nie geladen/ausgeliefert
 });
 
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */
@@ -55,7 +55,7 @@ export function POST(req: NextRequest) {
     // Standard-Zahler = der/die Erfassende, falls nicht anders angegeben.
     const paidById = body.paidById ?? user.id;
     const created = await createExpense(tripId, { ...body, paidById }, user.name);
-    await logActivity({
+    logActivity({
       tripId,
       userId: user.id,
       userName: user.name,
