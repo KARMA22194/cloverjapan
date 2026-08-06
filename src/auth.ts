@@ -38,10 +38,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ipAllowed = await consumeRateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000);
         if (!ipAllowed) return null;
 
-        const allowed = await consumeRateLimit(`login:${email.toLowerCase()}`, 10, 15 * 60 * 1000);
+        // Alle Schreibpfade speichern die E-Mail lowercase (registerSelf/createUser),
+        // Postgres vergleicht aber case-sensitiv → hier ebenfalls normalisieren, sonst
+        // ist z. B. „Max@Firma.de" faktisch ausgesperrt (M1).
+        const normalizedEmail = email.toLowerCase();
+
+        const allowed = await consumeRateLimit(`login:${normalizedEmail}`, 10, 15 * 60 * 1000);
         if (!allowed) return null;
 
-        const user = await db.user.findUnique({ where: { email } });
+        const user = await db.user.findUnique({ where: { email: normalizedEmail } });
         if (!user || !user.active) return null;
         // E-Mail-Bestätigung erforderlich (nur unbestätigte Selbst-Registrierungen betroffen).
         if (!user.emailVerified) return null;
@@ -55,6 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -106,7 +112,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          sessionVersion: user.sessionVersion,
+        };
       },
     }),
   ],

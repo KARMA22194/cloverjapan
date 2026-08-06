@@ -45,10 +45,16 @@ export function markEmailVerified(userId: string) {
   return db.user.update({ where: { id: userId }, data: { emailVerified: new Date() } });
 }
 
-/** Setzt ein neues Passwort (Passwort-Reset). */
+/**
+ * Setzt ein neues Passwort (Passwort-Reset). Erhöht `sessionVersion` → alle zuvor
+ * ausgestellten JWTs werden beim nächsten Request/SSR-Read abgewiesen (M2).
+ */
 export async function setUserPassword(userId: string, password: string) {
   const passwordHash = await bcrypt.hash(password, 10);
-  return db.user.update({ where: { id: userId }, data: { passwordHash } });
+  return db.user.update({
+    where: { id: userId },
+    data: { passwordHash, sessionVersion: { increment: 1 } },
+  });
 }
 
 export function setUserActive(id: string, active: boolean) {

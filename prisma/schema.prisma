@@ -39,6 +39,9 @@ model User {
   // Letzter Lebenszeichen-Zeitpunkt (Heartbeat aus der offenen App) → Presence
   // („online"/„zuletzt online vor X") in der Mitgliederliste. null = noch nie gesehen.
   lastSeenAt    DateTime?
+  // Wird bei sicherheitsrelevanten Änderungen (Passwort-Reset) erhöht. Das JWT trägt
+  // den Wert vom Login → weicht er vom DB-Wert ab, ist die Session ungültig (M2).
+  sessionVersion Int      @default(0)
   createdAt     DateTime  @default(now())
 
   tripMembership TripMember?

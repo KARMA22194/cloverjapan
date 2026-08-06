@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-import { badRequest, handle, ok } from "@/lib/api/http";
+import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { acceptIncomingInvitation, getActiveTripId } from "@/lib/services/trip";
 
@@ -17,8 +17,14 @@ export function POST(_req: NextRequest, ctx: Ctx) {
     await getActiveTripId(user.id);
     const { id } = await ctx.params;
 
-    const accepted = await acceptIncomingInvitation(user.id, user.email, id);
-    if (!accepted) throw badRequest("Einladung ungültig, abgelaufen oder bereits angenommen.");
+    const result = await acceptIncomingInvitation(user.id, user.email, id);
+    if (result === "owner_cannot_leave") {
+      throw new ApiError(
+        409,
+        "Du bist Eigentümer:in deiner aktuellen Reise mit weiteren Mitgliedern. Übertrage zuerst die Eigentümerschaft oder entferne die anderen Mitglieder, bevor du wechselst.",
+      );
+    }
+    if (result !== "ok") throw badRequest("Einladung ungültig, abgelaufen oder bereits angenommen.");
     return ok({ id, accepted: true });
   });
 }

@@ -7,11 +7,15 @@ declare module "next-auth" {
     user: {
       id: string;
       role: Role;
+      // Session-Version zum Login-Zeitpunkt → Vergleich mit dem frischen DB-Wert
+      // erlaubt echtes Session-Revoke (Passwort-Reset invalidiert alte Tokens).
+      sessionVersion: number;
     } & DefaultSession["user"];
   }
 
   interface User {
     role: Role;
+    sessionVersion: number;
   }
 }
 
@@ -19,5 +23,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: Role;
+    ver: number;
   }
 }

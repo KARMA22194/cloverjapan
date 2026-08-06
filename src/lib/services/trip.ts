@@ -150,15 +150,22 @@ export async function getIncomingInvitations(
   }));
 }
 
+export type AcceptIncomingResult = "ok" | "invalid" | "owner_cannot_leave";
+
 /**
  * Nimmt eine an den Nutzer gerichtete Einladung an: hängt seine Mitgliedschaft in die
  * eingeladene Reise um (verlässt die bisherige) und entwertet die Einladung — atomar.
+ *
+ * Ist der Nutzer Owner seiner aktuellen Reise **und** hat diese noch weitere Mitglieder,
+ * wird die Annahme abgelehnt (`owner_cannot_leave`): sonst bliebe die Reise mit einem
+ * ownerId ohne Mitgliedschaft zurück → niemand könnte mehr Mitglieder verwalten, und der
+ * Owner käme wegen `TripMember.userId @unique` nicht zurück (M3, analog `removeFromTrip`).
  */
 export async function acceptIncomingInvitation(
   userId: string,
   email: string,
   invitationId: string,
-): Promise<boolean> {
+): Promise<AcceptIncomingResult> {
   const inv = await db.tripInvitation.findUnique({ where: { id: invitationId } });
   if (
     !inv ||
@@ -166,7 +173,23 @@ export async function acceptIncomingInvitation(
     inv.acceptedAt ||
     inv.expiresAt < new Date()
   ) {
-    return false;
+    return "invalid";
+  }
+
+  // Aktuelle Reise des Nutzers: verlässt er sie als Owner mit weiteren Mitgliedern,
+  // wäre sie danach führungslos → blockieren (Owner-Übertragung wäre die Alternative).
+  const current = await db.tripMember.findUnique({
+    where: { userId },
+    select: { tripId: true },
+  });
+  if (current) {
+    const ownerId = await getTripOwnerId(current.tripId);
+    if (ownerId === userId) {
+      const otherMembers = await db.tripMember.count({
+        where: { tripId: current.tripId, userId: { not: userId } },
+      });
+      if (otherMembers > 0) return "owner_cannot_leave";
+    }
   }
 
   try {
@@ -176,11 +199,11 @@ export async function acceptIncomingInvitation(
         data: { acceptedAt: new Date() },
       });
       if (consumed.count === 0) throw new Error("ALREADY_ACCEPTED");
-      await tx.tripMember.update({ where: { userId }, data: { tripId: inv.tripId } });
+      await tx.tripMember.update({ where: { userId }, data: { tripId: inv.tripId, canManage: false } });
     });
-    return true;
+    return "ok";
   } catch (err) {
-    if (err instanceof Error && err.message === "ALREADY_ACCEPTED") return false;
+    if (err instanceof Error && err.message === "ALREADY_ACCEPTED") return "invalid";
     throw err;
   }
 }

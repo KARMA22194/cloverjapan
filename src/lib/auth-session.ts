@@ -26,6 +26,7 @@ export async function requireSessionUser(): Promise<SessionUser> {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) redirect("/login");
+  const sessionVersion = session!.user.sessionVersion;
 
   const fresh = await db.user.findUnique({
     where: { id },
@@ -37,9 +38,13 @@ export async function requireSessionUser(): Promise<SessionUser> {
       role: true,
       active: true,
       emailVerified: true,
+      sessionVersion: true,
     },
   });
-  if (!fresh || !fresh.active || !fresh.emailVerified) redirect("/login");
+  // Passwort-Reset (sessionVersion++) invalidiert alte SSR-Sessions ebenso (M2).
+  if (!fresh || !fresh.active || !fresh.emailVerified || fresh.sessionVersion !== sessionVersion) {
+    redirect("/login");
+  }
 
   return {
     id: fresh.id,

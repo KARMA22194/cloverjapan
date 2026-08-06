@@ -49,6 +49,7 @@ export const authConfig = {
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
+        token.ver = user.sessionVersion;
       }
       return token;
     },
@@ -58,6 +59,9 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        // Alte Tokens (vor Einführung der Versionierung) tragen kein `ver` → als 0
+        // behandeln, damit sie zum DB-Default (0) passen und nicht abgemeldet werden.
+        session.user.sessionVersion = (token.ver as number | undefined) ?? 0;
       }
       return session;
     },
