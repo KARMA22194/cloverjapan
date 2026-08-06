@@ -131,10 +131,9 @@ function placeLinkUrl(lat: number, lng: number, label: string, type?: string): s
 }
 
 /**
- * Ortsname als Button: statt sofort ein Maps-Tab zu öffnen, klappt beim Klick ein
- * kleines Menü mit den möglichen Aktionen auf (aktuell „In Google Maps öffnen").
- * Als Menü angelegt, damit sich weitere Ziele (Apple Maps o. Ä.) leicht ergänzen
- * lassen. Schließt bei Klick außerhalb bzw. Escape.
+ * Ortsname als direkter Link: ein Klick öffnet den exakten Ort in Google Maps
+ * (neuer Tab) — hilft, unklare Import-Orte schnell einzuordnen. Auflösung über die
+ * `place-link`-Route (mit Google-Key exakte Filiale, sonst koordinaten-zentriert).
  */
 function PlaceLink({
   lat,
@@ -149,53 +148,16 @@ function PlaceLink({
   display: string;
   type?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={label}
-        className="block w-full truncate text-left text-sm text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
-      >
-        {display}
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute left-0 top-full z-[1200] mt-1 min-w-52 rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
-        >
-          <a
-            href={placeLinkUrl(lat, lng, label, type)}
-            target="_blank"
-            rel="noopener noreferrer"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="block rounded px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            📍 In Google Maps öffnen
-          </a>
-        </div>
-      )}
-    </div>
+    <a
+      href={placeLinkUrl(lat, lng, label, type)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`${label} — in Google Maps öffnen`}
+      className="block w-full truncate text-left text-sm text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+    >
+      {display}
+    </a>
   );
 }
 
@@ -1621,12 +1583,15 @@ export function TripPlanner() {
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
                             {i + 1}
                           </span>
-                          <span
-                            className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200"
-                            title={c.label}
+                          <a
+                            href={placeLinkUrl(c.lat, c.lng, c.label)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`${c.label} — in Google Maps öffnen`}
+                            className="min-w-0 flex-1 truncate text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
                           >
                             {shortLabel(c.label)}
-                          </span>
+                          </a>
                           <button
                             type="button"
                             onClick={() => commitCandidate(c.id)}
