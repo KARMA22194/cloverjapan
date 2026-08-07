@@ -5,13 +5,18 @@
 (3) externe Integrationen/SSRF/Header/Secrets, (4) DB- & Server-Performance, (5) Frontend/React.
 Funde, die von zwei Audits unabhängig bestätigt wurden, sind mit **✔✔** markiert.
 
-> **Update 2026-08-07:** **K1–K5, H1–H9 und alle 25 mittleren Befunde (M1–M25) sind behoben**
-> (Commits s. Git-Log). Miterledigt aus dem 🟢-Block: N7, N10, N13–N16, N18, N19.
-> Migrationen `20260806120000_trip_stop_checklist_client_id` (K5) und
-> `20260806130000_expense_has_receipt` (H7) laufen beim Deploy automatisch mit.
+> **Update 2026-08-07:** **Alle Befunde bis auf drei sind behoben** — K1–K5, H1–H9,
+> M1–M25, N1–N20 sowie P10, P11, P13, P14 (Commits s. Git-Log).
+> Migrationen: `20260806120000_trip_stop_checklist_client_id` (K5),
+> `20260806130000_expense_has_receipt` (H7), `20260806140000_user_session_version` (M2),
+> `20260807120000_webauthn_challenge` (N3) — laufen beim Deploy automatisch mit.
 >
-> Offen bleiben die 🟢-Kleinigkeiten **N1–N6, N8, N9, N11, N12, N20** sowie die
-> Performance-Themen **P9–P15** (überwiegend „bei Wachstum").
+> **Bewusst offen (mit Begründung, s. u.):** P9 (Ablauf-Timeline), P12 (Composite-Indizes),
+> P15 (Schema-Datentypen). Alle drei sind „bei Wachstum"-Themen, deren Umsetzung heute
+> mehr kostet als bringt.
+>
+> ⚠️ **`CRON_SECRET` in Produktion setzen** — sonst ist der Aufräum-Job gesperrt und
+> `RateLimit`/`Token`/`WebauthnChallenge` wachsen unbegrenzt.
 
 Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachstum)` erst bei mehr Daten/Nutzern
 
@@ -27,7 +32,7 @@ Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachs
 - [Umsetzungsnotizen](#umsetzungsnotizen-wo-die-lösung-von-der-empfehlung-abweicht)
 - [Verifikation](#verifikation)
 - [Was noch offen ist](#was-noch-offen-ist)
-- [Empfohlene Reihenfolge](#empfohlene-reihenfolge)
+- [⚠️ Vor dem nächsten Deploy](#️-vor-dem-nächsten-deploy)
 
 ---
 
@@ -420,28 +425,28 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Auth
 
-- [ ] **N1 · Passkey-Registrierung verlangt keine User-Verification, der Login schon** —
+- [x] **N1 · Passkey-Registrierung verlangt keine User-Verification, der Login schon** —
   `passkey/register/options/route.ts:30` (`userVerification/residentKey: "preferred"`), `register/verify/route.ts:21-26`
   (kein `requireUserVerification`) vs. `auth/options/route.ts:13` + `auth.ts:93` (`required`).
   Ein ohne UV/Resident-Key registrierter Passkey wird beim Login **zwangsläufig** abgelehnt (`allowCredentials: []`
   braucht Discoverable Credentials) — der Fehler zeigt sich erst beim Login. Fix: beides auf `"required"`.
-- [ ] **N2 · Credential-Upsert ohne Besitzer-Bindung** — `passkey/register/verify/route.ts:37-47`.
+- [x] **N2 · Credential-Upsert ohne Besitzer-Bindung** — `passkey/register/verify/route.ts:37-47`.
   `upsert({ where: { id }, update: { counter } })`: existiert die Credential-ID bei einem **anderen** Nutzer, wird
   `userId` nicht gesetzt, aber `counter` überschrieben (schwächt den Klon-Schutz in `auth.ts:97`) und
   `{verified:true}` gemeldet. Fix: vorher `findUnique`, bei Fremdbesitz 409.
-- [ ] **N3 · Challenge-Cookie wird beim Passkey-Login nicht entwertet** — `auth.ts:78-107`, `webauthn.ts:24`.
+- [x] **N3 · Challenge-Cookie wird beim Passkey-Login nicht entwertet** — `auth.ts:78-107`, `webauthn.ts:24`.
   300 s gültig, serverseitig nicht als verbraucht markiert; bei Authenticators mit Counter 0 (Apple/Google) greift
   keine Counter-Regel → Assertion innerhalb des Fensters wiederverwendbar. Register- und Login-Flow teilen zudem
   denselben Cookie-Namen. Fix: Nonce in kurzlebiger Tabelle, atomar entwerten; getrennte Cookie-Namen.
-- [ ] **N4 · Account-Enumeration & gezielter Login-Lockout** — `register/route.ts:33-35` (409 „existiert bereits"
+- [x] **N4 · Account-Enumeration & gezielter Login-Lockout** — `register/route.ts:33-35` (409 „existiert bereits"
   als Orakel, während `/forgot` bewusst generisch ist), `auth.ts:41-50` (Abbruch **vor** `bcrypt.compare` →
   Timing-Unterschied; `login:<email>`-Zähler wird auch bei **korrektem** Passwort verbraucht → ein Angreifer kann
   ein Opfer mit 10 Fehlversuchen/15 min aussperren). Fix: generische 202 + „Konto existiert"-Mail; Dummy-`compare`;
   Zähler nur bei Fehlschlag erhöhen, nach Erfolg zurücksetzen.
-- [ ] **N5 · `/verify` verbraucht das Einmal-Token per GET im Server Component** — `verify/page.tsx:17-23`.
+- [x] **N5 · `/verify` verbraucht das Einmal-Token per GET im Server Component** — `verify/page.tsx:17-23`.
   Link-Scanner (Outlook SafeLinks, Mail-Gateways, Prefetch) entwerten das Token vor dem Klick → „ungültig oder
   bereits verwendet", und es gibt keinen Resend-Endpunkt. Fix: Button + POST/Server Action, plus „Mail erneut senden".
-- [ ] **N6 · Öffentliche Routen per `startsWith`** — `auth.config.ts:25-27`. `["/register","/verify","/forgot","/reset","/k/"]`
+- [x] **N6 · Öffentliche Routen per `startsWith`** — `auth.config.ts:25-27`. `["/register","/verify","/forgot","/reset","/k/"]`
   macht jede Route mit diesem Präfix öffentlich (z. B. ein künftiges `/registered-users`). Latente Fußangel.
   Fix: `pathname === p || pathname.startsWith(p + "/")`.
 
@@ -451,11 +456,11 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   `{ notified: sent.email || sent.discord }` sagt dem anonymen Finder, ob überhaupt eine Benachrichtigung
   hinterlegt ist — genau das, was der Kommentar in `:31` vermeiden will. Fix: konstant `{ ok: true }` +
   `enforceRateLimit(\`luggage-found:${token}\`, 20, 3600_000)` **ohne** IP-Anteil.
-- [ ] **N8 · `/k/[token]` ist indexierbar** — `src/app/k/[token]/page.tsx:1-38`; weder `robots.ts` noch
+- [x] **N8 · `/k/[token]` ist indexierbar** — `src/app/k/[token]/page.tsx:1-38`; weder `robots.ts` noch
   `robots`-Metadata vorhanden. Teilt ein Finder den Link, landet die Token-URL im Index → `ownerName` + Label
   lesbar, Falschmeldungen möglich (das Token selbst ist mit 72 Bit nicht erratbar). Fix:
   `metadata.robots = { index: false, follow: false }` + `X-Robots-Tag: noindex` für `/k/:token*`.
-- [ ] **N9 · `geo/place-link` prüft erst nach dem Fallback-Zweig die Session** — `geo/place-link/route.ts:90-116`.
+- [x] **N9 · `geo/place-link` prüft erst nach dem Fallback-Zweig die Session** — `geo/place-link/route.ts:90-116`.
   Ohne Key oder ohne `q` antwortet die Route **vor** `requireUser()` mit einem Redirect → unauthentifizierter
   Redirector (kein Open Redirect, `fallbackUrl:22-27` nagelt das Ziel fest, aber als Traffic-Relay nutzbar).
   Fix: `requireUser()` an den Anfang.
@@ -463,14 +468,14 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   `geo/transit/route.ts:44`. `Number("Infinity")` ist nicht `NaN` → `around:120,Infinity,Infinity` in der
   Overpass-QL; kein Injection-Vektor, aber alle drei Spiegel laufen je 12 s ins Timeout und reißen `maxDuration = 30`.
   Fix: `Number.isFinite` + Bereichsprüfung, Spiegel-Timeout auf ~8 s.
-- [ ] **N11 · Beleg-Scan: `media_type` ungeprüft, Limit über dem Anbieter-Limit** — `expenses/scan/route.ts:12,48-50`.
+- [x] **N11 · Beleg-Scan: `media_type` ungeprüft, Limit über dem Anbieter-Limit** — `expenses/scan/route.ts:12,48-50`.
   `max(8_000_000)` erlaubt ~6 MB, Anthropic-Grenze ist 5 MB → verlässliche 502 statt verständlicher Meldung;
   `media_type` kommt roh aus der Data-URL (`image/svg+xml` möglich), Base64-Inhalt wird nie als Bild verifiziert.
   Fix: ~5 MB **Roh-Bytes**, MIME-Whitelist, Magic-Bytes prüfen.
 
 ### Frontend
 
-- [ ] **N12 · Labels ohne `htmlFor`** (systematisch, ~35 Felder) — `FlightPlanner.tsx:285,294,314-361`,
+- [x] **N12 · Labels ohne `htmlFor`** (systematisch, ~35 Felder) — `FlightPlanner.tsx:285,294,314-361`,
   `BookingPlanner.tsx:128-205`, `KofferManager.tsx:104-128`, `TripPlanner.tsx:1424`,
   `ExpenseCalculator.tsx:355,367,407`. Klick aufs Label fokussiert nichts, Screenreader liest ein unbenanntes Feld.
   Richtig gemacht in `TripPlanner.tsx:1642/1649`, `ExpenseCalculator.tsx:586/590`.
@@ -497,7 +502,7 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Validierung / Limits
 
-- [ ] **N20 · Unbegrenzte Feldlängen ohne Rate-Limit** — `checklist/route.ts:10` (`id: z.string().min(1)`, **keine**
+- [x] **N20 · Unbegrenzte Feldlängen ohne Rate-Limit** — `checklist/route.ts:10` (`id: z.string().min(1)`, **keine**
   Obergrenze, 500 Items pro PUT); `expenses/[id]/route.ts:15-22` (1,5 MB Data-URL, kein `enforceRateLimit`);
   `trip-stops/route.ts:11-25` (200 × (label 5000 vor `.slice(300)` + note 500) ≈ 1,1 MB Request).
   Fix: `.max(100)` auf die Checklisten-id, Rate-Limit auf die PUT-Replace-Endpunkte und `PATCH /expenses/{id}`,
@@ -512,35 +517,38 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   aktiven Tab rendert) würde M21 zurückdrehen — der Client-Zustand der übrigen Tabs ginge bei jedem Wechsel
   verloren. Vier parallele Queries wiegen das nicht auf. Sinnvoll erst, wenn die Timeline teuer wird; dann
   als eigene RSC-Route mit `<Suspense>`.
-- [ ] **P10 · Cold-Start: `web-push`/`nodemailer` statisch in allen Mutations-Bundles; kein Neon-Adapter**
+- [x] **P10 · Cold-Start: `web-push`/`nodemailer` statisch in allen Mutations-Bundles; kein Neon-Adapter**
   *(bei Wachstum)* — `push.ts:1` → über `activityService.ts:2` in **jeder** Create-Route; `schema.prisma:4` ohne
   `driverAdapters`. Fix: `const webpush = (await import("web-push")).default` erst nach `pushConfigured()`;
   mittelfristig `@prisma/adapter-neon` (HTTP/WebSocket) statt TCP+TLS pro kaltem Lambda (~100–300 ms).
-- [ ] **P11 · `RateLimit`- und `Token`-Zeilen werden nie aufgeräumt** *(bei Wachstum)* — `rate.ts:20-35`,
+- [x] **P11 · `RateLimit`- und `Token`-Zeilen werden nie aufgeräumt** *(bei Wachstum)* — `rate.ts:20-35`,
   `schema.prisma:80-86`. Der Index `@@index([resetAt])` existiert, aber nichts löscht abgelaufene Fenster;
   IP-Keys (`login-ip:*`, `register:*`, `luggage-found:<token>:<ip>`) wachsen unbegrenzt, verbrauchte `Token`-Zeilen
   bleiben liegen. Fix: Vercel-Cron (`vercel.json` → `crons`) mit `deleteMany({ where: { resetAt: { lt: new Date() } } })`
   und analog für `Token`; Zähler atomar (siehe H2) spart zusätzlich einen Roundtrip.
 - [ ] **P12 · Composite-Indizes für die genutzten `orderBy`-Kombinationen fehlen** *(bei Wachstum)* —
-  `schema.prisma:220/242/268/301/335`. Reads sortieren zusätzlich: `expense` nach `createdAt`
-  (`expensesService.ts:4`), `booking` nach `date,time,createdAt` (`bookingsService.ts:19`), `flight` nach
-  `departure,createdAt` (`flightsService.ts:23`). Passend wären `@@index([tripId, createdAt])` (Expense,
-  Settlement, LuggageTag), `@@index([tripId, date, time])` (Booking), `@@index([tripId, departure])` (Flight).
-  **Nur** umsetzen, wenn die Datenmenge wirklich wächst — sonst reiner Schreib-Overhead.
-- [ ] **P13 · `position` per `count()` → Extra-Roundtrip + Race** *(bei Wachstum)* — `tripHotels.ts:18`,
+  `prisma/schema.prisma`: `Expense`/`Settlement`/`LuggageTag` hätten gern `@@index([tripId, createdAt])`,
+  `Booking` `@@index([tripId, date, time])`, `Flight` `@@index([tripId, departure])`.
+  **Bewusst nicht umgesetzt** — und zwar auf Empfehlung des Befunds selbst: bei zweistelligen Zeilenzahlen
+  sortiert Postgres ohnehin im Speicher, der Index brächte nichts und kostete bei jedem Schreibvorgang
+  Pflegeaufwand. Die `position`-Indizes (`@@index([tripId, position])`) und `Activity`
+  (`@@index([tripId, createdAt])`) existieren bereits — letzteres ist die einzige Tabelle mit echtem Wachstum.
+  Nachziehen, sobald eine Liste dreistellig wird.
+- [x] **P13 · `position` per `count()` → Extra-Roundtrip + Race** *(bei Wachstum)* — `tripHotels.ts:18`,
   `tripStops.ts:21`, `wishlist.ts:15`. Zwei gleichzeitige Adds bekommen dieselbe `position`.
   Fix: `MAX(position)+1` in einer Transaktion, oder `position` weglassen und nach `createdAt` sortieren.
-- [ ] **P14 · PUT-Replace liest den Altbestand außerhalb der Transaktion** *(jetzt, Korrektheit)* —
+- [x] **P14 · PUT-Replace liest den Altbestand außerhalb der Transaktion** *(jetzt, Korrektheit)* —
   `tripStops.ts:51-72`, `checklist.ts:20-40`. Das `findMany` für die `createdByName`-Übernahme läuft **vor**
   `$transaction([deleteMany, createMany])` → ein paralleler PUT zwischen Read und Delete ordnet Ersteller-Namen
   falsch zu. Fix: interaktive Transaktion (`db.$transaction(async tx => {…})`) mit dem Read drin.
 - [ ] **P15 · Schema-Datentypen** *(bei Wachstum)* —
-  Datumsfelder als `String`: `TripStop.date` (`:169`), `TripHotel.checkIn/checkOut` (`:186-187`),
-  `Booking.date/time` (`:231-232`) — während `PlannerTask.date` korrekt `@db.Date` ist (`:274`): keine
-  Range-Queries, keine DB-Validierung, die Timeline muss alles in JS zusammenführen (`AblaufTimeline.tsx:94-124`).
-  `Booking.kind` (`:230`) und `Expense.category` (`:198`) sind `String` mit den erlaubten Werten im Kommentar →
-  gehören als Prisma-`enum` ins Schema. Data-URLs in `Expense.receipt` (`:211`) und `User.image` (`:38`) blähen die
-  Kernzeilen auf — Ursache von H7 und H8; die Auslagerung löst beide strukturell.
+  Datumsfelder als `String` (`TripStop.date`, `TripHotel.checkIn/checkOut`, `Booking.date/time`) statt `@db.Date`;
+  `Booking.kind`/`Expense.category` als `String` statt Prisma-`enum`; Data-URLs in `Expense.receipt`/`User.image`.
+  **Bewusst zurückgestellt:** das ist ein Migrationspaket mit Datenkonvertierung, das quer durch DTOs, Timeline
+  und Sortierung reicht — hohes Regressionsrisiko für einen Nutzen, der sich erst bei deutlich mehr Daten zeigt.
+  Die akuten Folgen sind bereits entschärft: Datumsstrings werden serverseitig auf **kalendarische Gültigkeit**
+  geprüft (M13), Beleg-Blobs werden in Listen nicht mehr geladen (H7). Sinnvoller Zeitpunkt: gemeinsam mit der
+  Auslagerung der Belege in einen Object-Store (Vercel Blob), die ohnehin auf der Ideenliste steht.
 
 ---
 
@@ -643,15 +651,52 @@ Zusätzlich ein Durchlauf mit headless Chromium im Container:
   funktionieren unverändert.
 - `Cache-Control` auf `fx/rate` (`max-age=3600`) und `geo/weather` (`max-age=900`) per Request geprüft.
 
+**Abschlusslauf (nach allen Batches, gegen `next start` mit `NODE_ENV=production`):**
+Login, dann `/start`, `/reiseplaner`, `/programm`, `/geld`, `/info`, `/fluege`, `/mitglieder`,
+`/profil`, `/admin`, `/api-docs` — alle gerendert, **0 CSP-Verstöße, 0 JS-Fehler**, Tab-Zustand bleibt.
+
+Gezielt nachgewiesen statt nur angenommen:
+- **N4**: Registrierung liefert für bekannte und unbekannte Adressen identische Antworten.
+- **N5**: `/verify?token=…` übersteht zwei GETs, ohne den Token zu verbrauchen; Resend antwortet generisch.
+- **N3**: Challenge lässt sich genau einmal einlösen.
+- **N12**: 29/29 Labels zeigen auf ein existierendes Feld, keine doppelten IDs.
+- **P11**: Cron-Endpunkt weist ohne und mit falschem Secret mit 401 ab.
+- **P13**: Der erste Fix (normale Transaktion) **fiel im Test durch** — drei parallele Adds bekamen alle
+  Position 0, weil READ COMMITTED das nicht verhindert. Erst die serialisierbare Transaktion mit Retry
+  liefert 0/1/2.
+- **Login-Regression** nach dem Umbau von `authorize`: Fehlversuch zählt hoch, korrektes Passwort meldet an
+  und setzt den Zähler zurück.
+
 ---
 
 ## Was noch offen ist
 
-**🟢 Kleinigkeiten:** N1–N6 (Passkey-Härtung, Enumeration, `/verify` per GET, `startsWith`-Präfixe),
-N8 (`noindex` für `/k/`), N9 (`geo/place-link` prüft Session spät), N11 (Beleg-Scan: MIME-Whitelist,
-5-MB-Grenze), N12 (`htmlFor` an ~35 Feldern), N20 (Feldlängen/Rate-Limits).
+Nur noch drei Punkte, alle bewusst zurückgestellt (ausführliche Begründung jeweils direkt am Befund):
 
-**Performance (überwiegend „bei Wachstum"):** P9 (s. o., bewusst), P10 (`web-push` lazy laden,
-Neon-Adapter), P11 (Cron räumt `RateLimit`/`Token` auf), P12 (Composite-Indizes), P13 (`position`
-per `count()`), P14 (PUT-Replace liest außerhalb der Transaktion — Korrektheit, lohnt zeitnah),
-P15 (Schema-Datentypen: Datums-Strings, Enums, Data-URLs auslagern).
+| Punkt | Warum offen |
+|---|---|
+| **P9** — `/programm` rendert die Ablauf-Timeline immer | Die Lösung (Tabs als echte Navigation) würde M21 zurückdrehen: der Client-Zustand der übrigen Tabs ginge bei jedem Wechsel verloren. Vier parallele Queries wiegen das nicht auf. |
+| **P12** — Composite-Indizes | Auf Empfehlung des Befunds selbst: bei zweistelligen Zeilenzahlen bringt der Index nichts und kostet Schreib-Overhead. |
+| **P15** — Schema-Datentypen | Migrationspaket mit Datenkonvertierung quer durch DTOs/Timeline/Sortierung; hohes Regressionsrisiko, Nutzen erst bei viel mehr Daten. Akute Folgen sind über M13 und H7 entschärft. |
+
+Ebenfalls offen geblieben ist ein **Teil von P10**: `web-push` wird zwar nur noch bei konfiguriertem
+VAPID initialisiert, Webpack bündelt die Bibliothek serverseitig aber weiterhin mit — gespart wird die
+Modul-Initialisierung, nicht die Bundle-Größe. Der zweite Teil des Befunds (Prisma-Neon-Adapter für
+HTTP/WebSocket statt TCP+TLS pro kaltem Lambda) ist nicht umgesetzt.
+
+Und ein **Restrisiko** aus M7: DNS-Rebinding in `safeFetch`. Ein Pinning der geprüften IP beim Connect
+bräuchte einen eigenen undici-Dispatcher; Port-Whitelist (80/443) und NAT64-Erkennung sind umgesetzt.
+
+---
+
+## ⚠️ Vor dem nächsten Deploy
+
+- **`CRON_SECRET` in Vercel setzen** (Production). Ohne das Secret antwortet `/api/v1/cron/cleanup` mit 401
+  und die Tabellen `RateLimit`, `Token` und `WebauthnChallenge` werden nie aufgeräumt.
+- Die vier Migrationen laufen automatisch mit (`vercel.json` → `prisma migrate deploy`). Dafür muss
+  `DIRECT_URL` gesetzt sein, sonst schlägt der Build fehl.
+- **Bestehende Passkeys:** N1 stellt die Registrierung auf `residentKey: "required"` um. Bereits
+  registrierte Passkeys funktionieren weiter; wer bisher einen nicht-discoverable Passkey angelegt hatte
+  (der beim Login ohnehin abgelehnt wurde), muss ihn neu einrichten.
+- **Registrierung antwortet jetzt generisch** (N4): „E-Mail existiert bereits" erscheint nicht mehr in der
+  API-Antwort, sondern nur noch als Mail an den Inhaber. Support-Anfragen entsprechend einordnen.
