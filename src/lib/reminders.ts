@@ -2,6 +2,8 @@
 //  - Nativ (Capacitor): OS-Benachrichtigung, feuert auch bei geschlossener App.
 //  - Web/PWA: Notification-API, solange die App offen ist (Fallback).
 
+import { todayParam } from "@/lib/time";
+
 export interface ReminderTask {
   id: string;
   time: string; // "HH:MM"
@@ -51,7 +53,8 @@ export async function scheduleReminders(
   dateISO: string,
 ): Promise<() => void> {
   const noop = () => {};
-  const todayISO = new Date().toISOString().slice(0, 10);
+  // App-Zeitzone, nicht UTC — sonst gelten nach Mitternacht alle Aufgaben als „nicht heute".
+  const todayISO = todayParam();
   if (dateISO !== todayISO) return noop; // nur für heute sinnvoll
   if (!(await hasReminderPermission())) return noop;
 

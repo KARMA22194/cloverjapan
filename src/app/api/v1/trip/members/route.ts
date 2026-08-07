@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { conflict, forbidden, handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
+import { requireTripUser, requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 import {
   canManageMembers,
@@ -24,8 +24,7 @@ function inviteUrl(token: string, req: NextRequest): string {
 /** GET /api/v1/trip/members — Mitglieder + offene (pending) Einladungen der aktuellen Reise. */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const [members, invitations, incoming, ownerId] = await Promise.all([
       getTripMembers(tripId),
       getPendingInvitations(tripId),

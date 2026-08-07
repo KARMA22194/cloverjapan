@@ -69,8 +69,34 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+/**
+ * Kurzlebige Zusammenfassung gleichzeitiger GETs auf dieselbe URL.
+ *
+ * Auf `/start` holen `FlightDayStatus` und `TripDashboard` unabhängig voneinander
+ * `/api/v1/flights` — zwei Function-Invocations und vier DB-Queries für dieselbe
+ * Antwort. Statt die Komponenten zu koppeln, teilen sich parallele Anfragen hier
+ * ein Promise.
+ *
+ * Bewusst **nur** solange die Anfrage läuft — kein Zeit-Cache: sonst bekäme eine
+ * Komponente, die direkt nach einem Write neu lädt, noch die alte Antwort.
+ * Gleichzeitig gestartete Anfragen (derselbe Render-Durchgang) werden zusammengefasst,
+ * alles danach geht wieder frisch ans Netz.
+ */
+const inFlight = new Map<string, Promise<unknown>>();
+
+function dedupedGet<T>(path: string): Promise<T> {
+  const running = inFlight.get(path);
+  if (running) return running as Promise<T>;
+
+  const p = request<T>("GET", path).finally(() => {
+    inFlight.delete(path);
+  });
+  inFlight.set(path, p);
+  return p;
+}
+
 export const api = {
-  get: <T>(path: string) => request<T>("GET", path),
+  get: <T>(path: string) => dedupedGet<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body ?? {}),

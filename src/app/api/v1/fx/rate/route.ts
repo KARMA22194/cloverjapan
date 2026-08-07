@@ -36,6 +36,11 @@ export function GET(req: NextRequest) {
       throw new ApiError(502, "Wechselkurs nicht verfügbar.");
     }
 
-    return ok({ from, to, rate, date: data.time_last_update_utc ?? null });
+    // Auch dem **Browser** eine Cachedauer mitgeben: der externe Call ist zwar
+    // serverseitig gecacht, die Function lief bisher aber trotzdem bei jedem
+    // Seitenaufruf (Kurs-Pill in der TopNav + Ausgaben-/Zoll-Ansicht).
+    const res2 = ok({ from, to, rate, date: data.time_last_update_utc ?? null });
+    res2.headers.set("Cache-Control", "private, max-age=3600");
+    return res2;
   });
 }

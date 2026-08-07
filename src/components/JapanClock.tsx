@@ -27,6 +27,19 @@ function diffHours(now: Date): number {
   return Math.round((jp.getTime() - home.getTime()) / 3_600_000);
 }
 
+// Die Zeitdifferenz ändert sich nur bei DST-Wechseln — sie pro Tag einmal zu
+// berechnen spart zwei `toLocaleString`-Parses bei jedem Tick.
+let diffCache: { day: string; label: string } | null = null;
+
+function diffLabelOf(now: Date): string {
+  const day = now.toISOString().slice(0, 10);
+  if (diffCache?.day === day) return diffCache.label;
+  const diff = diffHours(now);
+  const label = diff === 0 ? "gleiche Zeit" : `${diff > 0 ? "+" : ""}${diff} Std`;
+  diffCache = { day, label };
+  return label;
+}
+
 /**
  * Live-Uhr für Japan (Asia/Tokyo). `compact` = schlanke Variante für die TopNav,
  * sonst volle Karte mit Datum, Zuhause-Zeit und Zeitdifferenz.
@@ -35,10 +48,33 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    // Der Takt richtet sich nach dem, was sichtbar ist: die kompakte Variante zeigt
+    // nur HH:MM und braucht keinen Sekundentakt. Im Hintergrund-Tab pausiert die Uhr
+    // ganz — auf dem Handy ist die Desktop-Instanz zusätzlich nur per CSS versteckt
+    // und tickte dort bislang unsichtbar mit.
+    const tickMs = compact ? 15_000 : 1000;
+    let id: ReturnType<typeof setInterval> | null = null;
+
+    const stop = () => {
+      if (id) clearInterval(id);
+      id = null;
+    };
+    const start = () => {
+      if (id || document.visibilityState !== "visible") return;
+      setNow(new Date());
+      id = setInterval(() => setNow(new Date()), tickMs);
+    };
+
     setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+    start();
+
+    const onVisibility = () => (document.visibilityState === "visible" ? start() : stop());
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [compact]);
 
   if (!now) {
     // Kein Server/Client-Mismatch: erst nach Mount rendern.
@@ -54,8 +90,7 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
 
   const jpTime = timeFmt(JP_TZ).format(now);
   const homeTime = timeFmt(HOME_TZ).format(now);
-  const diff = diffHours(now);
-  const diffLabel = diff === 0 ? "gleiche Zeit" : `${diff > 0 ? "+" : ""}${diff} Std`;
+  const diffLabel = diffLabelOf(now);
 
   if (compact) {
     return (

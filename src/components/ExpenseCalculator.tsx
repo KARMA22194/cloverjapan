@@ -297,6 +297,14 @@ export function ExpenseCalculator() {
   }
 
   function clearAll() {
+    // Löscht die gesamte Ausgaben-Historie der Reise inklusive Belegfotos — für alle.
+    if (
+      !window.confirm(
+        `${items.length} Ausgaben inkl. Belege für alle Mitglieder löschen? Das lässt sich nicht rückgängig machen.`,
+      )
+    ) {
+      return;
+    }
     setItems([]);
     api.delete("/api/v1/expenses").catch(() => {});
   }

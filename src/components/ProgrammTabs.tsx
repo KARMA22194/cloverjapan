@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { TagesPlaner } from "@/components/TagesPlaner";
 import { BookingPlanner } from "@/components/BookingPlanner";
 import { Checkliste } from "@/components/Checkliste";
+import { TabPanel } from "@/components/TabPanel";
 
 const TABS = [
   { key: "ablauf", label: "Reiseablauf", emoji: "🗓️" },
@@ -64,9 +65,16 @@ export function ProgrammTabs({ ablauf, initial }: { ablauf: ReactNode; initial?:
 
       {/* Ablauf ist ein Server-Node → immer im Baum, nur ein-/ausgeblendet. */}
       <div hidden={active !== "ablauf"}>{ablauf}</div>
-      {active === "tagesplaner" && <TagesPlaner />}
-      {active === "buchungen" && <BookingPlanner />}
-      {active === "checkliste" && <Checkliste />}
+      {/* Client-Tabs: einmal geöffnet bleiben sie gemountet (siehe TabPanel). */}
+      <TabPanel id="programm-tagesplaner" active={active === "tagesplaner"}>
+        <TagesPlaner />
+      </TabPanel>
+      <TabPanel id="programm-buchungen" active={active === "buchungen"}>
+        <BookingPlanner />
+      </TabPanel>
+      <TabPanel id="programm-checkliste" active={active === "checkliste"}>
+        <Checkliste />
+      </TabPanel>
     </div>
   );
 }

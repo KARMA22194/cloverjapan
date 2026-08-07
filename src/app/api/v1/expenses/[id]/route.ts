@@ -2,8 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { handle, notFound, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
 import {
   deleteExpenseOwned,
   getExpenseReceipt,
@@ -24,8 +23,7 @@ const receiptBody = z.object({
 /** GET /api/v1/expenses/{id} — Beleg-Foto der Ausgabe (Data-URL) abrufen. */
 export function GET(_req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     const { id } = await ctx.params;
     const row = await getExpenseReceipt(id, tripId);
     if (!row) throw notFound("Ausgabe nicht gefunden.");
@@ -36,8 +34,7 @@ export function GET(_req: NextRequest, ctx: Ctx) {
 /** PATCH /api/v1/expenses/{id} — Beleg-Foto setzen/entfernen. */
 export function PATCH(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     const { id } = await ctx.params;
     const { receipt } = receiptBody.parse(await readJson(req));
     const count = await setExpenseReceipt(id, tripId, receipt);
@@ -49,8 +46,7 @@ export function PATCH(req: NextRequest, ctx: Ctx) {
 /** DELETE /api/v1/expenses/{id} — eigene Ausgabe löschen. */
 export function DELETE(_req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     const { id } = await ctx.params;
     const count = await deleteExpenseOwned(id, tripId);
     if (count === 0) throw notFound("Ausgabe nicht gefunden.");

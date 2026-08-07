@@ -411,6 +411,13 @@ export function TripPlanner() {
   const importReady = useRef(false);
   // Fallback-Link je Ortsname aus einer importierten CSV (Name nicht geocodierbar → Link).
   const importFallback = useRef<Map<string, string>>(new Map());
+  /**
+   * Abbruchsignal für den (langen, sequenziellen) Listen-Import.
+   * Ohne das lief die Schleife nach dem Verlassen der Seite weiter — bei 60 Zeilen
+   * über eine Minute lang weitere `geo/resolve`-Aufrufe, deren Ergebnisse in einer
+   * unmounteten Komponente landeten.
+   */
+  const importAborted = useRef(false);
 
   const [stops, setStops] = useState<Stop[]>([]);
   const [ready, setReady] = useState(false);
@@ -501,16 +508,21 @@ export function TripPlanner() {
   }, []);
 
   // Import-Zwischenablage bei Änderung zurückschreiben (erst nach dem Laden).
+  // Entprellt: sonst wird bei jedem Tastendruck im Textfeld die komplette Liste
+  // (bis zu 200 Kandidaten) neu serialisiert.
   useEffect(() => {
     if (!importReady.current) return;
-    try {
-      localStorage.setItem(
-        IMPORT_LS_KEY,
-        JSON.stringify({ candidates: importCandidates, text: importText }),
-      );
-    } catch {
-      /* Quota/!verfügbar – unkritisch */
-    }
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          IMPORT_LS_KEY,
+          JSON.stringify({ candidates: importCandidates, text: importText }),
+        );
+      } catch {
+        /* Quota/!verfügbar – unkritisch */
+      }
+    }, 400);
+    return () => clearTimeout(t);
   }, [importCandidates, importText]);
 
   // Komplette Stopp-Liste speichern (PUT-Replace); Antwort enthält den Ersteller (by).
@@ -971,24 +983,39 @@ export function TripPlanner() {
     );
   }
 
+  // Beim Verlassen der Seite laufenden Listen-Import stoppen.
+  useEffect(() => {
+    return () => {
+      importAborted.current = true;
+    };
+  }, []);
+
   async function loadWeather() {
-    if (stops.length === 0) return;
+    // Nur die Stopps, die tatsächlich in der Route stehen — für abgewählte Orte
+    // braucht niemand eine Vorhersage.
+    const targets = stops.filter((s) => s.active !== false);
+    if (targets.length === 0) return;
     setWeatherLoading(true);
     try {
-      const entries = await Promise.all(
-        stops.map(async (s) => {
-          try {
-            const w = await api.get<{ emoji: string; tempC: number; text: string }>(
-              `/api/v1/geo/weather?lat=${s.lat}&lng=${s.lng}`,
-            );
-            return [s.id, w] as const;
-          } catch {
-            return [s.id, null] as const;
-          }
-        }),
-      );
+      // In Blöcken abfragen, statt alle auf einmal: bei einer importierten Liste
+      // waren das sonst bis zu 200 gleichzeitige Requests, die sich im
+      // Verbindungslimit des Browsers stauten (Knopf blieb minutenlang auf „Wetter…").
       const map: Record<string, { emoji: string; tempC: number; text: string }> = {};
-      for (const [id, w] of entries) if (w) map[id] = w;
+      const CHUNK = 10; // entspricht der Obergrenze von geo/weather?points=
+      for (let i = 0; i < targets.length; i += CHUNK) {
+        const batch = targets.slice(i, i + CHUNK);
+        const points = batch.map((s) => `${s.lat},${s.lng}`).join(";");
+        try {
+          const list = await api.get<{ emoji: string; tempC: number; text: string }[]>(
+            `/api/v1/geo/weather?points=${encodeURIComponent(points)}`,
+          );
+          batch.forEach((s, idx) => {
+            if (list[idx]) map[s.id] = list[idx];
+          });
+        } catch {
+          /* einzelner Block fehlgeschlagen – die übrigen trotzdem anzeigen */
+        }
+      }
       setWeather(map);
     } finally {
       setWeatherLoading(false);
@@ -1076,6 +1103,7 @@ export function TripPlanner() {
       .map((l) => l.trim())
       .filter(Boolean);
     if (lines.length === 0) return;
+    importAborted.current = false;
     setImporting(true);
     setImportNote(null);
     const found: { id: string; label: string; lat: number; lng: number }[] = [];
@@ -1083,6 +1111,7 @@ export function TripPlanner() {
     for (let i = 0; i < lines.length; i++) {
       // Drosseln: Nominatim blockt schnelle Serien (Policy ~1 Anfrage/Sekunde).
       if (i > 0) await sleep(1100);
+      if (importAborted.current) return; // Seite verlassen → still aufhören
       setImportProgress({ done: i, total: lines.length });
       const line = lines[i];
       try {
@@ -1099,6 +1128,7 @@ export function TripPlanner() {
         continue;
       }
       await sleep(1100);
+      if (importAborted.current) return;
       try {
         const r = await api.get<GeoResult>(`/api/v1/geo/resolve?q=${encodeURIComponent(link)}`);
         // Ursprünglichen Namen als Label behalten (lesbarer als der Link/Koordinaten).
@@ -1107,6 +1137,7 @@ export function TripPlanner() {
         failed.push(line);
       }
     }
+    if (importAborted.current) return;
     setImportProgress(null);
     if (found.length > 0) setImportCandidates((prev) => [...prev, ...found]);
     setImporting(false);
@@ -1190,6 +1221,15 @@ export function TripPlanner() {
   }
 
   function clearAll() {
+    // Rückfrage, weil das die Orte der **gemeinsamen** Reise löscht (nicht nur die
+    // eigene Ansicht) und der Knopf direkt neben „🌦 Wetter" sitzt.
+    if (
+      !window.confirm(
+        `${stops.length} Orte für alle Mitglieder der Reise löschen? Das lässt sich nicht rückgängig machen.`,
+      )
+    ) {
+      return;
+    }
     setStops([]);
     persistStops([]);
     setRoute(null);
@@ -2157,8 +2197,8 @@ export function TripPlanner() {
         )}
 
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          Karte © OpenStreetMap / Wikimedia (intl. Beschriftung) · Routing OSRM · Orte werden
-          lokal in diesem Browser gespeichert.
+          Karte © OpenStreetMap / Wikimedia (intl. Beschriftung) · Routing OSRM · Orte gehören
+          zur gemeinsamen Reise und sind für alle Mitglieder sichtbar.
         </p>
         </div>
       </div>

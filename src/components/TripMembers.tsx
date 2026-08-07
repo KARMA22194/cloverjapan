@@ -16,9 +16,10 @@ interface Member {
   lastSeenAt?: string | null;
 }
 
-// Bis zu dieser Stille gilt jemand als „online" (Heartbeat kommt alle 45 s →
-// 2 min überbrücken einen verpassten Ping, ohne sofort „offline" zu zeigen).
-const ONLINE_MS = 2 * 60 * 1000;
+// Bis zu dieser Stille gilt jemand als „online". Der Heartbeat kommt alle 2 min
+// (PresenceHeartbeat) → 5 min überbrücken einen verpassten Ping, ohne dass jemand
+// sofort als „offline" erscheint, während die App noch offen ist.
+const ONLINE_MS = 5 * 60 * 1000;
 
 function isOnline(lastSeenAt?: string | null): boolean {
   if (!lastSeenAt) return false;

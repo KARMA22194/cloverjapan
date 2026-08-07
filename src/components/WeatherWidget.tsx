@@ -16,14 +16,15 @@ export function WeatherWidget() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      JP_CITIES.map((c) =>
-        api
-          .get<Weather>(`/api/v1/geo/weather?lat=${c.lat}&lng=${c.lng}`)
-          .then((w) => [c.key, w] as const),
-      ),
-    )
-      .then((pairs) => !cancelled && setData(Object.fromEntries(pairs)))
+    // Ein Sammelabruf statt fünf Einzelrequests (fünf Function-Invocations je
+    // Seitenaufruf, für Werte, die 15 Minuten stabil sind).
+    const points = JP_CITIES.map((c) => `${c.lat},${c.lng}`).join(";");
+    api
+      .get<Weather[]>(`/api/v1/geo/weather?points=${encodeURIComponent(points)}`)
+      .then((list) => {
+        if (cancelled) return;
+        setData(Object.fromEntries(JP_CITIES.map((c, i) => [c.key, list[i]]).filter(([, w]) => w)));
+      })
       .catch(() => !cancelled && setError(true));
     return () => {
       cancelled = true;

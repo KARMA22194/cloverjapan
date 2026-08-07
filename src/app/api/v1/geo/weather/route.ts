@@ -1,18 +1,64 @@
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 
 /**
- * GET /api/v1/geo/weather?lat=&lng= — aktuelles Wetter via Open-Meteo (keyfrei).
+ * GET /api/v1/geo/weather?lat=&lng=            — Wetter für einen Ort
+ * GET /api/v1/geo/weather?points=lat,lng;…     — Wetter für mehrere Orte (ein Request)
+ *
+ * Die Seitenleiste zeigt fünf Städte; als fünf Einzelaufrufe waren das fünf
+ * Function-Invocations samt fünf `requireUser`-Queries pro Seitenaufruf, obwohl sich
+ * die Werte 15 Minuten nicht ändern. Die Sammelform bündelt das in einen Request,
+ * und der `Cache-Control`-Header lässt den Browser Wiederholungen ganz ohne
+ * Invocation bedienen.
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
     await requireUser();
+
+    const pointsRaw = req.nextUrl.searchParams.get("points");
+    if (pointsRaw) {
+      const points = parsePoints(pointsRaw);
+      if (points.length === 0) throw badRequest("Ungültige Koordinaten.");
+      if (points.length > 10) throw badRequest("Zu viele Orte (max. 10).");
+      const list = await Promise.all(points.map((p) => fetchWeather(p.lat, p.lng)));
+      return cached(ok(list));
+    }
+
     const lat = Number(req.nextUrl.searchParams.get("lat"));
     const lng = Number(req.nextUrl.searchParams.get("lng"));
-    if (Number.isNaN(lat) || Number.isNaN(lng)) throw badRequest("lat und lng nötig.");
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw badRequest("lat und lng nötig.");
+    return cached(ok(await fetchWeather(lat, lng)));
+  });
+}
 
+/** `lat,lng;lat,lng;…` → geprüfte Punkte. */
+function parsePoints(raw: string): { lat: number; lng: number }[] {
+  return raw
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const [lat, lng] = pair.split(",").map(Number);
+      return { lat, lng };
+    })
+    .filter(
+      (p) =>
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lng) &&
+        Math.abs(p.lat) <= 90 &&
+        Math.abs(p.lng) <= 180,
+    );
+}
+
+/** Private Browser-Cachedauer passend zur serverseitigen `revalidate`-Spanne. */
+function cached(res: NextResponse): NextResponse {
+  res.headers.set("Cache-Control", "private, max-age=900");
+  return res;
+}
+
+async function fetchWeather(lat: number, lng: number) {
     const url = new URL("https://api.open-meteo.com/v1/forecast");
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lng));
@@ -49,15 +95,14 @@ export function GET(req: NextRequest) {
       };
     });
 
-    return ok({
+    return {
       tempC: Math.round(data.current.temperature_2m),
       precipitation: data.current.precipitation,
       code: data.current.weather_code,
       text: info.text,
       emoji: info.emoji,
       daily,
-    });
-  });
+    };
 }
 
 /** WMO-Wettercode → deutsches Label + Emoji. */

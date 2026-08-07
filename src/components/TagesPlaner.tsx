@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { useMembers } from "@/lib/useMembers";
+import { todayParam } from "@/lib/time";
 import {
   hasReminderPermission,
   requestReminderPermission,
@@ -19,8 +20,15 @@ interface Task {
   assignee?: string;
 }
 
+/**
+ * Heutiger Tag in der **App-Zeitzone**.
+ *
+ * `toISOString()` liefert UTC: zwischen Mitternacht und 02:00 (Sommerzeit) zeigte
+ * der Planer dadurch noch den Vortag, „Heute" schaltete auf nichts um, und
+ * `scheduleReminders` verwarf alle Erinnerungen (dateISO !== todayISO).
+ */
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayParam();
 }
 
 export function TagesPlaner() {

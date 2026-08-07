@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { ApiError, handle, notFound, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId, removeFromTrip, setMemberManage } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
+import { removeFromTrip, setMemberManage } from "@/lib/services/trip";
 
 type Ctx = { params: Promise<{ userId: string }> };
 
@@ -14,8 +14,7 @@ type Ctx = { params: Promise<{ userId: string }> };
  */
 export function DELETE(_req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { userId } = await ctx.params;
     const result = await removeFromTrip(tripId, user.id, userId);
     switch (result) {
@@ -44,8 +43,7 @@ const patchBody = z.object({ canManage: z.boolean() });
  */
 export function PATCH(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { userId } = await ctx.params;
     const { canManage } = patchBody.parse(await readJson(req));
     const result = await setMemberManage(tripId, user.id, userId, canManage);

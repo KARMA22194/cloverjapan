@@ -2,8 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { ApiError, handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
 import { collectStamp } from "@/lib/services/stampsService";
 import { logActivity } from "@/lib/services/activityService";
 import { findStampAt, STAMP_CATALOG, distanceM } from "@/lib/ekiStamps";
@@ -20,8 +19,7 @@ const body = z.object({
  */
 export function POST(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { lat, lng } = body.parse(await readJson(req));
 
     const hit = findStampAt(lat, lng);

@@ -2,8 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
 import { getChecklist, replaceChecklist } from "@/lib/services/checklist";
 
 const itemSchema = z.object({
@@ -35,8 +34,7 @@ const toDto = (i: {
 /** GET /api/v1/checklist — Checkliste des aktuellen Nutzers. */
 export function GET() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     return ok((await getChecklist(tripId)).map(toDto));
   });
 }
@@ -44,8 +42,7 @@ export function GET() {
 /** PUT /api/v1/checklist — komplette Checkliste ersetzen. */
 export function PUT(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { items } = putBody.parse(await readJson(req));
     return ok((await replaceChecklist(tripId, items, user.name)).map(toDto));
   });

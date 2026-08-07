@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { badRequest, forbidden, handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { areTripMembers, canManageMembers, getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
+import { areTripMembers, canManageMembers } from "@/lib/services/trip";
 import { clearExpenses, createExpense, listExpenses } from "@/lib/services/expensesService";
 import { logActivity } from "@/lib/services/activityService";
 
@@ -40,8 +40,7 @@ const toDto = (e: {
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */
 export function GET() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     return ok((await listExpenses(tripId)).map(toDto));
   });
 }
@@ -49,8 +48,7 @@ export function GET() {
 /** POST /api/v1/expenses — Ausgabe anlegen. */
 export function POST(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const body = createBody.parse(await readJson(req));
     // Standard-Zahler = der/die Erfassende, falls nicht anders angegeben.
     const paidById = body.paidById ?? user.id;
@@ -76,8 +74,7 @@ export function POST(req: NextRequest) {
  */
 export function DELETE() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     if (!(await canManageMembers(tripId, user.id))) {
       throw forbidden("Nur Verwalter dürfen alle Ausgaben löschen.");
     }

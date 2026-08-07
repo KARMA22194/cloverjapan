@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
+import { requireTripUser } from "@/lib/api/session";
 import { dateStr } from "@/lib/api/dates";
-import { getActiveTripId } from "@/lib/services/trip";
 import { getTripStops, getTripStopsForDate, replaceTripStops } from "@/lib/services/tripStops";
 
 const stopSchema = z.object({
@@ -52,8 +51,7 @@ const toDto = (s: {
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     const date = req.nextUrl.searchParams.get("date");
     const stops = date
       ? await getTripStopsForDate(tripId, date)
@@ -65,8 +63,7 @@ export function GET(req: NextRequest) {
 /** PUT /api/v1/trip-stops — komplette Stopp-Liste ersetzen. */
 export function PUT(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { stops } = putBody.parse(await readJson(req));
     return ok((await replaceTripStops(tripId, stops, user.name)).map(toDto));
   });

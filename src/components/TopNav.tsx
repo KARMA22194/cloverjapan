@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
-import { api } from "@/lib/api/client";
 import { Logo } from "@/components/Logo";
 import { Avatar } from "@/components/Avatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { JapanClock } from "@/components/JapanClock";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { FxPill } from "@/components/FxPill";
+import { clearUserScopedStorage } from "@/lib/userStorage";
 
 interface NavLink {
   href: string;
@@ -27,27 +27,57 @@ interface NavGroup {
 // den Kategorie-Menüs, kollidiert dank Präfix nicht mit Gruppen-Labels).
 const PROFILE_MENU = "__profile__";
 
+/**
+ * Abmelden-Formular (Desktop + Mobile geteilt): leert beim Logout den
+ * personenbezogenen Offline-Cache (Cross-User-Schutz).
+ *
+ * Bewusst auf Modul-Ebene: als im Render-Body definierte Funktion wäre der
+ * Komponententyp bei jedem Render ein neuer → React verwirft das <form>-DOM
+ * und baut es jedes Mal neu auf.
+ */
+function LogoutForm({ className }: { className: string }) {
+  return (
+    <form
+      action={logoutAction}
+      onSubmit={() => {
+        try {
+          navigator.serviceWorker?.controller?.postMessage({ type: "logout" });
+          clearUserScopedStorage();
+        } catch {
+          /* SW evtl. nicht aktiv – unkritisch */
+        }
+      }}
+    >
+      <button type="submit" className={className}>
+        Abmelden
+      </button>
+    </form>
+  );
+}
+
 export function TopNav({
   groups,
   adminItems = [],
   userName,
+  userImage = null,
 }: {
   groups: NavGroup[];
   adminItems?: NavLink[];
   userName: string;
+  /**
+   * Profilbild als Data-URL — kommt aus dem Server-Layout, das die Daten ohnehin
+   * schon geladen hat. Früher holte die Leiste sie bei **jeder** Navigation per
+   * `GET /api/v1/me` nach (Effekt-Dep `pathname`): zwei DB-Queries und bis zu
+   * 300 KB Base64 pro Seitenwechsel, für Werte, die sich praktisch nie ändern.
+   * Nach dem Speichern im Profil aktualisiert `router.refresh()` das Layout und
+   * damit auch diese Props.
+   */
+  userImage?: string | null;
 }) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [me, setMe] = useState<{ name: string; image: string | null } | null>(null);
   const navRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    api
-      .get<{ name: string; image: string | null }>("/api/v1/me")
-      .then((m) => setMe({ name: m.name, image: m.image }))
-      .catch(() => {});
-  }, [pathname]);
 
   // Offenes Desktop-Dropdown bei Klick außerhalb der Navigation schließen.
   useEffect(() => {
@@ -73,27 +103,6 @@ export function TopNav({
         ? "font-semibold text-slate-900 dark:text-white"
         : "font-medium text-slate-600 dark:text-slate-300"
     }`;
-
-  // Abmelden-Formular (Desktop + Mobile geteilt): leert beim Logout den
-  // personenbezogenen Offline-Cache (Cross-User-Schutz).
-  function LogoutForm({ className }: { className: string }) {
-    return (
-      <form
-        action={logoutAction}
-        onSubmit={() => {
-          try {
-            navigator.serviceWorker?.controller?.postMessage({ type: "logout" });
-          } catch {
-            /* SW evtl. nicht aktiv – unkritisch */
-          }
-        }}
-      >
-        <button type="submit" className={className}>
-          Abmelden
-        </button>
-      </form>
-    );
-  }
 
   const startActive = pathname === "/start" || pathname === "/";
 
@@ -186,9 +195,9 @@ export function TopNav({
               className="flex items-center gap-2 rounded-md p-0.5 pr-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
               title="Profil"
             >
-              <Avatar name={me?.name ?? userName} image={me?.image} size={28} />
+              <Avatar name={userName} image={userImage} size={28} />
               <span className="hidden text-sm text-slate-600 dark:text-slate-300 sm:inline">
-                {me?.name ?? userName}
+                {userName}
               </span>
               <span
                 className={`text-[10px] transition-transform duration-200 ${openMenu === PROFILE_MENU ? "rotate-180" : ""}`}
@@ -326,9 +335,9 @@ export function TopNav({
                 className="flex items-center gap-2 rounded-md p-0.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
                 title="Profil"
               >
-                <Avatar name={me?.name ?? userName} image={me?.image} size={28} />
+                <Avatar name={userName} image={userImage} size={28} />
                 <span className="text-sm text-slate-600 dark:text-slate-300">
-                  {me?.name ?? userName}
+                  {userName}
                 </span>
               </Link>
               <LogoutForm className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800" />

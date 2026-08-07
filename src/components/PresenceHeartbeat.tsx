@@ -2,8 +2,16 @@
 
 import { useEffect } from "react";
 
-// Wie oft ein Lebenszeichen gesendet wird, solange der Tab sichtbar ist.
-const HEARTBEAT_MS = 45_000;
+/**
+ * Wie oft ein Lebenszeichen gesendet wird, solange der Tab sichtbar ist.
+ *
+ * Bewusst 2 Minuten statt 45 Sekunden: Neon suspendiert die Compute nach 5 Minuten
+ * Leerlauf — ein 45-s-Takt hielt sie rund um die Uhr wach und verbrauchte damit
+ * allein durch den Heartbeat das Stundenkontingent. Für die Anzeige „online /
+ * zuletzt vor X" ist Minutengenauigkeit völlig ausreichend (die Online-Schwelle in
+ * `TripMembers` liegt entsprechend höher).
+ */
+const HEARTBEAT_MS = 120_000;
 
 /**
  * Meldet die offene App periodisch als „aktiv" (`POST /api/v1/presence`), damit

@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { badRequest, handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { areTripMembers, getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
+import { areTripMembers } from "@/lib/services/trip";
 import { createSettlement, listSettlements } from "@/lib/services/settlements";
 
 const settlementBody = z.object({
@@ -35,8 +35,7 @@ const toSettlementDto = (s: {
 /** GET /api/v1/settlements — verbuchte Ausgleichszahlungen der Reise. */
 export function GET() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     return ok((await listSettlements(tripId)).map(toSettlementDto));
   });
 }
@@ -44,8 +43,7 @@ export function GET() {
 /** POST /api/v1/settlements — Zahlung verbuchen (Betrag als bezahlt markieren). */
 export function POST(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const body = settlementBody.parse(await readJson(req));
     // `fromId`/`toId` haben im Schema keinen Fremdschlüssel — ohne diese Prüfung
     // ließen sich beliebige Ids verbuchen und die Abrechnung verfälschen.

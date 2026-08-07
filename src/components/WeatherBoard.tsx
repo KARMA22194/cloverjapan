@@ -14,12 +14,18 @@ export function WeatherBoard() {
 
   useEffect(() => {
     let cancelled = false;
-    for (const c of JP_CITIES) {
-      api
-        .get<Weather>(`/api/v1/geo/weather?lat=${c.lat}&lng=${c.lng}`)
-        .then((w) => !cancelled && setData((d) => ({ ...d, [c.key]: w })))
-        .catch(() => !cancelled && setData((d) => ({ ...d, [c.key]: "error" })));
-    }
+    // Ein Sammelabruf statt einem Request je Stadt.
+    const points = JP_CITIES.map((c) => `${c.lat},${c.lng}`).join(";");
+    api
+      .get<Weather[]>(`/api/v1/geo/weather?points=${encodeURIComponent(points)}`)
+      .then((list) => {
+        if (cancelled) return;
+        setData(Object.fromEntries(JP_CITIES.map((c, i) => [c.key, list[i] ?? "error"])));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setData(Object.fromEntries(JP_CITIES.map((c) => [c.key, "error" as const])));
+      });
     return () => {
       cancelled = true;
     };

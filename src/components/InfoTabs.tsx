@@ -7,6 +7,7 @@ import { WeatherBoard } from "@/components/WeatherBoard";
 import { NotfallInfo } from "@/components/NotfallInfo";
 import { EkiStampAlbum } from "@/components/EkiStampAlbum";
 import { KofferManager } from "@/components/KofferManager";
+import { TabPanel } from "@/components/TabPanel";
 
 const TABS = [
   { key: "uebersicht", label: "Übersicht", emoji: "🧭" },
@@ -60,11 +61,22 @@ export function InfoTabs({ initial }: { initial?: string }) {
         })}
       </div>
 
-      {active === "uebersicht" && <ReiseUebersicht />}
-      {active === "wetter" && <WeatherBoard />}
-      {active === "stempel" && <EkiStampAlbum />}
-      {active === "koffer" && <KofferManager />}
-      {active === "notfall" && <NotfallInfo />}
+      {/* Einmal geöffnete Tabs bleiben gemountet (siehe TabPanel). */}
+      <TabPanel id="info-uebersicht" active={active === "uebersicht"}>
+        <ReiseUebersicht />
+      </TabPanel>
+      <TabPanel id="info-wetter" active={active === "wetter"}>
+        <WeatherBoard />
+      </TabPanel>
+      <TabPanel id="info-stempel" active={active === "stempel"}>
+        <EkiStampAlbum />
+      </TabPanel>
+      <TabPanel id="info-koffer" active={active === "koffer"}>
+        <KofferManager />
+      </TabPanel>
+      <TabPanel id="info-notfall" active={active === "notfall"}>
+        <NotfallInfo />
+      </TabPanel>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { badRequest, handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
 import {
   createLuggageTag,
   isTripMemberEmail,
@@ -13,8 +12,7 @@ import { luggageBody, toLuggageDto } from "./schema";
 /** GET /api/v1/luggage — Kofferanhänger der aktuellen Reise. */
 export function GET() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     return ok((await listLuggageTags(tripId)).map(toLuggageDto));
   });
 }
@@ -22,8 +20,7 @@ export function GET() {
 /** POST /api/v1/luggage — neuen Kofferanhänger (mit QR-Token) anlegen. */
 export function POST(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const body = luggageBody.parse(await readJson(req));
 
     // Benachrichtigungsziel darf nur eine Adresse aus der eigenen Reise sein: der

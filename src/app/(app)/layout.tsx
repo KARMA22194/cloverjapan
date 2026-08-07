@@ -4,6 +4,7 @@ import { BiometricLock } from "@/components/BiometricLock";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
+import { StorageOwnerGuard } from "@/components/StorageOwnerGuard";
 
 export default async function AppLayout({
   children,
@@ -41,11 +42,13 @@ export default async function AppLayout({
     <BiometricLock>
       <div className="min-h-full">
         <PresenceHeartbeat />
+        <StorageOwnerGuard userId={user.id} />
         <OfflineBanner />
         <TopNav
           groups={groups}
           adminItems={adminItems}
           userName={user.name || user.email || "Nutzer"}
+          userImage={user.image}
         />
         <main className="mx-auto max-w-6xl px-4 py-6">
           <div className="lg:flex lg:items-start lg:gap-6">

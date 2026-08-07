@@ -82,8 +82,24 @@ export async function canManageMembers(tripId: string, userId: string): Promise<
  * Best-effort — wird häufig aus der offenen App aufgerufen; ein Fehler darf die
  * App nicht stören (der Aufrufer ignoriert Fehler).
  */
-export async function touchPresence(userId: string): Promise<void> {
-  await db.user.update({ where: { id: userId }, data: { lastSeenAt: new Date() } });
+export async function touchPresence(
+  userId: string,
+  sessionVersion: number,
+): Promise<void> {
+  // Bewusst **eine** Query statt „erst prüfen, dann schreiben": der Heartbeat läuft
+  // im Minutentakt pro offenem Tab, da zählt jeder Roundtrip. Die Bedingungen im
+  // `where` übernehmen die Prüfung, die sonst `requireUser()` machen würde —
+  // deaktivierte, unbestätigte oder per Passwort-Reset entwertete Sessions treffen
+  // schlicht keine Zeile (count = 0) und schreiben nichts.
+  await db.user.updateMany({
+    where: {
+      id: userId,
+      active: true,
+      emailVerified: { not: null },
+      sessionVersion,
+    },
+    data: { lastSeenAt: new Date() },
+  });
 }
 
 /**

@@ -36,24 +36,28 @@ export function KofferManager() {
   }, []);
 
   // QR-Codes clientseitig erzeugen (qrcode dynamisch importiert).
+  // Nur die **fehlenden** rendern und ins vorhandene Ergebnis mergen: sonst wurden
+  // beim Anlegen des n-ten Anhängers alle n Codes neu erzeugt und die bereits
+  // sichtbaren Bilder fielen kurz auf den Lade-Platzhalter zurück.
   useEffect(() => {
-    if (tags.length === 0) return;
+    const missing = tags.filter((t) => !qr[t.id]);
+    if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
       const QRCode = (await import("qrcode")).default;
       const origin = window.location.origin;
       const entries = await Promise.all(
-        tags.map(
+        missing.map(
           async (t) =>
             [t.id, await QRCode.toDataURL(`${origin}/k/${t.token}`, { width: 512, margin: 1 })] as const,
         ),
       );
-      if (!cancelled) setQr(Object.fromEntries(entries));
+      if (!cancelled) setQr((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
     })();
     return () => {
       cancelled = true;
     };
-  }, [tags]);
+  }, [tags, qr]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();

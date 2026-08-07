@@ -2,8 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
 import { dateParamSchema } from "@/lib/api/schemas";
 import { createPlannerTask, getPlannerTasks } from "@/lib/services/plannerTasks";
 import { logActivity } from "@/lib/services/activityService";
@@ -37,8 +36,7 @@ const toDto = (t: {
 /** GET /api/v1/planner-tasks?date=YYYY-MM-DD — Aufgaben eines Tages. */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     const date = dateParamSchema.parse(req.nextUrl.searchParams.get("date") ?? undefined);
     return ok((await getPlannerTasks(tripId, date)).map(toDto));
   });
@@ -47,8 +45,7 @@ export function GET(req: NextRequest) {
 /** POST /api/v1/planner-tasks — Aufgabe anlegen. */
 export function POST(req: NextRequest) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const body = createBody.parse(await readJson(req));
     const created = await createPlannerTask(
       tripId,

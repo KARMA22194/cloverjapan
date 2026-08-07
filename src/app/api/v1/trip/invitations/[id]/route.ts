@@ -1,13 +1,8 @@
 import type { NextRequest } from "next/server";
 
 import { handle, notFound, ok } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import {
-  canManageMembers,
-  declineIncomingInvitation,
-  getActiveTripId,
-  revokeInvitation,
-} from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
+import { canManageMembers, declineIncomingInvitation, revokeInvitation } from "@/lib/services/trip";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,8 +13,7 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export function DELETE(_req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { user, tripId } = await requireTripUser();
     const { id } = await ctx.params;
 
     // Ausgehende Einladungen der Reise widerrufen dürfen nur Owner/Verwalter;

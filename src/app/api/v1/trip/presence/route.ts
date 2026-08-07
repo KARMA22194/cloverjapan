@@ -1,6 +1,6 @@
 import { handle, ok } from "@/lib/api/http";
-import { requireUser } from "@/lib/api/session";
-import { getActiveTripId, getTripPresence } from "@/lib/services/trip";
+import { requireTripUser } from "@/lib/api/session";
+import { getTripPresence } from "@/lib/services/trip";
 
 /**
  * GET /api/v1/trip/presence — schlanke Präsenz der Mitglieder ([{ id, lastSeenAt }]).
@@ -9,8 +9,7 @@ import { getActiveTripId, getTripPresence } from "@/lib/services/trip";
  */
 export function GET() {
   return handle(async () => {
-    const user = await requireUser();
-    const tripId = await getActiveTripId(user.id);
+    const { tripId } = await requireTripUser();
     return ok(await getTripPresence(tripId));
   });
 }
