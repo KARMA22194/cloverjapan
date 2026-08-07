@@ -31,6 +31,29 @@ export async function consumeRateLimit(
   return count <= limit;
 }
 
+/**
+ * Nur **prüfen**, ohne den Zähler zu erhöhen.
+ *
+ * Für Fälle, in denen erst der Fehlversuch zählen soll — beim Login etwa wurde der
+ * E-Mail-Zähler auch bei **korrektem** Passwort verbraucht, sodass ein Angreifer
+ * ein fremdes Konto mit 10 Fehlversuchen pro 15 min gezielt aussperren konnte.
+ */
+export async function isRateLimited(key: string, limit: number): Promise<boolean> {
+  const rec = await db.rateLimit.findUnique({ where: { key } });
+  if (!rec || rec.resetAt <= new Date()) return false;
+  return rec.count >= limit;
+}
+
+/** Zähler nach einem Fehlversuch erhöhen (Gegenstück zu {@link isRateLimited}). */
+export async function countFailure(key: string, windowMs: number): Promise<void> {
+  await consumeRateLimit(key, Number.MAX_SAFE_INTEGER, windowMs);
+}
+
+/** Zähler zurücksetzen (nach erfolgreicher Anmeldung). */
+export async function resetRateLimit(key: string): Promise<void> {
+  await db.rateLimit.deleteMany({ where: { key } });
+}
+
 /** Wie {@link consumeRateLimit}, wirft aber bei Überschreitung eine 429-ApiError. */
 export async function enforceRateLimit(
   key: string,

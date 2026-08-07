@@ -7,10 +7,18 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
-import { clientIp, consumeRateLimit } from "@/lib/rate";
-import { assertWebauthnConfig, CHALLENGE_COOKIE, origin, readCookie, rpID } from "@/lib/webauthn";
+import { clientIp, consumeRateLimit, countFailure, isRateLimited, resetRateLimit } from "@/lib/rate";
+import { assertWebauthnConfig, CHALLENGE_COOKIE_AUTH, origin, readCookie, rpID } from "@/lib/webauthn";
+import { consumeChallenge } from "@/lib/services/webauthnChallenge";
 
 type AuthResponse = Parameters<typeof verifyAuthenticationResponse>[0]["response"];
+
+/**
+ * Fester bcrypt-Hash für den Timing-Ausgleich bei unbekannten Konten.
+ * Inhalt irrelevant — er wird nie erfolgreich verglichen; entscheidend ist nur,
+ * dass `bcrypt.compare` dieselbe Arbeit leistet wie bei einem echten Konto.
+ */
+const DUMMY_PASSWORD_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -43,16 +51,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // ist z. B. „Max@Firma.de" faktisch ausgesperrt (M1).
         const normalizedEmail = email.toLowerCase();
 
-        const allowed = await consumeRateLimit(`login:${normalizedEmail}`, 10, 15 * 60 * 1000);
-        if (!allowed) return null;
+        // Nur **prüfen**, nicht hochzählen: sonst verbrauchte auch ein erfolgreicher
+        // Login den Zähler und ein Angreifer könnte ein fremdes Konto mit 10
+        // Fehlversuchen je 15 min gezielt aussperren.
+        const emailKey = `login:${normalizedEmail}`;
+        if (await isRateLimited(emailKey, 10)) return null;
 
         const user = await db.user.findUnique({ where: { email: normalizedEmail } });
-        if (!user || !user.active) return null;
-        // E-Mail-Bestätigung erforderlich (nur unbestätigte Selbst-Registrierungen betroffen).
-        if (!user.emailVerified) return null;
 
-        const passwordOk = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordOk) return null;
+        // Passwort **immer** vergleichen — auch ohne passendes Konto gegen einen
+        // festen Dummy-Hash. Ein früher Abbruch wäre messbar schneller und verriete,
+        // welche Adressen existieren (die Antwort ist bewusst überall dieselbe).
+        const hash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+        const passwordOk = await bcrypt.compare(password, hash);
+
+        const loginOk = Boolean(user?.active) && Boolean(user?.emailVerified) && passwordOk;
+        if (!user || !loginOk) {
+          await countFailure(emailKey, 15 * 60 * 1000);
+          return null;
+        }
+        await resetRateLimit(emailKey);
 
         // Nur unkritische Felder zurückgeben.
         return {
@@ -81,8 +99,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const expectedChallenge = readCookie(request.headers.get("cookie") ?? "", CHALLENGE_COOKIE);
+        const expectedChallenge = readCookie(
+          request.headers.get("cookie") ?? "",
+          CHALLENGE_COOKIE_AUTH,
+        );
         if (!expectedChallenge) return null;
+
+        // Challenge genau einmal einlösen. Ohne diesen Schritt bliebe sie 300 s
+        // gültig und eine mitgelesene Assertion wäre in dem Fenster erneut
+        // einreichbar — der Signaturzähler fängt das nicht ab, weil
+        // Plattform-Passkeys (Apple/Google) ihn auf 0 lassen.
+        if (!(await consumeChallenge(expectedChallenge))) return null;
 
         const cred = await db.credential.findUnique({ where: { id: response.id } });
         if (!cred) return null;

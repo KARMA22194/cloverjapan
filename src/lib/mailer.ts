@@ -48,6 +48,34 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 }
 
 /**
+ * Antwort auf einen Registrierungsversuch mit **bereits vergebener** Adresse.
+ *
+ * Nötig, weil die API nicht mehr mit „existiert bereits" antwortet (das war ein
+ * direktes Orakel zum Abfragen vorhandener Konten). Wer die Adresse besitzt,
+ * erfährt es hier — wer sie nur erraten hat, sieht dieselbe generische Antwort
+ * wie bei einer echten Neuanmeldung.
+ */
+export async function sendAccountExistsEmail(to: string, loginUrl: string): Promise<boolean> {
+  const t = transport();
+  if (!t) return false;
+  try {
+    await t.sendMail({
+      from: fromAddress(),
+      to,
+      subject: "Es gibt bereits ein Konto mit dieser Adresse (Clover Japan)",
+      text:
+        `Jemand hat versucht, sich mit dieser E-Mail-Adresse bei Clover Japan zu registrieren.\n\n` +
+        `Ein Konto existiert bereits — melde dich einfach an:\n${loginUrl}\n\n` +
+        `Passwort vergessen? Nutze „Passwort vergessen?" auf der Anmeldeseite.\n` +
+        `Warst du das nicht, kannst du diese Mail ignorieren.`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Schickt den Link zum Zurücksetzen des Passworts.
  * Gibt zurück, ob tatsächlich versendet wurde.
  */

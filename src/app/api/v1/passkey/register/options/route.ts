@@ -4,7 +4,14 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { db } from "@/lib/db";
-import { assertWebauthnConfig, CHALLENGE_COOKIE, rpID, rpName } from "@/lib/webauthn";
+import {
+  assertWebauthnConfig,
+  CHALLENGE_COOKIE_REGISTER,
+  challengeCookieOptions,
+  rpID,
+  rpName,
+} from "@/lib/webauthn";
+import { storeChallenge } from "@/lib/services/webauthnChallenge";
 
 /** GET /api/v1/passkey/register/options — Optionen zum Einrichten eines Passkeys. */
 export function GET() {
@@ -27,17 +34,18 @@ export function GET() {
         id: isoBase64URL.toBuffer(c.id),
         type: "public-key" as const,
       })),
-      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+      // Beides **required**, passend zum Login: der prüft mit
+      // `userVerification: "required"` und `allowCredentials: []`, braucht also
+      // ein Discoverable Credential mit echter Nutzer-Verifikation. Mit
+      // "preferred" ließen sich Passkeys einrichten, die beim Anmelden
+      // zwangsläufig abgelehnt werden — der Fehler zeigte sich erst dort.
+      authenticatorSelection: { residentKey: "required", userVerification: "required" },
     });
 
+    await storeChallenge(options.challenge);
+
     const res = ok(options);
-    res.cookies.set(CHALLENGE_COOKIE, options.challenge, {
-      httpOnly: true,
-      path: "/",
-      maxAge: 300,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookies.set(CHALLENGE_COOKIE_REGISTER, options.challenge, challengeCookieOptions);
     return res;
   });
 }

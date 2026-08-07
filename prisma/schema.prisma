@@ -88,6 +88,22 @@ model RateLimit {
   @@index([resetAt])
 }
 
+// Ausgestellte WebAuthn-Challenge (Registrierung UND Login).
+//
+// Bewusst eine eigene Tabelle statt `Token`: beim Passkey-Login ist der Nutzer zum
+// Zeitpunkt der Ausstellung noch unbekannt, `Token.userId` ist aber Pflicht.
+// Die Spec verlangt Einmal-Verwendung; lag die Challenge nur im Cookie, blieb sie
+// 300 s lang gültig und eine mitgelesene Assertion war in diesem Fenster
+// wiederverwendbar (Authenticator mit Signaturzähler 0 — Apple/Google-Passkeys —
+// liefern keinen Schutz über den Counter).
+model WebauthnChallenge {
+  challenge String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 // WebAuthn/Passkey-Credential (Public Key des Geräts; Fingerabdruck bleibt lokal).
 model Credential {
   id         String   @id // credentialID (base64url)

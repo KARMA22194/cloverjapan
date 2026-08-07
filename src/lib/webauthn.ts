@@ -20,8 +20,24 @@ export function assertWebauthnConfig(): void {
   }
 }
 
-/** Kurzlebiges Challenge-Cookie zwischen options- und verify-Aufruf. */
-export const CHALLENGE_COOKIE = "pk_chal";
+/**
+ * Kurzlebige Challenge-Cookies zwischen options- und verify-Aufruf.
+ *
+ * Registrierung und Login haben **getrennte** Namen: mit einem gemeinsamen Cookie
+ * ließe sich eine für den einen Flow ausgestellte Challenge im anderen einreichen.
+ * Die eigentliche Einmal-Verwendung erzwingt `services/webauthnChallenge.ts`.
+ */
+export const CHALLENGE_COOKIE_REGISTER = "pk_chal_reg";
+export const CHALLENGE_COOKIE_AUTH = "pk_chal_auth";
+
+/** Cookie-Optionen für beide Challenge-Cookies. */
+export const challengeCookieOptions = {
+  httpOnly: true,
+  path: "/",
+  maxAge: 300,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+} as const;
 
 /** Liest einen Cookie-Wert aus einem rohen Cookie-Header. */
 export function readCookie(header: string, name: string): string | undefined {
