@@ -71,10 +71,13 @@ export function isSectionId(v: string): v is SectionId {
 export const SECTION_GROUPS = ["Bereiche", "Geld", "Programm", "Info", "Reiseplaner"] as const;
 
 /**
- * Eigene Bilder: 64×64 genügt für alle Verwendungen (größte Darstellung ist die
- * Start-Kachel mit 44 px, verdoppelt für Retina). Das Limit ist absichtlich klein
- * — die Bilder werden im `(app)`-Layout **pro Seitenaufruf** mitgeladen, sobald
- * jemand welche hinterlegt hat.
+ * Zielgröße der längeren Kante. 96 px reicht für die größte Darstellung
+ * (Start-Kachel, 26 px) auch auf Retina mit Reserve.
+ *
+ * Das Byte-Limit bleibt bewusst klein: die Bilder werden im `(app)`-Layout **pro
+ * Seitenaufruf** mitgeladen, sobald jemand welche hinterlegt hat. Deckel für
+ * alle 24 zusammen wäre also knapp ein halbes Megabyte — deshalb speichert
+ * `prepareSectionIcon` undurchsichtige Motive als JPEG statt als PNG.
  */
-export const ICON_PIXEL_SIZE = 64;
+export const ICON_PIXEL_SIZE = 96;
 export const ICON_MAX_BYTES = 20_000;

@@ -45,14 +45,18 @@ export function SectionIcon({
 
   if (custom) {
     return (
+      // Höhe fest, Breite frei (bis 1,6×): ein breites Logo in ein Quadrat zu
+      // zwingen macht es flach und unleserlich — es würde auf die kürzere Kante
+      // heruntergerechnet. So bleibt die Höhe wie beim Emoji, und ein Wortmarken-
+      // Motiv darf sich seitlich ausdehnen, statt zu schrumpfen.
+      // 1,6× ist die Grenze, die noch in die 44-px-Fläche der Start-Kachel passt —
+      // darüber weitete sie sich und drückte den Beschreibungstext in mehr Zeilen.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={custom}
         alt=""
         aria-hidden
-        width={size}
-        height={size}
-        style={{ width: size, height: size }}
+        style={{ height: size, width: "auto", maxWidth: size * 1.6 }}
         className={`inline-block shrink-0 object-contain align-[-0.2em] ${className}`}
       />
     );

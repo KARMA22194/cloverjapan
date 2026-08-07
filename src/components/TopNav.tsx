@@ -265,7 +265,7 @@ export function TopNav({
               href="/start"
               className={`${menuItem(startActive)} flex items-center gap-2 py-2`}
             >
-              <SectionIcon id="start" size={18} /> Start / Übersicht
+              <SectionIcon id="start" size={20} /> Start / Übersicht
             </Link>
 
             {[...groups, ...(adminItems.length > 0 ? [{ label: "Verwaltung", items: adminItems }] : [])].map(

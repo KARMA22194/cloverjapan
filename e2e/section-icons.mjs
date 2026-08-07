@@ -59,7 +59,13 @@ try {
     c.width = c.height = 100;
     const g = c.getContext("2d");
     g.fillStyle = "rgba(255,0,0,1)";
-    g.fillRect(20, 20, 60, 60); // Rand bleibt transparent
+    // **Kreis**, nicht Rechteck: der leere Rand wird beim Aufbereiten jetzt
+    // weggeschnitten (das war ja der Fix). Transparenz lässt sich deshalb nur
+    // noch INNERHALB der Motivgrenzen prüfen — bei einem Kreis sind das die
+    // Ecken seiner Bounding-Box.
+    g.beginPath();
+    g.arc(50, 50, 40, 0, Math.PI * 2);
+    g.fill();
     const src = c.toDataURL("image/png");
     // Denselben Weg wie die UI gehen: verkleinern + PUT.
     const img = new Image();
@@ -68,8 +74,8 @@ try {
       img.src = src;
     });
     const c2 = document.createElement("canvas");
-    c2.width = c2.height = 64;
-    c2.getContext("2d").drawImage(img, 0, 0, 64, 64);
+    c2.width = c2.height = 96;
+    c2.getContext("2d").drawImage(img, 0, 0, 96, 96);
     const data = c2.toDataURL("image/png");
     const res = await fetch("/api/v1/me/icons/geld", {
       method: "PUT",
@@ -96,7 +102,7 @@ try {
     c.height = img.height;
     const g = c.getContext("2d");
     g.drawImage(img, 0, 0);
-    return { corner: g.getImageData(1, 1, 1, 1).data[3], middle: g.getImageData(32, 32, 1, 1).data[3] };
+    return { corner: g.getImageData(1, 1, 1, 1).data[3], middle: g.getImageData(48, 48, 1, 1).data[3] };
   }, row.data);
   ok("Transparenz erhalten (Ecke alpha=0)", alpha.corner === 0, `Ecke=${alpha.corner}`);
   ok("Motiv sichtbar (Mitte alpha>0)", alpha.middle > 0, `Mitte=${alpha.middle}`);

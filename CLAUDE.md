@@ -252,9 +252,20 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   Ein **ADMIN** kann die Symbole fremder Konten setzen (`/api/v1/users/{id}/icons/…`);
   `SectionIconSettings` nimmt dafür ein optionales `userId` und schaltet nur den Endpunkt um.
   ⚠️ Das **Logo** ist bewusst **kein** Bereichs-Symbol (Markenzeichen, `src/components/Logo.tsx`).
-  ⚠️ Eigene Bilder werden als **PNG** gespeichert, nicht als JPEG: `resizeImage` nimmt dafür
-  `type: "image/png"` — JPEG hat keinen Alphakanal, ein freigestelltes Motiv bekäme sonst
-  schwarzen Hintergrund. Und **kein** `square`, sonst schnitte es hohe Motive ab.
+  ⚠️ Uploads laufen über **`prepareSectionIcon`** (`src/lib/image.ts`), **nicht** über
+  `resizeImage`. Bloßes Verkleinern nimmt den leeren Rand mit: gemessen an einem
+  512×512-PNG mit 64×64-Motiv blieb das Motiv **8×8 px** groß (Füllgrad 13 %) — auf einer
+  26-px-Kachel unter 3 px, also unkenntlich. `prepareSectionIcon` **stellt vorher frei**
+  (Alpha-Bounding-Box bei transparenten Bildern, Vollton-Rand über die vier Ecken bei
+  JPEG/Weiß) und skaliert dann die längere Kante auf `ICON_PIXEL_SIZE`. Nach dem Fix:
+  94–100 % Füllgrad. Messskript: `e2e/icon-quality.mjs`.
+  ⚠️ Format automatisch: **PNG** bei Transparenz (freigestelltes Motiv soll sie behalten —
+  JPEG hat keinen Alphakanal und färbte den Hintergrund schwarz), sonst **JPEG** (bei Fotos
+  um ein Vielfaches kleiner, hält die Data-URL unter `ICON_MAX_BYTES`).
+  ⚠️ **Nicht** quadratisch beschneiden — das schnitte hohe/breite Motive an. Stattdessen
+  bleibt das Seitenverhältnis, und `SectionIcon` rendert mit fester Höhe und freier Breite
+  bis **1,6×**. Diese Grenze ist die Breite der 44-px-Kachelfläche: darüber weitet sich die
+  Fläche und drückt den Beschreibungstext in zusätzliche Zeilen.
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
   Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig

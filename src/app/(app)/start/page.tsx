@@ -97,8 +97,8 @@ export default async function StartPage() {
                 <span className="flex items-start gap-3.5">
                   {/* Emoji auf eigener Tint-Fläche: gibt der Kachel einen Anker
                       links und trennt Symbol von Text. */}
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-field bg-brand/10 ring-1 ring-brand/15 transition group-hover/tile:bg-brand/15">
-                    <SectionIcon id={tile.icon} size={22} />
+                  <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-field bg-brand/10 ring-1 ring-brand/15 transition group-hover/tile:bg-brand/15">
+                    <SectionIcon id={tile.icon} size={26} />
                   </span>
                   <span className="min-w-0">
                     <span className="block font-bold text-ink transition group-hover/tile:text-brand">

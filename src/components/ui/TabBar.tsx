@@ -72,7 +72,7 @@ export function TabBar<K extends string>({
                 : "text-ink-muted hover:bg-surface hover:text-ink",
             )}
           >
-            {t.icon && <SectionIcon id={t.icon} size={16} className="mr-1.5" />}
+            {t.icon && <SectionIcon id={t.icon} size={18} className="mr-1.5" />}
             {t.label}
           </button>
         );

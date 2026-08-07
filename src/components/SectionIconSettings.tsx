@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api/client";
-import { resizeImage } from "@/lib/image";
+import { prepareSectionIcon } from "@/lib/image";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SECTION_GROUPS, SECTION_ICONS, SECTION_IDS, ICON_PIXEL_SIZE, ICON_MAX_BYTES, type SectionId } from "@/lib/sectionIcons";
@@ -54,12 +54,10 @@ export function SectionIconSettings({ userId }: { userId?: string } = {}) {
     setBusy(id);
     setError(null);
     try {
-      // **PNG**, nicht JPEG: ein freigestelltes Motiv soll seine Transparenz
-      // behalten — JPEG hat keinen Alphakanal und färbte den Hintergrund schwarz.
-      // Und *kein* `square`: das würde mittig beschneiden und bei einem hohen
-      // Motiv die Ränder abschneiden. Seitenverhältnis bleibt, die Anzeige passt
-      // es per `object-contain` in die quadratische Fläche ein.
-      const data = await resizeImage(file, { max: ICON_PIXEL_SIZE, type: "image/png" });
+      // `prepareSectionIcon` statt `resizeImage`: es schneidet den leeren Rand
+      // weg, bevor es skaliert. Ohne das blieb bei einem 512er-Bild mit kleinem
+      // Motiv nur ein 8-px-Fleck übrig — auf der Kachel unter 3 px.
+      const data = await prepareSectionIcon(file, ICON_PIXEL_SIZE);
       if (data.length > ICON_MAX_BYTES) {
         setError("Bild zu groß – bitte ein einfacheres Motiv nehmen.");
         return;
@@ -133,17 +131,17 @@ export function SectionIconSettings({ userId }: { userId?: string } = {}) {
                       key={id}
                       className="flex items-center gap-3 rounded-field px-2 py-1.5 transition hover:bg-surface-2"
                     >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-field bg-brand/10 ring-1 ring-brand/15">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-field bg-brand/10 ring-1 ring-brand/15">
                         {custom ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={custom}
                             alt=""
                             aria-hidden
-                            className="h-5 w-5 object-contain"
+                            className="h-6 w-auto max-w-[2.25rem] object-contain"
                           />
                         ) : (
-                          <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>
+                          <span aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>
                             {SECTION_ICONS[id].emoji}
                           </span>
                         )}
@@ -183,9 +181,10 @@ export function SectionIconSettings({ userId }: { userId?: string } = {}) {
       </div>
 
       <p className="mt-4 text-xs text-ink-subtle">
-        Bilder werden auf höchstens {ICON_PIXEL_SIZE}×{ICON_PIXEL_SIZE} verkleinert — das
-        Seitenverhältnis bleibt, es wird nichts abgeschnitten. Freigestellte PNGs mit
-        transparentem Hintergrund sehen am besten aus; die Transparenz bleibt erhalten.
+        Leerer Rand wird automatisch weggeschnitten — auch weißer bei JPGs —, damit das
+        Motiv die Fläche ausfüllt. Danach längere Kante auf {ICON_PIXEL_SIZE} px, das
+        Seitenverhältnis bleibt. Transparenz bleibt erhalten. Am besten funktionieren
+        einfache, kräftige Motive: bei 18–26 px Anzeigegröße gehen feine Details verloren.
       </p>
     </Card>
   );
