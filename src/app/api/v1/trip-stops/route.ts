@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 import { dateStr } from "@/lib/api/dates";
 import { getTripStops, getTripStopsForDate, replaceTripStops } from "@/lib/services/tripStops";
 
@@ -64,6 +65,9 @@ export function GET(req: NextRequest) {
 export function PUT(req: NextRequest) {
   return handle(async () => {
     const { user, tripId } = await requireTripUser();
+    // Voll-Replace mit bis zu 200 Stopps (~1 MB Request) — drosseln, damit ein
+    // einzelnes Konto die DB nicht in einer Schleife vollschreibt.
+    await enforceRateLimit(`trip-stops-put:${user.id}`, 120, 60 * 60 * 1000);
     const { stops } = putBody.parse(await readJson(req));
     return ok((await replaceTripStops(tripId, stops, user.name)).map(toDto));
   });

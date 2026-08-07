@@ -49,15 +49,18 @@ export async function replaceTripStops(
   }[],
   createdByName: string,
 ) {
-  // Ersteller-Name je stabiler Client-Kennung (clientId) übernehmen.
-  const existing = await db.tripStop.findMany({
-    where: { tripId },
-    select: { clientId: true, createdByName: true },
-  });
-  const prev = new Map(existing.map((e) => [e.clientId, e.createdByName]));
-  await db.$transaction([
-    db.tripStop.deleteMany({ where: { tripId } }),
-    db.tripStop.createMany({
+  // Lesen der Ersteller-Namen **innerhalb** der Transaktion: liefe es davor, könnte
+  // ein paralleler PUT zwischen Read und Delete die Namen falsch zuordnen (der
+  // zweite Aufruf sähe einen Zwischenstand). Spart nebenbei einen Roundtrip.
+  await db.$transaction(async (tx) => {
+    const existing = await tx.tripStop.findMany({
+      where: { tripId },
+      select: { clientId: true, createdByName: true },
+    });
+    const prev = new Map(existing.map((e) => [e.clientId, e.createdByName]));
+
+    await tx.tripStop.deleteMany({ where: { tripId } });
+    await tx.tripStop.createMany({
       // Kein `id` vom Client — der PK wird server-seitig vergeben (cuid); die
       // vom Client gelieferte `id` ist nur die stabile Kennung → clientId.
       data: stops.map((s, i) => ({
@@ -72,7 +75,7 @@ export async function replaceTripStops(
         position: i,
         createdByName: prev.get(s.id) || createdByName,
       })),
-    }),
-  ]);
+    });
+  });
   return getTripStops(tripId);
 }

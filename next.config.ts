@@ -20,7 +20,15 @@ const nextConfig: NextConfig = {
   // schlanke Docker-Images beim Self-Hosting. Auf Vercel unschädlich.
   output: "standalone",
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        // Öffentliche Kofferfinder-Seite zusätzlich per Header aus dem Index
+        // halten (greift auch dort, wo Crawler das Meta-Tag nicht auswerten).
+        source: "/k/:token*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+    ];
   },
   // Innerhalb des Docker-Bind-Mounts zuverlässiges HMR
   webpack: (config) => {

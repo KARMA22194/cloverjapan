@@ -17,15 +17,17 @@ export async function replaceChecklist(
   }[],
   createdByName: string,
 ) {
-  // Ersteller-Name je stabiler Client-Kennung (clientId) übernehmen.
-  const existing = await db.checklistItem.findMany({
-    where: { tripId },
-    select: { clientId: true, createdByName: true },
-  });
-  const prev = new Map(existing.map((e) => [e.clientId, e.createdByName]));
-  await db.$transaction([
-    db.checklistItem.deleteMany({ where: { tripId } }),
-    db.checklistItem.createMany({
+  // Lesen der Ersteller-Namen **innerhalb** der Transaktion — sonst kann ein
+  // paralleler PUT zwischen Read und Delete die Namen falsch zuordnen.
+  await db.$transaction(async (tx) => {
+    const existing = await tx.checklistItem.findMany({
+      where: { tripId },
+      select: { clientId: true, createdByName: true },
+    });
+    const prev = new Map(existing.map((e) => [e.clientId, e.createdByName]));
+
+    await tx.checklistItem.deleteMany({ where: { tripId } });
+    await tx.checklistItem.createMany({
       // Kein `id` vom Client — PK server-seitig (cuid); Client-`id` → clientId.
       data: items.map((it, i) => ({
         clientId: it.id,
@@ -38,7 +40,7 @@ export async function replaceChecklist(
         // Nur bei erledigten Punkten einen „erledigt von" behalten.
         completedByName: it.done ? (it.completedByName ?? "") : "",
       })),
-    }),
-  ]);
+    });
+  });
   return getChecklist(tripId);
 }

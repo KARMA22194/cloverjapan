@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { handle, notFound, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 import {
   deleteExpenseOwned,
   getExpenseReceipt,
@@ -31,10 +32,14 @@ export function GET(_req: NextRequest, ctx: Ctx) {
   });
 }
 
-/** PATCH /api/v1/expenses/{id} — Beleg-Foto setzen/entfernen. */
+/**
+ * PATCH /api/v1/expenses/{id} — Beleg-Foto setzen/entfernen.
+ * Ratenlimitiert: jeder Aufruf kann bis zu 1,5 MB Data-URL in die DB schreiben.
+ */
 export function PATCH(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const { tripId } = await requireTripUser();
+    const { user, tripId } = await requireTripUser();
+    await enforceRateLimit(`expense-receipt:${user.id}`, 120, 60 * 60 * 1000);
     const { id } = await ctx.params;
     const { receipt } = receiptBody.parse(await readJson(req));
     const count = await setExpenseReceipt(id, tripId, receipt);

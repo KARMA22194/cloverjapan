@@ -100,16 +100,25 @@ export async function GET(req: NextRequest) {
     (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "Japan");
   const fallback = fallbackUrl(fallbackQuery, lat, lng);
 
+  // Auth **zuerst** — vorher lief der Zweig „kein Key / kein q" davor durch und
+  // machte die Route zu einem anonym nutzbaren Redirector. Schlägt die Prüfung
+  // fehl, geht es still auf den Fallback: der Link darf nie ins Leere laufen,
+  // aber ohne Session wird auch kein (kostenpflichtiger) Places-Call ausgelöst.
+  let userId: string;
+  try {
+    userId = (await requireUser()).id;
+  } catch {
+    return NextResponse.redirect(fallback);
+  }
+
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key || !q || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.redirect(fallback);
   }
 
-  // Auth + sparsames Rate-Limit; scheitert das, still auf den Fallback gehen
-  // (der Link darf nie ins Leere laufen).
+  // Sparsames Rate-Limit; scheitert es, ebenfalls still auf den Fallback.
   try {
-    const user = await requireUser();
-    const allowed = await consumeRateLimit(`placelink:${user.id}`, 120, 60 * 60 * 1000);
+    const allowed = await consumeRateLimit(`placelink:${userId}`, 120, 60 * 60 * 1000);
     if (!allowed) return NextResponse.redirect(fallback);
   } catch {
     return NextResponse.redirect(fallback);

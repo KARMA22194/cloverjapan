@@ -1,6 +1,14 @@
 import type { NextAuthConfig } from "next-auth";
 import type { Role } from "@prisma/client";
 
+/**
+ * Gehört `pathname` zur Route `base` (die Route selbst oder ein Unterpfad)?
+ * Bewusst nicht `startsWith`: `/reset` würde sonst auch `/resetall` erfassen.
+ */
+function isRoute(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
 // Edge-sichere Auth-Konfiguration (keine Prisma-/bcrypt-Importe!).
 // Wird sowohl von der Middleware (Edge-Runtime) als auch von auth.ts genutzt.
 export const authConfig = {
@@ -19,11 +27,16 @@ export const authConfig = {
     // Route-Schutz auf Middleware-Ebene.
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnLogin = nextUrl.pathname.startsWith("/login");
+      const { pathname } = nextUrl;
+      const isOnLogin = isRoute(pathname, "/login");
       // Registrierung, E-Mail-Bestätigung, Passwort-Reset und die öffentliche
       // Kofferfinder-Seite (/k/<token>) sind bewusst öffentlich.
-      const isPublic = ["/register", "/verify", "/forgot", "/reset", "/k/"].some((p) =>
-        nextUrl.pathname.startsWith(p),
+      //
+      // `isRoute` statt `startsWith`: Letzteres öffnete jede Route mit passendem
+      // Präfix — ein künftiges `/registered-users` oder `/resetall` wäre
+      // unbeabsichtigt ohne Login erreichbar gewesen.
+      const isPublic = ["/register", "/verify", "/forgot", "/reset", "/k"].some((p) =>
+        isRoute(pathname, p),
       );
 
       if (isOnLogin) {
@@ -38,7 +51,7 @@ export const authConfig = {
       if (!isLoggedIn) return false;
 
       // Admin-Bereich nur für Rolle ADMIN.
-      if (nextUrl.pathname.startsWith("/admin") && auth.user.role !== "ADMIN") {
+      if (isRoute(pathname, "/admin") && auth.user.role !== "ADMIN") {
         return Response.redirect(new URL("/", nextUrl));
       }
 

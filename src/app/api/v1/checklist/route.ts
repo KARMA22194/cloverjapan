@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 import { getChecklist, replaceChecklist } from "@/lib/services/checklist";
 
 const itemSchema = z.object({
@@ -43,6 +44,8 @@ export function GET() {
 export function PUT(req: NextRequest) {
   return handle(async () => {
     const { user, tripId } = await requireTripUser();
+    // Voll-Replace mit bis zu 500 Einträgen — analog trip-stops drosseln.
+    await enforceRateLimit(`checklist-put:${user.id}`, 120, 60 * 60 * 1000);
     const { items } = putBody.parse(await readJson(req));
     return ok((await replaceChecklist(tripId, items, user.name)).map(toDto));
   });
