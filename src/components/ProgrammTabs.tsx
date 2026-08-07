@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { TagesPlaner } from "@/components/TagesPlaner";
 import { BookingPlanner } from "@/components/BookingPlanner";
@@ -17,13 +17,36 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 /**
- * Programm-Bereich mit Tabs. „Reiseablauf" ist eine Server-Komponente und wird
- * als vorgerenderter Node (`ablauf`) hereingereicht; die übrigen Tabs sind
- * Client-Komponenten.
+ * Programm-Bereich mit Tabs. „Reiseablauf" ist eine Server-Komponente.
+ *
+ * Sie wird nur dann schon vom Server mitgeliefert (`ablauf`), wenn dieser Tab beim
+ * Aufruf aktiv ist. Steigt jemand auf einem anderen Tab ein, bleiben die vier
+ * Timeline-Queries aus; wechselt er später hierher, holt `loadAblauf` den
+ * Server-Knoten nach — der Zustand der anderen Tabs bleibt dabei erhalten.
  */
-export function ProgrammTabs({ ablauf, initial }: { ablauf: ReactNode; initial?: string }) {
+export function ProgrammTabs({
+  ablauf,
+  loadAblauf,
+  initial,
+}: {
+  ablauf: ReactNode;
+  loadAblauf: () => Promise<ReactNode>;
+  initial?: string;
+}) {
   const start = TABS.some((t) => t.key === initial) ? (initial as TabKey) : "ablauf";
   const [active, setActive] = useState<TabKey>(start);
+  const [ablaufNode, setAblaufNode] = useState<ReactNode>(ablauf);
+  const [ablaufLoading, setAblaufLoading] = useState(false);
+
+  // Beim ersten Wechsel auf „Reiseablauf" den Server-Knoten nachladen.
+  useEffect(() => {
+    if (active !== "ablauf" || ablaufNode || ablaufLoading) return;
+    setAblaufLoading(true);
+    loadAblauf()
+      .then(setAblaufNode)
+      .catch(() => {})
+      .finally(() => setAblaufLoading(false));
+  }, [active, ablaufNode, ablaufLoading, loadAblauf]);
 
   function select(key: TabKey) {
     setActive(key);
@@ -63,8 +86,15 @@ export function ProgrammTabs({ ablauf, initial }: { ablauf: ReactNode; initial?:
         })}
       </div>
 
-      {/* Ablauf ist ein Server-Node → immer im Baum, nur ein-/ausgeblendet. */}
-      <div hidden={active !== "ablauf"}>{ablauf}</div>
+      {/* Ablauf ist ein Server-Node: einmal geladen bleibt er im Baum. */}
+      <div hidden={active !== "ablauf"}>
+        {ablaufNode ??
+          (ablaufLoading ? (
+            <p className="px-3 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+              Reiseablauf wird geladen…
+            </p>
+          ) : null)}
+      </div>
       {/* Client-Tabs: einmal geöffnet bleiben sie gemountet (siehe TabPanel). */}
       <TabPanel id="programm-tagesplaner" active={active === "tagesplaner"}>
         <TagesPlaner />

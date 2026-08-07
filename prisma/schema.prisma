@@ -241,7 +241,9 @@ model Expense {
   bookingId     String?  @unique
   booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  @@index([tripId])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, createdAt])
   @@index([paidById])
 }
 
@@ -263,7 +265,9 @@ model Booking {
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   expense       Expense?
 
-  @@index([tripId])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, date, time])
 }
 
 // Ein hinterlegter Flug (pro Reise, mit Mitgliedern geteilt). Details werden per
@@ -289,7 +293,9 @@ model Flight {
   trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   expense       Expense?
 
-  @@index([tripId])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, departure])
 }
 
 model PlannerTask {
@@ -304,7 +310,9 @@ model PlannerTask {
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  @@index([tripId, date])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, date, time])
 }
 
 // Verbuchte Zahlung zwischen zwei Mitgliedern (gleicht offene Salden aus).
@@ -322,7 +330,9 @@ model Settlement {
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  @@index([tripId])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, createdAt])
 }
 
 // Einkaufs-/Souvenir-Wunschliste (pro Reise geteilt). Preis in Yen; Summe kann als
@@ -356,7 +366,9 @@ model LuggageTag {
   createdAt     DateTime @default(now())
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  @@index([tripId])
+  // Deckt die Listen-Abfrage vollständig ab (Filter tripId + Sortierung) —
+  // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
+  @@index([tripId, createdAt])
 }
 
 // Gesammelte Eki-Stamps pro Reise (Katalog liegt im Code: src/lib/ekiStamps.ts).
