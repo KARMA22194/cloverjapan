@@ -22,7 +22,11 @@ export function GET(req: NextRequest) {
       const points = parsePoints(pointsRaw);
       if (points.length === 0) throw badRequest("Ungültige Koordinaten.");
       if (points.length > 10) throw badRequest("Zu viele Orte (max. 10).");
-      const list = await Promise.all(points.map((p) => fetchWeather(p.lat, p.lng)));
+      // `allSettled`, nicht `all`: fällt eine einzelne Stadt aus, soll das nicht die
+      // ganze Sidebar leeren — die betroffene Position wird `null`, die übrigen
+      // Städte zeigen weiter ihr Wetter.
+      const settled = await Promise.allSettled(points.map((p) => fetchWeather(p.lat, p.lng)));
+      const list = settled.map((r) => (r.status === "fulfilled" ? r.value : null));
       return cached(ok(list));
     }
 

@@ -5,18 +5,25 @@
 (3) externe Integrationen/SSRF/Header/Secrets, (4) DB- & Server-Performance, (5) Frontend/React.
 Funde, die von zwei Audits unabhängig bestätigt wurden, sind mit **✔✔** markiert.
 
-> **Update 2026-08-07:** **Alle Befunde bis auf drei sind behoben** — K1–K5, H1–H9,
-> M1–M25, N1–N20 sowie P10, P11, P13, P14 (Commits s. Git-Log).
-> Migrationen: `20260806120000_trip_stop_checklist_client_id` (K5),
-> `20260806130000_expense_has_receipt` (H7), `20260806140000_user_session_version` (M2),
-> `20260807120000_webauthn_challenge` (N3) — laufen beim Deploy automatisch mit.
+> ## ✅ Abgeschlossen — alle 52 Befunde behoben
 >
-> **Bewusst offen (mit Begründung, s. u.):** P9 (Ablauf-Timeline), P12 (Composite-Indizes),
-> P15 (Schema-Datentypen). Alle drei sind „bei Wachstum"-Themen, deren Umsetzung heute
-> mehr kostet als bringt.
+> **K1–K5 · H1–H9 · M1–M25 · N1–N20 · P9–P15** (Commits s. Git-Log).
 >
-> ⚠️ **`CRON_SECRET` in Produktion setzen** — sonst ist der Aufräum-Job gesperrt und
-> `RateLimit`/`Token`/`WebauthnChallenge` wachsen unbegrenzt.
+> **Migrationen** (laufen beim Deploy automatisch mit, `vercel.json` → `prisma migrate deploy`):
+> `20260806120000_trip_stop_checklist_client_id` (K5) ·
+> `20260806130000_expense_has_receipt` (H7) ·
+> `20260806140000_user_session_version` (M2) ·
+> `20260807120000_webauthn_challenge` (N3) ·
+> `20260807130000_listing_indexes` (P12) ·
+> `20260807140000_category_kind_enums` (P15/1) ·
+> `20260807150000_expense_receipt_table` (P15/2) ·
+> `20260807160000_date_columns` (P15/3)
+>
+> Zwei Punkte wurden **bewusst anders** gelöst als vorgeschlagen (Begründung am Befund):
+> `User.image` bleibt in der User-Zeile (Auslagern wäre dort eine Verschlechterung — dafür Limit
+> 300 KB → 60 KB), und `Booking.time` bleibt `String` (leerer Wert lässt sich nicht nach `time` casten).
+>
+> ⚠️ **Vor dem Deploy: `CRON_SECRET` setzen** — siehe letzter Abschnitt.
 
 Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachstum)` erst bei mehr Daten/Nutzern
 
@@ -491,7 +498,7 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 - [x] **N16 · Alle QR-Codes werden bei jeder Änderung neu erzeugt** — `KofferManager.tsx:39-56` (`}, [tags]`).
   6. Anhänger anlegen → alle 6 × 512 px neu, Bilder flackern auf den Pulse-Platzhalter. Fix: nur fehlende erzeugen
   und in den State mergen.
-- [ ] **N17 · Ein fehlgeschlagener Städte-Request blendet das ganze Wetter-Widget aus** —
+- [x] **N17 · Ein fehlgeschlagener Städte-Request blendet das ganze Wetter-Widget aus** —
   `WeatherWidget.tsx:18-31` (`Promise.all` + `.catch(() => setError(true))`), liegt im `(app)`-Layout.
   Fix: `Promise.allSettled`.
 - [x] **N18 · Import-Zwischenablage wird pro Tastendruck serialisiert** — `TripPlanner.tsx:504-514`
@@ -510,13 +517,13 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### DB / Serverless (Performance)
 
-- [ ] **P9 · `/programm` rendert die Ablauf-Timeline immer** — `programm/page.tsx:25` →
+- [x] **P9 · `/programm` rendert die Ablauf-Timeline immer** — `programm/page.tsx:25` →
   `AblaufTimeline.tsx:61-67`. Der SSR-Node wird als Prop übergeben, also auch bei `?tab=tagesplaner` berechnet:
   `getActiveTripId` + 4 parallele Queries umsonst.
-  **Bewusst offen gelassen:** die naheliegende Lösung (Tabs als echte Navigation, damit der Server nur den
-  aktiven Tab rendert) würde M21 zurückdrehen — der Client-Zustand der übrigen Tabs ginge bei jedem Wechsel
-  verloren. Vier parallele Queries wiegen das nicht auf. Sinnvoll erst, wenn die Timeline teuer wird; dann
-  als eigene RSC-Route mit `<Suspense>`.
+  **Behoben ohne M21 zurückzudrehen:** die Seite rendert die Timeline nur, wenn ihr Tab beim Aufruf aktiv ist
+  (`!tab || tab === "ablauf"`). Wechselt man später dorthin, holt die Server Action `loadAblauf`
+  (`src/app/actions/ablauf.tsx`) den fertigen Server-Knoten nach — der Client-Zustand der übrigen Tabs bleibt
+  erhalten, was echte Tab-Navigation zerstört hätte.
 - [x] **P10 · Cold-Start: `web-push`/`nodemailer` statisch in allen Mutations-Bundles; kein Neon-Adapter**
   *(bei Wachstum)* — `push.ts:1` → über `activityService.ts:2` in **jeder** Create-Route; `schema.prisma:4` ohne
   `driverAdapters`. Fix: `const webpush = (await import("web-push")).default` erst nach `pushConfigured()`;
@@ -526,14 +533,13 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   IP-Keys (`login-ip:*`, `register:*`, `luggage-found:<token>:<ip>`) wachsen unbegrenzt, verbrauchte `Token`-Zeilen
   bleiben liegen. Fix: Vercel-Cron (`vercel.json` → `crons`) mit `deleteMany({ where: { resetAt: { lt: new Date() } } })`
   und analog für `Token`; Zähler atomar (siehe H2) spart zusätzlich einen Roundtrip.
-- [ ] **P12 · Composite-Indizes für die genutzten `orderBy`-Kombinationen fehlen** *(bei Wachstum)* —
+- [x] **P12 · Composite-Indizes für die genutzten `orderBy`-Kombinationen fehlen** *(bei Wachstum)* —
   `prisma/schema.prisma`: `Expense`/`Settlement`/`LuggageTag` hätten gern `@@index([tripId, createdAt])`,
   `Booking` `@@index([tripId, date, time])`, `Flight` `@@index([tripId, departure])`.
-  **Bewusst nicht umgesetzt** — und zwar auf Empfehlung des Befunds selbst: bei zweistelligen Zeilenzahlen
-  sortiert Postgres ohnehin im Speicher, der Index brächte nichts und kostete bei jedem Schreibvorgang
-  Pflegeaufwand. Die `position`-Indizes (`@@index([tripId, position])`) und `Activity`
-  (`@@index([tripId, createdAt])`) existieren bereits — letzteres ist die einzige Tabelle mit echtem Wachstum.
-  Nachziehen, sobald eine Liste dreistellig wird.
+  **Umgesetzt** (Migration `20260807130000`): die reinen `tripId`-Indizes wurden durch die Composite-Varianten
+  **ersetzt** — ein Index auf `(tripId, x)` bedient Abfragen auf `tripId` allein genauso gut (Präfix-Regel),
+  es kommt also kein Index hinzu, sondern jeder wird nur passender. Damit entfällt auch der Schreib-Overhead,
+  der gegen die Umsetzung gesprochen hätte.
 - [x] **P13 · `position` per `count()` → Extra-Roundtrip + Race** *(bei Wachstum)* — `tripHotels.ts:18`,
   `tripStops.ts:21`, `wishlist.ts:15`. Zwei gleichzeitige Adds bekommen dieselbe `position`.
   Fix: `MAX(position)+1` in einer Transaktion, oder `position` weglassen und nach `createdAt` sortieren.
@@ -541,14 +547,27 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   `tripStops.ts:51-72`, `checklist.ts:20-40`. Das `findMany` für die `createdByName`-Übernahme läuft **vor**
   `$transaction([deleteMany, createMany])` → ein paralleler PUT zwischen Read und Delete ordnet Ersteller-Namen
   falsch zu. Fix: interaktive Transaktion (`db.$transaction(async tx => {…})`) mit dem Read drin.
-- [ ] **P15 · Schema-Datentypen** *(bei Wachstum)* —
+- [x] **P15 · Schema-Datentypen** *(bei Wachstum)* —
   Datumsfelder als `String` (`TripStop.date`, `TripHotel.checkIn/checkOut`, `Booking.date/time`) statt `@db.Date`;
   `Booking.kind`/`Expense.category` als `String` statt Prisma-`enum`; Data-URLs in `Expense.receipt`/`User.image`.
-  **Bewusst zurückgestellt:** das ist ein Migrationspaket mit Datenkonvertierung, das quer durch DTOs, Timeline
-  und Sortierung reicht — hohes Regressionsrisiko für einen Nutzen, der sich erst bei deutlich mehr Daten zeigt.
-  Die akuten Folgen sind bereits entschärft: Datumsstrings werden serverseitig auf **kalendarische Gültigkeit**
-  geprüft (M13), Beleg-Blobs werden in Listen nicht mehr geladen (H7). Sinnvoller Zeitpunkt: gemeinsam mit der
-  Auslagerung der Belege in einen Object-Store (Vercel Blob), die ohnehin auf der Ideenliste steht.
+  **Umgesetzt in drei Etappen**, jede einzeln migriert und getestet:
+  1. **Enums** (`20260807140000`) — `Expense.category` → `ExpenseCategory`, `Booking.kind` → `BookingKind`.
+     Zod validiert per `z.nativeEnum`, die Kategorienliste im Beleg-Scan und `BOOKING_KINDS` kommen aus dem
+     Enum, und `src/lib/expenses.ts` ist per `satisfies` + type-only-Import daran gebunden (Client-Bundle
+     bleibt frei von Prisma). Der Compiler deckte dabei ein ungetyptes Mapping in `bookingsService` auf.
+  2. **Beleg-Auslagerung** (`20260807150000`) — eigene Tabelle `ExpenseReceipt`; der Blob kann gar nicht mehr
+     versehentlich mitgeladen werden, und der Weg zum Object-Store ist nur noch ein Tausch der Ablage.
+  3. **Datums-Spalten** (`20260807160000`) — `TripStop.date`, `TripHotel.checkIn/checkOut`, `Booking.date`
+     auf `@db.Date`. **Der API-Vertrag bleibt unverändert:** DTOs wandeln über `toDateParam`, Services parsen
+     mit `parseDateParam` — kein Client musste angepasst werden.
+
+  **Eine begründete Ausnahme:** `User.image` bleibt in der `User`-Zeile. Anders als der Beleg wird das Feld
+  bei praktisch **jedem** SSR-Request gebraucht (TopNav-Avatar, siehe M16); eine eigene Tabelle bedeutete
+  dort eine zusätzliche Query pro Seitenaufruf — also eine Verschlechterung. Postgres hält die Kernzeile über
+  TOAST ohnehin schmal. Stattdessen wurde das Größenlimit von 300 KB auf **60 KB** gesenkt (ein 128×128-JPEG
+  braucht real 5–15 KB), damit ein manipulierter Client die Antwortgröße jeder Seite nicht aufblähen kann.
+  `Booking.time` bleibt ebenfalls `String`: der Wert ist optional und wird als `""` gespeichert, was sich
+  nicht nach `time` casten lässt — als `HH:MM` sortiert er lexikografisch korrekt.
 
 ---
 
@@ -671,21 +690,16 @@ Gezielt nachgewiesen statt nur angenommen:
 
 ## Was noch offen ist
 
-Nur noch drei Punkte, alle bewusst zurückgestellt (ausführliche Begründung jeweils direkt am Befund):
+Von den ursprünglichen 52 Befunden: **nichts.**
 
-| Punkt | Warum offen |
-|---|---|
-| **P9** — `/programm` rendert die Ablauf-Timeline immer | Die Lösung (Tabs als echte Navigation) würde M21 zurückdrehen: der Client-Zustand der übrigen Tabs ginge bei jedem Wechsel verloren. Vier parallele Queries wiegen das nicht auf. |
-| **P12** — Composite-Indizes | Auf Empfehlung des Befunds selbst: bei zweistelligen Zeilenzahlen bringt der Index nichts und kostet Schreib-Overhead. |
-| **P15** — Schema-Datentypen | Migrationspaket mit Datenkonvertierung quer durch DTOs/Timeline/Sortierung; hohes Regressionsrisiko, Nutzen erst bei viel mehr Daten. Akute Folgen sind über M13 und H7 entschärft. |
+Es bleiben zwei bewusst akzeptierte Restrisiken, die keine eigenen Befunde sind:
 
-Ebenfalls offen geblieben ist ein **Teil von P10**: `web-push` wird zwar nur noch bei konfiguriertem
-VAPID initialisiert, Webpack bündelt die Bibliothek serverseitig aber weiterhin mit — gespart wird die
-Modul-Initialisierung, nicht die Bundle-Größe. Der zweite Teil des Befunds (Prisma-Neon-Adapter für
-HTTP/WebSocket statt TCP+TLS pro kaltem Lambda) ist nicht umgesetzt.
-
-Und ein **Restrisiko** aus M7: DNS-Rebinding in `safeFetch`. Ein Pinning der geprüften IP beim Connect
-bräuchte einen eigenen undici-Dispatcher; Port-Whitelist (80/443) und NAT64-Erkennung sind umgesetzt.
+- **DNS-Rebinding in `safeFetch`** (aus M7): ein Pinning der geprüften IP beim Connect bräuchte einen
+  eigenen undici-Dispatcher. Umgesetzt sind Port-Whitelist (80/443), NAT64-/Hex-Erkennung und manuelles
+  Verfolgen jedes Redirect-Hops.
+- **`web-push` im Server-Bundle** (aus P10): der Import ist lazy, Webpack bündelt die Bibliothek serverseitig
+  aber weiterhin mit — gespart wird die Modul-Initialisierung, nicht die Bundle-Größe. Der zweite Teil des
+  Befunds, ein Prisma-Neon-Adapter (HTTP/WebSocket statt TCP+TLS pro kaltem Lambda), ist nicht umgesetzt.
 
 ---
 

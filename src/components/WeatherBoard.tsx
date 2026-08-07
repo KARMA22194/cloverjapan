@@ -17,7 +17,8 @@ export function WeatherBoard() {
     // Ein Sammelabruf statt einem Request je Stadt.
     const points = JP_CITIES.map((c) => `${c.lat},${c.lng}`).join(";");
     api
-      .get<Weather[]>(`/api/v1/geo/weather?points=${encodeURIComponent(points)}`)
+      // Einzelne Städte können null sein (Ausfall bei genau dieser Position).
+      .get<(Weather | null)[]>(`/api/v1/geo/weather?points=${encodeURIComponent(points)}`)
       .then((list) => {
         if (cancelled) return;
         setData(Object.fromEntries(JP_CITIES.map((c, i) => [c.key, list[i] ?? "error"])));

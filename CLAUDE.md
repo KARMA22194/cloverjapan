@@ -37,9 +37,12 @@ Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerv
   + **TypeScript** (strict)
 - **Prisma** + **PostgreSQL 16**
 - **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted);
-  zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`,
-  `Credential`-Tabelle; Challenge im httpOnly-Cookie; Config in `src/lib/webauthn.ts`,
-  ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS)
+  zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`, `Credential`-Tabelle;
+  Config in `src/lib/webauthn.ts`, ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS).
+  Challenge liegt im httpOnly-Cookie (**getrennt** für Registrierung und Login) **und** in der
+  Tabelle `WebauthnChallenge`, wo sie beim Einlösen atomar entwertet wird (Einmal-Verwendung).
+  Registrierung verlangt `residentKey`/`userVerification: "required"` — passend zum Login, der mit
+  `allowCredentials: []` arbeitet.
 - **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
   `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
@@ -223,9 +226,9 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 ### Datenmodell (`prisma/schema.prisma`)
 
-`User` · `Credential` · `Token` · `RateLimit` · `Trip` · `TripMember` · `TripInvitation`
+`User` · `Credential` · `Token` · `RateLimit` · `WebauthnChallenge` · `PushSubscription` · `Trip` · `TripMember` · `TripInvitation`
 · `TripStop` · `TripHotel` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem` ·
-`Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag`. Kern:
+`Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag` · `ExpenseReceipt`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
 - `User.lastSeenAt` (`DateTime?`) — Presence: Heartbeat der offenen App (`POST /api/v1/presence`,
@@ -241,8 +244,19 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   auf → Komponenten bleiben tenant-agnostisch.
 - `Expense.yen` als **Int** (Yen); `Expense.flightId`/`bookingId` (unique, `onDelete: Cascade`)
   koppeln optional Flug-/Buchungspreis als Ausgabe. `Expense.paidById` (FK User, SetNull) =
-  Zahler für die Abrechnung; `Expense.shared` (Bool) = auf alle aufteilen; `Expense.receipt`
-  (String?) = Beleg-Foto als Data-URL.
+  Zahler für die Abrechnung; `Expense.shared` (Bool) = auf alle aufteilen.
+  **`Expense.category` ist ein Prisma-`enum`** (`ExpenseCategory`), ebenso `Booking.kind`
+  (`BookingKind`) — Zod validiert per `z.nativeEnum`, und `src/lib/expenses.ts` ist per
+  `satisfies` + **type-only**-Import daran gebunden (kein Prisma im Client-Bundle).
+- **`ExpenseReceipt`** (eigene Tabelle, `expenseId @id`, Cascade) — das Beleg-Foto liegt **nicht**
+  als Spalte in `Expense`: so kann der Blob nicht versehentlich mitgeladen werden. `Expense.hasReceipt`
+  (Bool) spiegelt „Beleg vorhanden?", damit die Liste ohne Join auskommt. Zugriff nur über
+  `getExpenseReceipt`/`setExpenseReceipt` (Letzteres schreibt Beleg + Flag in einer Transaktion).
+- **Datumsfelder sind `DateTime @db.Date`** (`TripStop.date`, `TripHotel.checkIn/checkOut`,
+  `Booking.date`, `PlannerTask.date`) — die API liefert weiterhin `YYYY-MM-DD`: DTOs wandeln über
+  `toDateParam`, Services parsen mit `parseDateParam`. ⚠️ Beim Anlegen neuer Datumsfelder dieses
+  Muster beibehalten, sonst leaken `Date`-Objekte in die JSON-Antwort. `Booking.time` bleibt `String`
+  (`HH:MM`, optional `""` — nicht nach `time` castbar, sortiert lexikografisch korrekt).
 - `Flight` — Details + `priceYen` + **`seats`** (Sitzplätze, z. B. „32A, 32B"); Zeiten als
   **UTC-naive Wall-Clock** gespeichert und immer in UTC formatiert (kein Zeitzonen-Verschieben).
 - `TripHotel` — Unterkunft (eigenes Modell, fließt **nicht** in die Routenoptimierung);
@@ -277,8 +291,10 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
   beim ersten Öffnen gemountet und bleibt danach gemountet (inaktiv nur `hidden`) — sonst gingen
   getippte Eingaben beim Umschalten verloren und jeder Wechsel lüde alle Daten neu.
 - `/programm` — Tab-Bereich: `ablauf` · `tagesplaner` · `buchungen` · `checkliste`
-  (`ProgrammTabs.tsx`; **Ablauf** ist SSR und wird als vorgerenderter Server-Node in den
-  Client-Tab gereicht)
+  (`ProgrammTabs.tsx`). **Ablauf** ist SSR: der Server-Node wird nur mitgeliefert, wenn dieser Tab
+  beim Aufruf aktiv ist (`!tab || tab === "ablauf"`) — sonst blieben bei jedem `/programm`-Aufruf
+  vier Timeline-Queries umsonst. Wechselt man später dorthin, holt die Server Action `loadAblauf`
+  (`src/app/actions/ablauf.tsx`) den Knoten nach; der Zustand der übrigen Tabs bleibt erhalten.
 - `/info` — Tab-Bereich: `uebersicht` · `wetter` · `stempel` · `koffer` · `notfall`
   (`InfoTabs.tsx`)
 - `/k/[token]` — **öffentliche** Kofferfinder-Seite (kein Login), dreisprachig (DE/EN/日本語)
@@ -301,8 +317,13 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 ### Auth-Flows
 
 - **Offene Selbst-Registrierung** (`POST /api/v1/register`) → Konto **unbestätigt** +
-  eigene Solo-Reise; Verify-Mail mit Token. Ohne SMTP: Verify-Link in der Antwort
-  (Dev-Fallback). Login erst nach `/verify`.
+  eigene Solo-Reise; Verify-Mail mit Token. Login erst nach `/verify`.
+  ⚠️ Die Antwort ist **enumerationsfrei**: bei bereits vergebener Adresse gibt es dieselbe 201 wie
+  bei einer echten Neuanmeldung (plus „Konto existiert"-Mail an den Inhaber) — **kein** 409.
+  Der Verify-Link erscheint nur in der Entwicklung in der Antwort; in Produktion ohne Mailversand → 503.
+- **`/verify` löst den Token per Server Action (POST) ein**, nicht beim Seitenaufruf — Link-Scanner in
+  Mail-Gateways verbrauchten den Einmal-Token sonst vor dem Nutzer. Ausweg bei verfallenem Token:
+  `POST /api/v1/verify/resend` (generisch, ratenlimitiert).
 - **Passwort-Reset:** `/forgot` (generische Antwort, keine Enumeration) → Reset-Token →
   `/reset`.
 - **Einladung (`/mitglieder`):** Person **ohne** Konto → Registrierungs-Link (14 Tage);
