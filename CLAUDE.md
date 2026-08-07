@@ -209,6 +209,12 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   `style-src 'unsafe-inline'` bleibt (Leaflet/Swagger setzen Styles per Attribut).
   ⚠️ Der Middleware-Matcher schließt `api/` **mit Schrägstrich** aus — ohne ihn griffe der
   Ausschluss auf jeden Pfad, der mit „api" beginnt, und eine solche Seite bekäme keine CSP.
+  ⚠️ Das Theme-Script im Root-Layout braucht **`suppressHydrationWarning`**: der Browser
+  leert das `nonce`-Attribut im DOM, sobald die CSP angewendet ist (HTML-Spec — der Wert
+  lebt nur im internen `[[CryptographicNonce]]`-Slot, damit er nicht per Attributselektor
+  auslesbar ist). Server-`nonce="…"` gegen DOM-`nonce=""` kann nie übereinstimmen, React
+  meldete das als Hydration-Fehler. Das `suppressHydrationWarning` am `<html>` reicht
+  dafür **nicht** — es gilt nur eine Ebene tief.
 - **SSRF-Schutz** (`src/lib/net.ts`, `safeFetch`): nutzergesteuerte Fetches
   (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele (inkl. IPv4-in-IPv6
   in **Hex**-Schreibweise/NAT64) + nur Ports 80/443 + folgen Redirects manuell.

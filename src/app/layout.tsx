@@ -33,7 +33,31 @@ export default async function RootLayout({
   return (
     <html lang="de" suppressHydrationWarning>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInit }} />
+        {/*
+         * `suppressHydrationWarning` ist hier **nicht** kosmetisch, sondern die
+         * korrekte Beschreibung der Lage: der Browser **leert das `nonce`-Attribut
+         * im DOM**, sobald er das Element geparst und die CSP angewendet hat (HTML-
+         * Spec, „nonce attributes are hidden"; der echte Wert lebt nur noch im
+         * internen `[[CryptographicNonce]]`-Slot). Das verhindert, dass sich der
+         * Nonce per CSS-Attributselektor oder `getAttribute` auslesen und für eine
+         * eingeschleuste Nutzlast wiederverwenden lässt.
+         *
+         * React vergleicht beim Hydrieren also `nonce="…"` (Server) mit `nonce=""`
+         * (DOM) — das kann nie übereinstimmen und führte zu einer Hydration-Warnung
+         * im Dev-Overlay. Das `suppressHydrationWarning` am `<html>` greift dafür
+         * nicht: es gilt nur eine Ebene tief, nicht für Nachfahren.
+         *
+         * Alternative wäre eine Hash-Quelle (`'sha256-…'`) statt des Nonce für
+         * dieses eine statische Script — dann bräuchte es das Attribut gar nicht.
+         * Dagegen spricht, dass der Hash bei jeder Änderung des Skripts händisch
+         * nachzuziehen wäre; ein veralteter Hash blockiert das Theme-Script und die
+         * Seite flackert wieder hell auf.
+         */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeInit }}
+        />
       </head>
       <body>
         {children}
