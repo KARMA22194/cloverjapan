@@ -249,10 +249,11 @@ model Expense {
   paidBy        User?    @relation("ExpensePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
   // true = auf alle Mitglieder aufteilen; false = persönlich (nicht in die Abrechnung).
   shared        Boolean  @default(true)
-  // Optionales Beleg-Foto als (verkleinerte) Data-URL.
-  receipt       String?
-  // Spiegelt `receipt IS NOT NULL` — damit die Listen-Abfrage den (großen) Blob NICHT
-  // laden muss, nur um „Beleg vorhanden?" anzuzeigen.
+  // Beleg-Foto liegt in einer **eigenen** Tabelle (ExpenseReceipt), nicht als Spalte:
+  // so kann es gar nicht versehentlich mitgeladen werden, und der Weg zu einem
+  // Object-Store (Vercel Blob) ist später nur noch ein Tausch der Ablage.
+  receiptFile   ExpenseReceipt?
+  // Spiegelt „Beleg vorhanden?" — damit die Listen-Abfrage ohne Join auskommt.
   hasReceipt    Boolean  @default(false)
   // Optional an einen Flug gekoppelt: der Flugpreis erscheint als Ausgabe und wird
   // beim Löschen des Flugs mitgelöscht (Cascade).
@@ -266,6 +267,18 @@ model Expense {
   // Postgres liest sortiert aus dem Index statt nachträglich zu sortieren.
   @@index([tripId, createdAt])
   @@index([paidById])
+}
+
+// Beleg-Foto einer Ausgabe (verkleinerte Data-URL), ausgelagert aus `Expense`.
+//
+// Eigene Tabelle statt Spalte: der Blob wird nur geladen, wenn ihn wirklich jemand
+// ansieht. Als Spalte konnte ein `select` ohne Feldliste ihn versehentlich
+// mitschleppen — genau das war der teuerste Einzelposten im Audit (H7).
+model ExpenseReceipt {
+  expenseId String   @id
+  data      String // Data-URL (image/jpeg, clientseitig verkleinert)
+  createdAt DateTime @default(now())
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
 // Reservierung/Ticket mit Termin und Bestätigungsnummer (pro Reise geteilt).

@@ -51,19 +51,49 @@ export async function deleteExpenseOwned(id: string, tripId: string) {
   return res.count;
 }
 
-/** Beleg-Foto einer eigenen Ausgabe abrufen. */
-export function getExpenseReceipt(id: string, tripId: string) {
-  return db.expense.findFirst({ where: { id, tripId }, select: { receipt: true } });
+/**
+ * Beleg-Foto einer Ausgabe der eigenen Reise abrufen.
+ * `null`, wenn die Ausgabe nicht existiert, nicht zur Reise gehört oder keinen Beleg hat.
+ */
+export async function getExpenseReceipt(
+  id: string,
+  tripId: string,
+): Promise<{ receipt: string | null } | null> {
+  // Tenant-Prüfung über die Relation: die Ausgabe muss zu dieser Reise gehören.
+  const expense = await db.expense.findFirst({
+    where: { id, tripId },
+    select: { receiptFile: { select: { data: true } } },
+  });
+  if (!expense) return null;
+  return { receipt: expense.receiptFile?.data ?? null };
 }
 
-/** Beleg-Foto setzen/entfernen (null = entfernen); gibt Anzahl betroffener Zeilen zurück. */
+/**
+ * Beleg-Foto setzen/entfernen (null = entfernen); gibt Anzahl betroffener Zeilen zurück.
+ *
+ * Beleg und `hasReceipt` werden in **einer** Transaktion geschrieben, damit das Flag
+ * (Grundlage der Listen-Anzeige ohne Blob-Load) nie vom Bestand abweicht.
+ */
 export async function setExpenseReceipt(id: string, tripId: string, receipt: string | null) {
-  // hasReceipt synchron halten (Grundlage der Listen-Anzeige ohne Blob-Load).
-  const res = await db.expense.updateMany({
-    where: { id, tripId },
-    data: { receipt, hasReceipt: receipt !== null },
+  return db.$transaction(async (tx) => {
+    // Ownership zuerst — danach steht die Zugehörigkeit für beide Schreibvorgänge fest.
+    const owned = await tx.expense.updateMany({
+      where: { id, tripId },
+      data: { hasReceipt: receipt !== null },
+    });
+    if (owned.count === 0) return 0;
+
+    if (receipt === null) {
+      await tx.expenseReceipt.deleteMany({ where: { expenseId: id } });
+    } else {
+      await tx.expenseReceipt.upsert({
+        where: { expenseId: id },
+        create: { expenseId: id, data: receipt },
+        update: { data: receipt },
+      });
+    }
+    return owned.count;
   });
-  return res.count;
 }
 
 export async function clearExpenses(tripId: string) {
