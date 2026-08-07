@@ -1,35 +1,12 @@
 import type { NextConfig } from "next";
 
-// Content-Security-Policy: bewusst pragmatisch für diese App.
-//  - frame-ancestors 'none' + X-Frame-Options: DENY → Clickjacking-Schutz.
-//  - img-src erlaubt data:/blob: (Avatare als Data-URL) und https: (Karten-Tiles von CARTO).
-//  - connect-src https: → server-seitige Fetches laufen ohnehin serverseitig; der Client
-//    spricht die eigene API (self) + Tile-CDN.
-//  - 'unsafe-inline' bei script/style ist nötig für das FOUC-vermeidende Inline-Theme-Script
-//    und Leaflet/Swagger-Inline-Styles. Ein nonce-basiertes Script-Setup wäre die strengere
-//    Ausbaustufe; XSS-Vektoren werden bereits an der Quelle entschärft (siehe TripPlanner).
-// Next.js braucht im Dev-Modus eval() (React Fast Refresh / webpack-HMR) sowie
-// WebSocket für HMR — daher dort 'unsafe-eval' + ws:. In Produktion bleibt script-src
-// streng ohne 'unsafe-eval'.
-const isDev = process.env.NODE_ENV !== "production";
-const scriptSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])].join(" ");
-const connectSrc = ["'self'", "https:", ...(isDev ? ["ws:"] : [])].join(" ");
-
-const CSP = [
-  "default-src 'self'",
-  "img-src 'self' data: blob: https:",
-  "style-src 'self' 'unsafe-inline'",
-  `script-src ${scriptSrc}`,
-  `connect-src ${connectSrc}`,
-  "font-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
-
+// Die **Content-Security-Policy** steht bewusst nicht mehr hier, sondern in
+// `src/middleware.ts` (Regeln in `src/lib/csp.ts`): sie enthält pro Request einen
+// Nonce und kann deshalb nicht statisch sein. Ein statischer Header hier würde den
+// dynamischen überschreiben.
+//
+// Alles Übrige ist requestunabhängig und bleibt an dieser Stelle.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: CSP },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
