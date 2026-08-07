@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { dateStr } from "@/lib/api/dates";
+import { toDateParam } from "@/lib/time";
 
 // Geteilte Validierung/DTO für die Trip-Hotel-Endpunkte. Bewusst NICHT in route.ts:
 // Next.js erlaubt in Route-Dateien ausschließlich Handler-Exporte.
@@ -30,15 +31,16 @@ export const toHotelDto = (h: {
   label: string;
   lat: number;
   lng: number;
-  checkIn: string | null;
-  checkOut: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
   createdByName: string;
 }) => ({
   id: h.id,
   label: h.label,
   lat: h.lat,
   lng: h.lng,
-  checkIn: h.checkIn,
-  checkOut: h.checkOut,
+  // DB hält echte Dates; nach außen bleibt es YYYY-MM-DD.
+  checkIn: h.checkIn ? toDateParam(h.checkIn) : null,
+  checkOut: h.checkOut ? toDateParam(h.checkOut) : null,
   by: h.createdByName,
 });

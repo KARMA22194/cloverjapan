@@ -1,15 +1,18 @@
 import { z } from "zod";
+import { BookingKind } from "@prisma/client";
 
 import { dateStr } from "@/lib/api/dates";
+import { toDateParam } from "@/lib/time";
 
 // Geteilte Validierung/DTO für die Buchungs-Endpunkte (nicht in route.ts — Next.js
 // erlaubt dort nur Handler-Exporte).
 
-export const BOOKING_KINDS = ["TICKET", "RESTAURANT", "AKTIVITAET", "TRANSPORT", "SONSTIGES"] as const;
+// Aus dem Prisma-Enum abgeleitet — keine zweite Liste, die auseinanderlaufen kann.
+export const BOOKING_KINDS = Object.values(BookingKind);
 
 export const bookingBody = z.object({
   title: z.string().trim().min(1, "Titel fehlt.").max(200),
-  kind: z.enum(BOOKING_KINDS).optional().default("TICKET"),
+  kind: z.nativeEnum(BookingKind).optional().default(BookingKind.TICKET),
   date: dateStr,
   time: z.string().max(5).optional().default(""),
   ref: z.string().max(120).optional().default(""),
@@ -29,8 +32,8 @@ export const bookingBody = z.object({
 export const toBookingDto = (b: {
   id: string;
   title: string;
-  kind: string;
-  date: string | null;
+  kind: BookingKind;
+  date: Date | null;
   time: string;
   ref: string;
   url: string;
@@ -41,7 +44,8 @@ export const toBookingDto = (b: {
   id: b.id,
   title: b.title,
   kind: b.kind,
-  date: b.date,
+  // DB hält ein echtes Date; nach außen bleibt es YYYY-MM-DD.
+  date: b.date ? toDateParam(b.date) : null,
   time: b.time,
   ref: b.ref,
   url: b.url,

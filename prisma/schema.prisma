@@ -207,7 +207,9 @@ model TripStop {
   lng           Float
   position      Int
   active        Boolean @default(true) // false = gespeichert, aber NICHT Teil der aktuellen Route
-  date          String? // optionaler Reisetag (YYYY-MM-DD) → Verknüpfung mit Tagesplaner
+  // Echtes Datum (@db.Date, UTC-Mitternacht) statt String — die API liefert weiterhin
+  // YYYY-MM-DD (DTO wandelt via toDateParam), nur die Ablage ist jetzt typisiert.
+  date          DateTime? @db.Date // optionaler Reisetag → Verknüpfung mit Tagesplaner
   note          String  @default("") // kurze Notiz/Absprache am Ort (geteilt im Team)
   createdByName String  @default("")
   trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
@@ -225,8 +227,10 @@ model TripHotel {
   label         String
   lat           Float
   lng           Float
-  checkIn       String? // YYYY-MM-DD
-  checkOut      String? // YYYY-MM-DD
+  // Echtes Datum (@db.Date, UTC-Mitternacht) statt String — die API liefert weiterhin
+  // YYYY-MM-DD (DTO wandelt via toDateParam), nur die Ablage ist jetzt typisiert.
+  checkIn       DateTime? @db.Date
+  checkOut      DateTime? @db.Date
   position      Int
   createdByName String  @default("")
   trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
@@ -288,7 +292,9 @@ model Booking {
   tripId        String
   title         String
   kind          BookingKind @default(TICKET)
-  date          String? // YYYY-MM-DD (optional)
+  // Echtes Datum (@db.Date, UTC-Mitternacht) statt String — die API liefert weiterhin
+  // YYYY-MM-DD (DTO wandelt via toDateParam), nur die Ablage ist jetzt typisiert.
+  date          DateTime? @db.Date
   time          String   @default("") // HH:MM (optional)
   ref           String   @default("") // Bestätigungs-/Buchungsnummer
   url           String   @default("")

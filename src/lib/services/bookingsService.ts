@@ -1,6 +1,7 @@
 import { Prisma, type BookingKind, type ExpenseCategory } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { parseDateParam } from "@/lib/time";
 
 export interface BookingInput {
   title: string;
@@ -71,7 +72,7 @@ function fields(input: BookingInput) {
   return {
     title: input.title.trim(),
     kind: input.kind ?? "TICKET",
-    date: input.date ?? null,
+    date: input.date ? parseDateParam(input.date) : null,
     time: input.time?.trim() ?? "",
     ref: input.ref?.trim() ?? "",
     url: input.url?.trim() ?? "",

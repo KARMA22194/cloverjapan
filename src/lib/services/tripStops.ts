@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/lib/db";
+import { parseDateParam } from "@/lib/time";
 import { withPositionLock } from "@/lib/services/position";
 
 /** Reiseplaner-Stopps eines Users, in Reihenfolge. */
@@ -10,7 +11,10 @@ export function getTripStops(tripId: string) {
 
 /** Stopps, die einem bestimmten Reisetag zugeordnet sind (für den Tagesplaner). */
 export function getTripStopsForDate(tripId: string, date: string) {
-  return db.tripStop.findMany({ where: { tripId, date }, orderBy: { position: "asc" } });
+  return db.tripStop.findMany({
+    where: { tripId, date: parseDateParam(date) },
+    orderBy: { position: "asc" },
+  });
 }
 
 /** Hängt einen einzelnen Stopp hinten an (z. B. Übernahme aus dem Tagesplaner). */
@@ -37,7 +41,7 @@ export async function addTripStop(
         label: stop.label,
         lat: stop.lat,
         lng: stop.lng,
-        date: stop.date ?? null,
+        date: stop.date ? parseDateParam(stop.date) : null,
         position: (last?.position ?? -1) + 1,
         createdByName,
       },
@@ -81,7 +85,7 @@ export async function replaceTripStops(
         lat: s.lat,
         lng: s.lng,
         active: s.active ?? true,
-        date: s.date ?? null,
+        date: s.date ? parseDateParam(s.date) : null,
         note: s.note ?? "",
         position: i,
         createdByName: prev.get(s.id) || createdByName,

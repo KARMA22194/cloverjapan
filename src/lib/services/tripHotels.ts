@@ -1,5 +1,6 @@
 import { badRequest } from "@/lib/api/http";
 import { db } from "@/lib/db";
+import { parseDateParam } from "@/lib/time";
 import { withPositionLock } from "@/lib/services/position";
 
 /** Hotels/Unterkünfte einer Reise, in Reihenfolge der Aufnahme (id als Tie-Breaker). */
@@ -32,8 +33,8 @@ export async function addTripHotel(
         label: hotel.label,
         lat: hotel.lat,
         lng: hotel.lng,
-        checkIn: hotel.checkIn ?? null,
-        checkOut: hotel.checkOut ?? null,
+        checkIn: hotel.checkIn ? parseDateParam(hotel.checkIn) : null,
+        checkOut: hotel.checkOut ? parseDateParam(hotel.checkOut) : null,
         position: (last?.position ?? -1) + 1,
         createdByName,
       },

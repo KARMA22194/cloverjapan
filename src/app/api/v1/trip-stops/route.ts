@@ -5,6 +5,7 @@ import { handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 import { dateStr } from "@/lib/api/dates";
+import { toDateParam } from "@/lib/time";
 import { getTripStops, getTripStopsForDate, replaceTripStops } from "@/lib/services/tripStops";
 
 const stopSchema = z.object({
@@ -30,7 +31,7 @@ const toDto = (s: {
   lat: number;
   lng: number;
   active: boolean;
-  date: string | null;
+  date: Date | null;
   note: string;
   createdByName: string;
 }) => ({
@@ -41,7 +42,8 @@ const toDto = (s: {
   lat: s.lat,
   lng: s.lng,
   active: s.active,
-  date: s.date,
+  // DB hält ein echtes Date; nach außen bleibt es YYYY-MM-DD.
+  date: s.date ? toDateParam(s.date) : null,
   note: s.note,
   by: s.createdByName,
 });

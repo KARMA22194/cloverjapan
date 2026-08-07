@@ -93,7 +93,7 @@ export async function AblaufTimeline() {
 
   for (const s of stops) {
     if (!s.date) continue;
-    push(s.date, {
+    push(toDateParam(s.date), {
       time: "",
       kind: "stop",
       emoji: "📍",
@@ -114,7 +114,7 @@ export async function AblaufTimeline() {
 
   for (const b of bookings) {
     if (!b.date) continue;
-    push(b.date, {
+    push(toDateParam(b.date), {
       time: b.time || "",
       kind: "booking",
       emoji: BOOKING_EMOJI[b.kind] ?? "🎟️",
