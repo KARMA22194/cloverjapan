@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { withPositionLock } from "@/lib/services/position";
 
 export function listWishlist(tripId: string) {
   return db.wishlistItem.findMany({
@@ -12,15 +13,25 @@ export async function createWishlistItem(
   input: { label: string; priceYen?: number | null },
   createdByName: string,
 ) {
-  const position = await db.wishlistItem.count({ where: { tripId } });
-  return db.wishlistItem.create({
-    data: {
-      tripId,
-      label: input.label.trim(),
-      priceYen: input.priceYen ?? null,
-      position,
-      createdByName,
-    },
+  // Position aus dem aktuellen Maximum ableiten — in einer **serialisierbaren**
+  // Transaktion, sonst vergeben gleichzeitige Aufrufe dieselbe Nummer (siehe
+  // withPositionLock). `count()` davor war zusätzlich falsch, sobald einmal
+  // gelöscht wurde: dann entstehen Lücken und die Zählung kollidiert erneut.
+  return withPositionLock(async (tx) => {
+    const last = await tx.wishlistItem.findFirst({
+      where: { tripId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    });
+    return tx.wishlistItem.create({
+      data: {
+        tripId,
+        label: input.label.trim(),
+        priceYen: input.priceYen ?? null,
+        position: (last?.position ?? -1) + 1,
+        createdByName,
+      },
+    });
   });
 }
 

@@ -1,22 +1,32 @@
-import webpush from "web-push";
+import type WebPush from "web-push";
 
 import { db } from "@/lib/db";
 
-let configured = false;
+/**
+ * `web-push` wird **lazy** geladen (siehe `loadWebPush`).
+ *
+ * Als statischer Import hing die Bibliothek samt ihrer Crypto-/ASN.1-Abhängigkeiten
+ * in **jeder** Mutations-Route — dieses Modul erreicht über `activityService` alle
+ * Create-Endpunkte. Größeres Bundle heißt serverlos längerer Cold Start, und zwar
+ * auch dann, wenn Push gar nicht konfiguriert ist.
+ */
+let webpushModule: typeof WebPush | null = null;
 
-/** VAPID einmalig konfigurieren; false, wenn keine Keys gesetzt sind (Feature aus). */
-function ensureConfigured(): boolean {
-  if (configured) return true;
+async function loadWebPush(): Promise<typeof WebPush | null> {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || "mailto:admin@clover.japan",
-    publicKey,
-    privateKey,
-  );
-  configured = true;
-  return true;
+  if (!publicKey || !privateKey) return null;
+
+  if (!webpushModule) {
+    const mod = (await import("web-push")).default;
+    mod.setVapidDetails(
+      process.env.VAPID_SUBJECT || "mailto:admin@clover.japan",
+      publicKey,
+      privateKey,
+    );
+    webpushModule = mod;
+  }
+  return webpushModule;
 }
 
 /** Ist Web-Push serverseitig einsatzbereit (VAPID-Keys vorhanden)? */
@@ -81,7 +91,8 @@ export async function sendPushToTrip(
   exceptUserId: string | null,
   payload: PushPayload,
 ): Promise<void> {
-  if (!ensureConfigured()) return;
+  const webpush = await loadWebPush();
+  if (!webpush) return;
 
   const members = await db.tripMember.findMany({ where: { tripId }, select: { userId: true } });
   const userIds = members.map((m) => m.userId).filter((id) => id !== exceptUserId);

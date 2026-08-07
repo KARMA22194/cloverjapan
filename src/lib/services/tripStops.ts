@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { db } from "@/lib/db";
+import { withPositionLock } from "@/lib/services/position";
 
 /** Reiseplaner-Stopps eines Users, in Reihenfolge. */
 export function getTripStops(tripId: string) {
@@ -18,19 +19,29 @@ export async function addTripStop(
   stop: { label: string; lat: number; lng: number; date?: string | null },
   createdByName: string,
 ) {
-  const position = await db.tripStop.count({ where: { tripId } });
-  return db.tripStop.create({
-    data: {
-      // id: server-generiert (cuid). clientId ist die stabile Kennung für den Client.
-      clientId: randomUUID(),
-      tripId,
-      label: stop.label,
-      lat: stop.lat,
-      lng: stop.lng,
-      date: stop.date ?? null,
-      position,
-      createdByName,
-    },
+  // Position aus dem aktuellen Maximum ableiten — in einer **serialisierbaren**
+  // Transaktion, sonst vergeben gleichzeitige Aufrufe dieselbe Nummer (siehe
+  // withPositionLock). `count()` davor war zusätzlich falsch, sobald einmal
+  // gelöscht wurde: dann entstehen Lücken und die Zählung kollidiert erneut.
+  return withPositionLock(async (tx) => {
+    const last = await tx.tripStop.findFirst({
+      where: { tripId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    });
+    return tx.tripStop.create({
+      data: {
+        // id: server-generiert (cuid). clientId ist die stabile Kennung für den Client.
+        clientId: randomUUID(),
+        tripId,
+        label: stop.label,
+        lat: stop.lat,
+        lng: stop.lng,
+        date: stop.date ?? null,
+        position: (last?.position ?? -1) + 1,
+        createdByName,
+      },
+    });
   });
 }
 

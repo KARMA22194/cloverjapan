@@ -1,5 +1,6 @@
 import { badRequest } from "@/lib/api/http";
 import { db } from "@/lib/db";
+import { withPositionLock } from "@/lib/services/position";
 
 /** Hotels/Unterkünfte einer Reise, in Reihenfolge der Aufnahme (id als Tie-Breaker). */
 export function getTripHotels(tripId: string) {
@@ -15,18 +16,28 @@ export async function addTripHotel(
   hotel: { label: string; lat: number; lng: number; checkIn?: string | null; checkOut?: string | null },
   createdByName: string,
 ) {
-  const position = await db.tripHotel.count({ where: { tripId } });
-  return db.tripHotel.create({
-    data: {
-      tripId,
-      label: hotel.label,
-      lat: hotel.lat,
-      lng: hotel.lng,
-      checkIn: hotel.checkIn ?? null,
-      checkOut: hotel.checkOut ?? null,
-      position,
-      createdByName,
-    },
+  // Position aus dem aktuellen Maximum ableiten — in einer **serialisierbaren**
+  // Transaktion, sonst vergeben gleichzeitige Aufrufe dieselbe Nummer (siehe
+  // withPositionLock). `count()` davor war zusätzlich falsch, sobald einmal
+  // gelöscht wurde: dann entstehen Lücken und die Zählung kollidiert erneut.
+  return withPositionLock(async (tx) => {
+    const last = await tx.tripHotel.findFirst({
+      where: { tripId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    });
+    return tx.tripHotel.create({
+      data: {
+        tripId,
+        label: hotel.label,
+        lat: hotel.lat,
+        lng: hotel.lng,
+        checkIn: hotel.checkIn ?? null,
+        checkOut: hotel.checkOut ?? null,
+        position: (last?.position ?? -1) + 1,
+        createdByName,
+      },
+    });
   });
 }
 

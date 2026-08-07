@@ -469,6 +469,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
 | `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`) | **Beleg-Scan** (Claude Vision) | für Beleg-Scan |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
+| `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |
 
 **Konbini/Overpass, Regenradar/RainViewer, Geocoding/Routing, Eki-Stamps, Wetter** sind
