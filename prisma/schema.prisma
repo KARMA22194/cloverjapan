@@ -63,6 +63,10 @@ model User {
   // Wird bei sicherheitsrelevanten Änderungen (Passwort-Reset) erhöht. Das JWT trägt
   // den Wert vom Login → weicht er vom DB-Wert ab, ist die Session ungültig (M2).
   sessionVersion Int      @default(0)
+  // Spiegelt „hat dieses Konto eigene Bereichs-Symbole?" — wie `Expense.hasReceipt`.
+  // Damit muss das (app)-Layout die Icon-Tabelle nur abfragen, wenn wirklich etwas
+  // hinterlegt ist; im Normalfall (Standard-Emoji) kostet das Feature keine Query.
+  customIcons   Boolean   @default(false)
   createdAt     DateTime  @default(now())
 
   tripMembership TripMember?
@@ -70,6 +74,27 @@ model User {
   tokens         Token[]
   expensesPaid   Expense[]   @relation("ExpensePaidBy")
   pushSubscriptions PushSubscription[]
+  sectionIcons   UserSectionIcon[]
+}
+
+// Eigenes Bereichs-Symbol eines Nutzers (ersetzt das Standard-Emoji aus
+// `src/lib/sectionIcons.ts`). Eigene Tabelle statt Spalten/JSON am `User`: die
+// User-Zeile wird bei **jedem** Request gelesen (Session-Revocation), die Bilder
+// aber nur beim Seitenaufbau — als Spalte würden sie sonst überall mitgeladen
+// (dasselbe Argument wie bei `ExpenseReceipt`).
+// Persönlich, nicht pro Reise: jedes Mitglied sieht seine eigenen Symbole.
+model UserSectionIcon {
+  userId    String
+  // Schlüssel aus SECTION_ICONS (z. B. „geld"). Absichtlich `String` und kein
+  // Prisma-Enum: die Liste der Bereiche ändert sich mit der UI, das soll keine
+  // Migration kosten. Die API validiert gegen `isSectionId`.
+  section   String
+  // Data-URL (image/png oder image/jpeg), clientseitig auf 64×64 verkleinert.
+  data      String
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, section])
 }
 
 // Web-Push-Abo eines Geräts (ein Nutzer kann mehrere Geräte haben).

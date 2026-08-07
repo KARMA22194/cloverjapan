@@ -10,6 +10,8 @@ export interface SessionUser {
   email: string;
   image: string | null;
   role: Role;
+  /** Spiegel-Flag: hat dieses Konto eigene Bereichs-Symbole hinterlegt? */
+  customIcons: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ export async function requireSessionUser(): Promise<SessionUser> {
       active: true,
       emailVerified: true,
       sessionVersion: true,
+      customIcons: true,
     },
   });
   // Passwort-Reset (sessionVersion++) invalidiert alte SSR-Sessions ebenso (M2).
@@ -52,5 +55,6 @@ export async function requireSessionUser(): Promise<SessionUser> {
     email: fresh.email,
     image: fresh.image,
     role: fresh.role,
+    customIcons: fresh.customIcons,
   };
 }

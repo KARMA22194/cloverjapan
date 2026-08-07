@@ -11,11 +11,11 @@ import { TabPanel } from "@/components/TabPanel";
 import { TabBar } from "@/components/ui/TabBar";
 
 const TABS = [
-  { key: "uebersicht", label: "Übersicht", emoji: "🧭" },
-  { key: "wetter", label: "Wetter", emoji: "☀️" },
-  { key: "stempel", label: "Stempel", emoji: "⛩️" },
-  { key: "koffer", label: "Koffer", emoji: "🧳" },
-  { key: "notfall", label: "Notfall & Basics", emoji: "🆘" },
+  { key: "uebersicht", label: "Übersicht", icon: "uebersicht" },
+  { key: "wetter", label: "Wetter", icon: "wetter" },
+  { key: "stempel", label: "Stempel", icon: "stempel" },
+  { key: "koffer", label: "Koffer", icon: "koffer" },
+  { key: "notfall", label: "Notfall & Basics", icon: "notfall" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

@@ -7,6 +7,7 @@ import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
 import { resizeImage } from "@/lib/image";
 import { buttonClasses } from "@/components/ui/Button";
+import { SectionIconSettings } from "@/components/SectionIconSettings";
 
 /** Bild quadratisch auf 128×128 zuschneiden, als JPEG-Data-URL. */
 const resize = (file: File) => resizeImage(file, { max: 128, quality: 0.85, square: true });
@@ -87,7 +88,9 @@ export function ProfileForm() {
   }
 
   return (
-    <div className="max-w-md">
+    // Etwas breiter als vorher (`max-w-md`): die Symbol-Liste braucht Platz für
+    // Vorschau, Name und zwei Knöpfe in einer Zeile.
+    <div className="max-w-xl">
       <div className="flex items-center gap-4 rounded-card border border-hairline bg-surface shadow-card p-4">
         <Avatar name={name || "?"} image={image} size={72} />
         <div className="min-w-0">
@@ -139,6 +142,8 @@ export function ProfileForm() {
         </button>
         {pkMsg && <p className="mt-2 text-sm text-ink-muted">{pkMsg}</p>}
       </div>
+
+      <SectionIconSettings />
     </div>
   );
 }

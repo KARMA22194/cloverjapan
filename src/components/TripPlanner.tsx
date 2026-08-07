@@ -1449,8 +1449,8 @@ export function TripPlanner() {
           anderen Reitern nach etwas anderem aussah. */}
       <TabBar
         items={[
-          { key: "map", label: "Karte & Route", emoji: "🗺️" },
-          { key: "list", label: "Import", emoji: "📋" },
+          { key: "map", label: "Karte & Route", icon: "plannerMap" },
+          { key: "list", label: "Import", icon: "plannerList" },
         ]}
         active={view}
         onSelect={setView}

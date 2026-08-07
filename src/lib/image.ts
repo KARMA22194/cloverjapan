@@ -1,11 +1,19 @@
 /**
- * Verkleinert ein Bild client-seitig zu einer JPEG-Data-URL.
+ * Verkleinert ein Bild client-seitig zu einer Data-URL.
  * - `max`: längste Kante in px.
  * - `square`: mittig auf ein max×max-Quadrat beschneiden (z. B. Avatar).
+ * - `type`: Ziel-Format. Default JPEG (klein). **`image/png` für freigestellte
+ *   Bilder** — JPEG kennt keinen Alphakanal, transparente Flächen würden beim
+ *   Export schwarz. Genau das brauchen die eigenen Bereichs-Symbole.
  */
 export function resizeImage(
   file: File,
-  { max, quality = 0.8, square = false }: { max: number; quality?: number; square?: boolean },
+  {
+    max,
+    quality = 0.8,
+    square = false,
+    type = "image/jpeg",
+  }: { max: number; quality?: number; square?: boolean; type?: "image/jpeg" | "image/png" },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -30,7 +38,7 @@ export function resizeImage(
           canvas.height = Math.round(img.height * scale);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         }
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        resolve(canvas.toDataURL(type, quality));
       };
       img.src = reader.result as string;
     };

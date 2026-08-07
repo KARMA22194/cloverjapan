@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { JapanClock } from "@/components/JapanClock";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { FxPill } from "@/components/FxPill";
+import { SectionIcon } from "@/components/ui/SectionIcon";
 import { clearUserScopedStorage } from "@/lib/userStorage";
 
 interface NavLink {
@@ -260,8 +261,11 @@ export function TopNav({
       {mobileOpen && (
         <div className="border-t border-hairline bg-surface/95 md:hidden">
           <nav className="mx-auto max-w-6xl space-y-4 px-4 py-4">
-            <Link href="/start" className={`${menuItem(startActive)} py-2`}>
-              🏠 Start / Übersicht
+            <Link
+              href="/start"
+              className={`${menuItem(startActive)} flex items-center gap-2 py-2`}
+            >
+              <SectionIcon id="start" size={18} /> Start / Übersicht
             </Link>
 
             {[...groups, ...(adminItems.length > 0 ? [{ label: "Verwaltung", items: adminItems }] : [])].map(

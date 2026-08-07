@@ -229,7 +229,7 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 ### Datenmodell (`prisma/schema.prisma`)
 
-`User` · `Credential` · `Token` · `RateLimit` · `WebauthnChallenge` · `PushSubscription` · `Trip` · `TripMember` · `TripInvitation`
+`User` · `UserSectionIcon` · `Credential` · `Token` · `RateLimit` · `WebauthnChallenge` · `PushSubscription` · `Trip` · `TripMember` · `TripInvitation`
 · `TripStop` · `TripHotel` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem` ·
 `Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag` · `ExpenseReceipt`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
@@ -241,6 +241,18 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   „zuletzt vor X" (grüner/grauer Punkt, Live-Polling 30 s über den schlanken
   `GET /api/v1/trip/presence` ohne Profilbilder). Kürzerer Takt hielte Neon dauerhaft wach.
   Zusätzlich `ConnectionStatus` in der TopNav = eigener Online/Offline-Indikator (`navigator.onLine`).
+- **`UserSectionIcon`** (`@@id([userId, section])`) + **`User.customIcons`** (Bool) — eigene
+  **Bereichs-Symbole**. Standard sind die Emoji aus `src/lib/sectionIcons.ts`; jedes Mitglied
+  kann jedes Symbol im Profil durch ein eigenes Bild ersetzen. **Persönlich**, nicht pro Reise —
+  andere sehen weiter ihre eigenen. Eigene Tabelle statt Spalte/JSON am `User`: die User-Zeile
+  wird bei **jedem** Request gelesen (Revocation), die Bilder nur beim Seitenaufbau — dasselbe
+  Argument wie bei `ExpenseReceipt`. `customIcons` ist das Spiegel-Flag (wie `Expense.hasReceipt`):
+  steht es auf `false`, fragt `getSectionIcons` die Tabelle **nicht** ab → der Normalfall
+  „alles Standard" kostet keine zusätzliche Query pro Seitenaufruf.
+  ⚠️ Das **Logo** ist bewusst **kein** Bereichs-Symbol (Markenzeichen, `src/components/Logo.tsx`).
+  ⚠️ Eigene Bilder werden als **PNG** gespeichert, nicht als JPEG: `resizeImage` nimmt dafür
+  `type: "image/png"` — JPEG hat keinen Alphakanal, ein freigestelltes Motiv bekäme sonst
+  schwarzen Hintergrund. Und **kein** `square`, sonst schnitte es hohe Motive ab.
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
   Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig
@@ -301,13 +313,14 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 - `/info` — Tab-Bereich: `uebersicht` · `wetter` · `stempel` · `koffer` · `notfall`
   (`InfoTabs.tsx`)
 - `/k/[token]` — **öffentliche** Kofferfinder-Seite (kein Login), dreisprachig (DE/EN/日本語)
-- `/mitglieder` · `/profil` (Profilbild 128×128 Data-URL, `PATCH /api/v1/me`) · `/admin` (nur
+- `/mitglieder` · `/profil` (Profilbild 128×128 Data-URL, `PATCH /api/v1/me`; Passkey;
+  **eigene Bereichs-Symbole** via `SectionIconSettings.tsx`) · `/admin` (nur
   ADMIN)
 - **Redirect-Altrouten:** `/ausgaben`,`/zoll`,`/wunschliste`,`/abrechnung` → `/geld?tab=…`;
   `/ablauf`,`/tagesplaner`,`/buchungen`,`/checkliste` → `/programm?tab=…`;
   `/wetter`,`/uebersicht` → `/info?tab=…`.
 
-**API-Endpunkte:** `me`, `users` (+`[id]`), `register`, `password/forgot`,
+**API-Endpunkte:** `me` (+`icons`, +`icons/[section]` PUT/DELETE), `users` (+`[id]`), `register`, `password/forgot`,
 `password/reset`, `invite/[token]`, `trip/members` (+`[userId]`),
 `trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `trip-hotels`,
 `expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
@@ -482,7 +495,13 @@ Zwei Ebenen, beide kanonisch:
    ⚠️ `--color-x: var(--y)` im `@theme` funktioniert **nicht** zum Umschalten: Custom
    Properties werden am deklarierenden Element ersetzt, `.dark` käme zu spät. Deshalb sind
    beide Themes eigene Deklarationen.
-2. **Primitives** (`src/components/ui/`): `Card`/`CardLink`/`CardLabel` · `Button`
+2. **Bereichs-Symbole** (`src/lib/sectionIcons.ts` + `ui/SectionIcon.tsx`): die 24 Symbole
+   von Start-Kacheln, den vier Tab-Leisten und dem Mobile-Menü stehen **an einer** Stelle
+   (vorher als Emoji-Literale in sechs Dateien verteilt). `<SectionIcon id="geld" />` rendert
+   das eigene Bild des Nutzers, sonst das Emoji. `TabBar`-Items tragen deshalb `icon: SectionId`,
+   kein Emoji. Der `SectionIconProvider` steckt im `(app)`-Layout — weil er eine Client-
+   Komponente ist, können auch Server Components (Start-Kacheln) `SectionIcon` verwenden.
+3. **Primitives** (`src/components/ui/`): `Card`/`CardLink`/`CardLabel` · `Button`
    (+`buttonClasses`) · `Input`/`Textarea`/`Select`/`Label` (+`fieldClasses`) · `Chip` ·
    `TabBar`. Alle nehmen `className` als Escape-Hatch.
    Für bestehende `<button>`/`<input>`-Elemente, die ihre eigenen Props/ARIA behalten

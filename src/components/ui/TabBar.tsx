@@ -1,4 +1,6 @@
 import { cn } from "@/lib/cn";
+import { SectionIcon } from "@/components/ui/SectionIcon";
+import type { SectionId } from "@/lib/sectionIcons";
 
 /**
  * Segmentierte Tab-Leiste für die Bereiche `/geld`, `/programm`, `/info`.
@@ -19,7 +21,11 @@ export function TabBar<K extends string>({
   idPrefix,
   className,
 }: {
-  items: readonly { key: K; label: string; emoji?: string }[];
+  /**
+   * `icon` ist ein Bereichs-Schlüssel aus `SECTION_ICONS`, kein Emoji-Literal —
+   * so kann ein Mitglied das Symbol im Profil durch ein eigenes Bild ersetzen.
+   */
+  items: readonly { key: K; label: string; icon?: SectionId }[];
   active: K;
   onSelect: (key: K) => void;
   /** Beschriftung der Leiste für Screenreader, z. B. „Geld-Bereiche". */
@@ -66,11 +72,7 @@ export function TabBar<K extends string>({
                 : "text-ink-muted hover:bg-surface hover:text-ink",
             )}
           >
-            {t.emoji && (
-              <span aria-hidden className="mr-1">
-                {t.emoji}
-              </span>
-            )}
+            {t.icon && <SectionIcon id={t.icon} size={16} className="mr-1.5" />}
             {t.label}
           </button>
         );

@@ -5,6 +5,8 @@ import { WeatherWidget } from "@/components/WeatherWidget";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { StorageOwnerGuard } from "@/components/StorageOwnerGuard";
+import { SectionIconProvider } from "@/components/ui/SectionIcon";
+import { getSectionIcons } from "@/lib/services/sectionIcons";
 
 export default async function AppLayout({
   children,
@@ -13,6 +15,11 @@ export default async function AppLayout({
   // Konten verlieren den SSR-Zugriff sofort. isAdmin aus der DB-Rolle, nicht dem JWT.
   const user = await requireSessionUser();
   const isAdmin = user.role === "ADMIN";
+
+  // Eigene Bereichs-Symbole. Ohne hinterlegte Bilder (`customIcons === false`)
+  // fragt der Service die Tabelle nicht ab — der Standardfall kostet also keine
+  // zusätzliche Query pro Seitenaufruf.
+  const sectionIcons = await getSectionIcons(user.id, user.customIcons);
 
   // Ausklappbare Kategorien in der oberen Leiste (nur noch der Japan-Bereich).
   const groups = [
@@ -35,6 +42,7 @@ export default async function AppLayout({
 
   return (
     <BiometricLock>
+     <SectionIconProvider icons={sectionIcons}>
       <div className="min-h-full">
         <PresenceHeartbeat />
         <StorageOwnerGuard userId={user.id} />
@@ -59,6 +67,7 @@ export default async function AppLayout({
           </div>
         </main>
       </div>
+     </SectionIconProvider>
     </BiometricLock>
   );
 }

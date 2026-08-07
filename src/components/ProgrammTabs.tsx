@@ -9,10 +9,10 @@ import { TabPanel } from "@/components/TabPanel";
 import { TabBar } from "@/components/ui/TabBar";
 
 const TABS = [
-  { key: "ablauf", label: "Reiseablauf", emoji: "🗓️" },
-  { key: "tagesplaner", label: "Tagesplaner", emoji: "📝" },
-  { key: "buchungen", label: "Buchungen", emoji: "🎟️" },
-  { key: "checkliste", label: "Checkliste", emoji: "✅" },
+  { key: "ablauf", label: "Reiseablauf", icon: "ablauf" },
+  { key: "tagesplaner", label: "Tagesplaner", icon: "tagesplaner" },
+  { key: "buchungen", label: "Buchungen", icon: "buchungen" },
+  { key: "checkliste", label: "Checkliste", icon: "checkliste" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

@@ -8,6 +8,8 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { FlightDayStatus } from "@/components/FlightDayStatus";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { CardLink } from "@/components/ui/Card";
+import { SectionIcon } from "@/components/ui/SectionIcon";
+import type { SectionId } from "@/lib/sectionIcons";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -15,7 +17,8 @@ interface Tile {
   href: string;
   label: string;
   desc: string;
-  emoji: string;
+  /** Bereichs-Schlüssel aus SECTION_ICONS — im Profil überschreibbar. */
+  icon: SectionId;
 }
 
 export default async function StartPage() {
@@ -28,21 +31,23 @@ export default async function StartPage() {
       title: "Japan",
       hint: "Alles für den Japan-Trip",
       tiles: [
-        { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", emoji: "🗾" },
-        { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", emoji: "✈️" },
-        { href: "/programm", label: "Programm", desc: "Reiseablauf, Tagesplaner, Buchungen & Checkliste", emoji: "🗓️" },
-        { href: "/geld", label: "Geld", desc: "Ausgaben, Abrechnung, Zoll & Wunschliste", emoji: "💴" },
-        { href: "/info", label: "Info", desc: "Übersicht, Wetter & Notfallnummern", emoji: "🧭" },
-        { href: "/mitglieder", label: "Mitglieder", desc: "Leute einladen & gemeinsam bearbeiten", emoji: "👥" },
+        { href: "/reiseplaner", label: "Reiseplaner", desc: "Orte, beste Route & Zugverbindungen", icon: "reiseplaner" },
+        { href: "/fluege", label: "Flüge", desc: "Per Flugnummer erfassen, Preis in Ausgaben", icon: "fluege" },
+        { href: "/programm", label: "Programm", desc: "Reiseablauf, Tagesplaner, Buchungen & Checkliste", icon: "programm" },
+        { href: "/geld", label: "Geld", desc: "Ausgaben, Abrechnung, Zoll & Wunschliste", icon: "geld" },
+        { href: "/info", label: "Info", desc: "Übersicht, Wetter & Notfallnummern", icon: "info" },
+        { href: "/mitglieder", label: "Mitglieder", desc: "Leute einladen & gemeinsam bearbeiten", icon: "mitglieder" },
       ],
     },
     {
       title: "Mehr",
       hint: "Konto & Verwaltung",
       tiles: [
-        { href: "/profil", label: "Profil", desc: "Profilbild festlegen", emoji: "🙂" },
+        { href: "/profil", label: "Profil", desc: "Profilbild festlegen", icon: "profil" },
+        // Explizit als `Tile[]`: sonst leitet TS `icon` im Spread als `string` ab
+        // und nicht als `SectionId`.
         ...(isAdmin
-          ? [{ href: "/admin", label: "Admin", desc: "Nutzerverwaltung", emoji: "⚙️" }]
+          ? ([{ href: "/admin", label: "Admin", desc: "Nutzerverwaltung", icon: "admin" }] as Tile[])
           : []),
       ],
     },
@@ -92,11 +97,8 @@ export default async function StartPage() {
                 <span className="flex items-start gap-3.5">
                   {/* Emoji auf eigener Tint-Fläche: gibt der Kachel einen Anker
                       links und trennt Symbol von Text. */}
-                  <span
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-field bg-brand/10 text-xl ring-1 ring-brand/15 transition group-hover/tile:bg-brand/15"
-                    aria-hidden
-                  >
-                    {tile.emoji}
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-field bg-brand/10 ring-1 ring-brand/15 transition group-hover/tile:bg-brand/15">
+                    <SectionIcon id={tile.icon} size={22} />
                   </span>
                   <span className="min-w-0">
                     <span className="block font-bold text-ink transition group-hover/tile:text-brand">
