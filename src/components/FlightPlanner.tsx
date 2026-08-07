@@ -282,8 +282,8 @@ export function FlightPlanner() {
       >
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-32">
-            <label className={labelClass}>Flugnummer</label>
-            <input
+            <label htmlFor="flug-flugnummer" className={labelClass}>Flugnummer</label>
+            <input id="flug-flugnummer"
               value={form.flightNumber}
               onChange={(e) => set("flightNumber", e.target.value)}
               placeholder="LH716"
@@ -291,8 +291,8 @@ export function FlightPlanner() {
             />
           </div>
           <div className="w-40">
-            <label className={labelClass}>Datum (für Abruf)</label>
-            <input
+            <label htmlFor="flug-datum" className={labelClass}>Datum (für Abruf)</label>
+            <input id="flug-datum"
               type="date"
               value={lookupDate}
               onChange={(e) => setLookupDate(e.target.value)}
@@ -311,55 +311,55 @@ export function FlightPlanner() {
 
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <label className={labelClass}>Airline</label>
-            <input value={form.airline} onChange={(e) => set("airline", e.target.value)} placeholder="Lufthansa" className={inputClass} />
+            <label htmlFor="flug-airline" className={labelClass}>Airline</label>
+            <input id="flug-airline" value={form.airline} onChange={(e) => set("airline", e.target.value)} placeholder="Lufthansa" className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Buchungsnummer</label>
-            <input value={form.bookingRef} onChange={(e) => set("bookingRef", e.target.value)} placeholder="ABC123" className={inputClass} />
+            <label htmlFor="flug-buchungsnummer" className={labelClass}>Buchungsnummer</label>
+            <input id="flug-buchungsnummer" value={form.bookingRef} onChange={(e) => set("bookingRef", e.target.value)} placeholder="ABC123" className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Sitzplätze</label>
-            <input value={form.seats} onChange={(e) => set("seats", e.target.value)} placeholder="z. B. 32A, 32B" className={inputClass} />
+            <label htmlFor="flug-sitzplaetze" className={labelClass}>Sitzplätze</label>
+            <input id="flug-sitzplaetze" value={form.seats} onChange={(e) => set("seats", e.target.value)} placeholder="z. B. 32A, 32B" className={inputClass} />
           </div>
           <div className="flex gap-2">
             <div className="w-20">
-              <label className={labelClass}>Ab (IATA)</label>
-              <input value={form.fromCode} onChange={(e) => set("fromCode", e.target.value)} placeholder="FRA" className={inputClass} />
+              <label htmlFor="flug-ab" className={labelClass}>Ab (IATA)</label>
+              <input id="flug-ab" value={form.fromCode} onChange={(e) => set("fromCode", e.target.value)} placeholder="FRA" className={inputClass} />
             </div>
             <div className="flex-1">
-              <label className={labelClass}>Abflug-Ort</label>
-              <input value={form.fromName} onChange={(e) => set("fromName", e.target.value)} placeholder="Frankfurt" className={inputClass} />
+              <label htmlFor="flug-abflug-ort" className={labelClass}>Abflug-Ort</label>
+              <input id="flug-abflug-ort" value={form.fromName} onChange={(e) => set("fromName", e.target.value)} placeholder="Frankfurt" className={inputClass} />
             </div>
           </div>
           <div className="flex gap-2">
             <div className="w-20">
-              <label className={labelClass}>An (IATA)</label>
-              <input value={form.toCode} onChange={(e) => set("toCode", e.target.value)} placeholder="HND" className={inputClass} />
+              <label htmlFor="flug-an" className={labelClass}>An (IATA)</label>
+              <input id="flug-an" value={form.toCode} onChange={(e) => set("toCode", e.target.value)} placeholder="HND" className={inputClass} />
             </div>
             <div className="flex-1">
-              <label className={labelClass}>Ankunfts-Ort</label>
-              <input value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Tokyo Haneda" className={inputClass} />
+              <label htmlFor="flug-ankunfts-ort" className={labelClass}>Ankunfts-Ort</label>
+              <input id="flug-ankunfts-ort" value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Tokyo Haneda" className={inputClass} />
             </div>
           </div>
           <div>
-            <label className={labelClass}>Abflug (Datum/Zeit)</label>
-            <input type="datetime-local" value={form.departure} onChange={(e) => set("departure", e.target.value)} className={inputClass} />
+            <label htmlFor="flug-abflug" className={labelClass}>Abflug (Datum/Zeit)</label>
+            <input id="flug-abflug" type="datetime-local" value={form.departure} onChange={(e) => set("departure", e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Ankunft (Datum/Zeit)</label>
-            <input type="datetime-local" value={form.arrival} onChange={(e) => set("arrival", e.target.value)} className={inputClass} />
+            <label htmlFor="flug-ankunft" className={labelClass}>Ankunft (Datum/Zeit)</label>
+            <input id="flug-ankunft" type="datetime-local" value={form.arrival} onChange={(e) => set("arrival", e.target.value)} className={inputClass} />
           </div>
         </div>
 
         <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
           <div className="w-32">
-            <label className={labelClass}>Preis</label>
-            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="z. B. 780" className={inputClass} />
+            <label htmlFor="flug-preis" className={labelClass}>Preis</label>
+            <input id="flug-preis" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="z. B. 780" className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Währung</label>
-            <select
+            <label htmlFor="flug-waehrung" className={labelClass}>Währung</label>
+            <select id="flug-waehrung"
               value={currency}
               onChange={(e) => setCurrency(e.target.value as Currency)}
               className={inputClass}

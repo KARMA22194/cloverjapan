@@ -360,10 +360,10 @@ export function ExpenseCalculator() {
 
           <div className="flex gap-2">
             <div className="w-32">
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor="ausgabe-betrag" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Betrag (¥)
               </label>
-              <input
+              <input id="ausgabe-betrag"
                 value={yenInput}
                 onChange={(e) => setYenInput(e.target.value)}
                 inputMode="decimal"
@@ -372,10 +372,10 @@ export function ExpenseCalculator() {
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor="ausgabe-bezeichnung" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                 Bezeichnung (optional)
               </label>
-              <input
+              <input id="ausgabe-bezeichnung"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="z. B. Ramen, Gunpla…"
@@ -412,10 +412,10 @@ export function ExpenseCalculator() {
           {members.length > 1 && (
             <div className="mt-2 flex items-end gap-3">
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                <label htmlFor="ausgabe-bezahlt-von" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
                   Bezahlt von
                 </label>
-                <select
+                <select id="ausgabe-bezahlt-von"
                   value={paidById}
                   onChange={(e) => setPaidById(e.target.value)}
                   className={inputClass}

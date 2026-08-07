@@ -125,10 +125,10 @@ export function BookingPlanner() {
         className="space-y-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
       >
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-titel" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Titel
           </label>
-          <input
+          <input id="buchung-titel"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="z. B. teamLab Planets"
@@ -137,10 +137,10 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-art" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Art
           </label>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className={inputClass}>
+          <select id="buchung-art" value={kind} onChange={(e) => setKind(e.target.value)} className={inputClass}>
             {KINDS.map((k) => (
               <option key={k.value} value={k.value}>
                 {k.emoji} {k.label}
@@ -151,24 +151,24 @@ export function BookingPlanner() {
 
         <div className="flex gap-2">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor="buchung-datum" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
               Datum
             </label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
+            <input id="buchung-datum" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
           </div>
           <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor="buchung-uhrzeit" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
               Uhrzeit
             </label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
+            <input id="buchung-uhrzeit" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-bestaetigungsnummer" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Bestätigungsnummer
           </label>
-          <input
+          <input id="buchung-bestaetigungsnummer"
             value={ref}
             onChange={(e) => setRef(e.target.value)}
             placeholder="z. B. ABC-123456"
@@ -177,10 +177,10 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-link" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Link (optional)
           </label>
-          <input
+          <input id="buchung-link"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://…"
@@ -189,10 +189,10 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-preis-fliesst-in-die-ausgaben" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Preis (¥, optional) — fließt in die Ausgaben
           </label>
-          <input
+          <input id="buchung-preis-fliesst-in-die-ausgaben"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             inputMode="decimal"
@@ -202,10 +202,10 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-notiz" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Notiz (optional)
           </label>
-          <textarea
+          <textarea id="buchung-notiz"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}

@@ -105,34 +105,34 @@ export function KofferManager() {
           🧳 Neuer Kofferanhänger
         </p>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-bezeichnung" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Bezeichnung
           </label>
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="z. B. Papas Koffer" className={inputClass} />
+          <input id="koffer-bezeichnung" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="z. B. Papas Koffer" className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-name" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Name (für den Finder sichtbar)
           </label>
-          <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="z. B. Steve" className={inputClass} />
+          <input id="koffer-name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="z. B. Steve" className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-benachrichtigungs-e-mail" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Benachrichtigungs-E-Mail (optional)
           </label>
-          <input value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} placeholder="leer = deine Konto-E-Mail" className={inputClass} />
+          <input id="koffer-benachrichtigungs-e-mail" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} placeholder="leer = deine Konto-E-Mail" className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-whatsapp-nummer" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             WhatsApp-Nummer (optional, für Finder-Knopf)
           </label>
-          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+49170…" className={inputClass} />
+          <input id="koffer-whatsapp-nummer" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+49170…" className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-direktkontakt-fuer-den-finder" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
             Direktkontakt für den Finder (optional, sichtbar)
           </label>
-          <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="E-Mail, Telefon oder Hotel" className={inputClass} />
+          <input id="koffer-direktkontakt-fuer-den-finder" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="E-Mail, Telefon oder Hotel" className={inputClass} />
         </div>
         <button
           type="submit"
