@@ -84,8 +84,9 @@ Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-6647
    404 auf `/_next/static/chunks/*.js` (als `text/plain`), **keine Hydration**
    (Buttons/Menüs tot). Neustart regeneriert den Dev-Build.
 2. **CSP erlaubt `eval` nur in der Entwicklung.** `next dev` braucht `'unsafe-eval'`
-   (React Fast Refresh/HMR) + `ws:`. In `next.config.ts` env-abhängig gelöst; Prod
-   bleibt streng. Fehlt es im Dev → EvalError, kein Client-JS.
+   (React Fast Refresh/HMR) + `ws:`. In **`src/lib/csp.ts`** env-abhängig gelöst
+   (erzeugt von `src/middleware.ts`); Prod bleibt streng (Nonce + `strict-dynamic`).
+   Fehlt es im Dev → EvalError, kein Client-JS.
 3. **Nach `prisma migrate`/`generate` den Dev-Server neu starten** (sonst alter
    Prisma-Client im Speicher → neue Modelle `undefined`).
 4. **Diagnose** am schnellsten per **headless Playwright** im Container
@@ -143,13 +144,19 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - **API-Kern** (`src/lib/api/`):
   - `http.ts` — `ApiError` + `handle()`-Wrapper (fängt ApiError/Zod/Prisma-Fehler,
     einheitliche Hülle `{ error: { message, details? } }`; P2002→409, P2025→404).
-  - `session.ts` — `requireUser()`/`requireAdmin()`. **`requireUser` liest bei jeder
-    Anfrage `active`/`role`/`emailVerified` frisch aus der DB** (Session-Revocation:
-    deaktivierte/unbestätigte Konten werden sofort abgewiesen, nicht erst nach Token-Ablauf).
+  - `session.ts` — `requireUser()`/`requireAdmin()`/**`requireTripUser()`**.
+    **`requireUser` liest bei jeder Anfrage `active`/`role`/`emailVerified`/`sessionVersion`
+    frisch aus der DB** (Session-Revocation: deaktivierte/unbestätigte Konten und per
+    Passwort-Reset entwertete Sitzungen werden sofort abgewiesen, nicht erst nach Token-Ablauf).
+    **`requireTripUser()` ist der Standard-Einstieg der Trip-Endpunkte** — es holt Nutzer und
+    `tripId` **parallel** (`Promise.all`) statt in zwei sequenziellen Neon-Roundtrips; im
+    SSR-Pfad macht `src/lib/auth-session.ts#requireSessionUser()` dasselbe für Server Components.
   - `schemas.ts` — **Zod = Single Source of Truth** für Request-Validierung UND OpenAPI.
   - `dto.ts` — Prisma → schlanke Response-DTOs (nie rohes Prisma; **kein** `passwordHash`).
   - `openapi.ts` — OpenAPI-3.1-Dokument (nur Session + Users registriert).
-  - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`). Nach Writes:
+  - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`). GETs auf dieselbe
+    URL werden zusammengefasst, **solange sie laufen** (kein Zeit-Cache — sonst bekäme ein
+    Reload direkt nach einem Write die alte Antwort). Nach Writes:
     **`router.refresh()`** rendert die SSR-Seite neu. Parst Antworten **tolerant** (nicht-JSON
     wie Vercels „An error occurred…"-Fehlerseite → verständliche Meldung statt `JSON.parse`-
     Crash). Fehlgeschlagene **Mutationen** lösen automatisch einen **Toast** aus (`@/lib/toast`
@@ -180,16 +187,34 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - **Rate-Limiting** (`src/lib/rate.ts` + `RateLimit`-Modell, Postgres-basiert,
   serverless-tauglich): Registrierung (5/h/IP), Login (**10/15 min/E-Mail UND 30/15 min/IP**
   — IP-Limit fängt E-Mail-Spraying ab), Einladungen (20/h), Passwort-forgot (5/h),
-  Flug-Lookup/-Live (30–60/h), Geocode-Übernahme (30/min), Konbini (20/h), Beleg-Scan (30/h),
-  Koffer-Fund (5/10 min pro Token & IP).
-- **Security-Header** (`next.config.ts`): CSP, HSTS, X-Frame-Options, nosniff,
-  Referrer-/Permissions-Policy. `script-src` bekommt `'unsafe-eval'`/`ws:` **nur im Dev**.
+  Flug-Lookup/-Live (30–60/h), Geocode-Übernahme (30/min), Geo-Suche (60/min), Routing (30/min),
+  **Zugverbindung/Google Directions (60/h — einziger wirklich abgerechneter Call)**,
+  Konbini (20/h), Beleg-Scan (30/h), Koffer-Fund (5/10 min pro Token & IP **plus** 20/h pro Token
+  ohne IP-Anteil). Der Zähler ist **atomar** (ein `INSERT … ON CONFLICT … RETURNING`), sonst
+  rutschten gleichzeitige Requests alle mit `count = 0` durch. `clientIp()` nimmt die IP nur aus
+  vertrauenswürdiger Quelle (Vercel-Header / `cf-connecting-ip` / `TRUSTED_PROXY_HOPS` von rechts) —
+  **nie** den ersten `X-Forwarded-For`-Eintrag, der ist frei fälschbar.
+- **Security-Header** (`next.config.ts`): HSTS, X-Frame-Options, nosniff,
+  Referrer-/Permissions-Policy.
   **`Permissions-Policy: geolocation=(self)`** — Standort ist freigegeben (Konbini „in meiner
   Nähe", Eki-Stamps, Koffer-Fund). ⚠️ War früher `geolocation=()` → hätte alle Standort-
-  Features geblockt. `img-src`/`connect-src` erlauben `https:` (RainViewer-Tiles, Overpass).
+  Features geblockt.
+- **CSP: nonce-basiert** — Regeln in `src/lib/csp.ts`, erzeugt pro Request in
+  `src/middleware.ts` (**nicht** in `next.config.ts`; ein statischer Header dort würde den
+  dynamischen überschreiben). Der Nonce geht in den *Request*-Header (dann hängt Next ihn
+  automatisch an seine RSC-Inline-Scripts) **und** in `x-nonce` fürs Theme-Script im
+  Root-Layout. `script-src 'self' 'nonce-…' 'strict-dynamic'`; `'unsafe-inline'`/`'unsafe-eval'`
+  und `ws:` **nur im Dev** (HMR). `img-src`/`connect-src` nennen nur die real vom Browser
+  kontaktierten Hosts (cartocdn, rainviewer) — nicht mehr pauschal `https:`.
+  `style-src 'unsafe-inline'` bleibt (Leaflet/Swagger setzen Styles per Attribut).
+  ⚠️ Der Middleware-Matcher schließt `api/` **mit Schrägstrich** aus — sonst fiele `/api-docs`
+  aus der CSP.
 - **SSRF-Schutz** (`src/lib/net.ts`, `safeFetch`): nutzergesteuerte Fetches
-  (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele + folgen
-  Redirects manuell.
+  (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele (inkl. IPv4-in-IPv6
+  in **Hex**-Schreibweise/NAT64) + nur Ports 80/443 + folgen Redirects manuell.
+  Bodys **immer** über `readTextLimited()` lesen — `(await res.text()).slice(…)` puffert erst
+  die ganze Antwort und lässt sich mit einem Endlos-Stream in den OOM treiben.
+  Restrisiko DNS-Rebinding bleibt (bräuchte IP-Pinning per undici-Dispatcher).
 - **XSS:** Leaflet-Popups/Tooltips als DOM-Element (`textContent`), nie HTML-String.
 - **Einmal-Token** (`Token`-Modell, `src/lib/services/tokens.ts`) für E-Mail-Verifikation
   und Passwort-Reset (atomar entwertet).
@@ -204,8 +229,11 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
 - `User.lastSeenAt` (`DateTime?`) — Presence: Heartbeat der offenen App (`POST /api/v1/presence`,
-  `PresenceHeartbeat` im `(app)`-Layout, alle 45 s bei sichtbarem/online Tab). Mitgliederliste
-  zeigt daraus „online" (< 2 min) / „zuletzt vor X" (grüner/grauer Punkt, Live-Polling 30 s).
+  `PresenceHeartbeat` im `(app)`-Layout, alle **2 min** bei sichtbarem/online Tab; **eine** Query
+  pro Ping, die Prüfungen stecken im `where` statt in einem zusätzlichen `requireUser`-SELECT).
+  ⚠️ Takt und Online-Schwelle gehören zusammen: Mitgliederliste zeigt „online" (< 5 min) /
+  „zuletzt vor X" (grüner/grauer Punkt, Live-Polling 30 s über den schlanken
+  `GET /api/v1/trip/presence` ohne Profilbilder). Kürzerer Takt hielte Neon dauerhaft wach.
   Zusätzlich `ConnectionStatus` in der TopNav = eigener Online/Offline-Indikator (`navigator.onLine`).
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
@@ -245,7 +273,9 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 - `/reiseplaner` — Karte, Route, Zugverbindungen, Konbini-Radar, Regenradar (s. u.)
 - `/fluege` — Flüge (Auto-Abruf/manuell, Live-Status, Sitzplätze), Preis → Ausgaben
 - `/geld` — Tab-Bereich: `ausgaben` · `abrechnung` · `zoll` · `wunschliste` (`GeldTabs.tsx`,
-  Deep-Link via `?tab=`)
+  Deep-Link via `?tab=`). Alle drei Tab-Bereiche nutzen **`TabPanel.tsx`**: ein Tab wird erst
+  beim ersten Öffnen gemountet und bleibt danach gemountet (inaktiv nur `hidden`) — sonst gingen
+  getippte Eingaben beim Umschalten verloren und jeder Wechsel lüde alle Daten neu.
 - `/programm` — Tab-Bereich: `ablauf` · `tagesplaner` · `buchungen` · `checkliste`
   (`ProgrammTabs.tsx`; **Ablauf** ist SSR und wird als vorgerenderter Server-Node in den
   Client-Tab gereicht)

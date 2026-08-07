@@ -5,10 +5,13 @@
 (3) externe Integrationen/SSRF/Header/Secrets, (4) DB- & Server-Performance, (5) Frontend/React.
 Funde, die von zwei Audits unabhängig bestätigt wurden, sind mit **✔✔** markiert.
 
-> **Update 2026-08-06:** Alle 5 **kritischen** (K1–K5) **und alle 9 hohen** (H1–H9) Befunde
-> sind behoben (Commits s. Git-Log). Migrationen `20260806120000_trip_stop_checklist_client_id`
-> (K5) und `20260806130000_expense_has_receipt` (H7) laufen beim Deploy automatisch mit.
-> Die 🟡/🟢-Backlogs sind noch offen.
+> **Update 2026-08-07:** **K1–K5, H1–H9 und alle 25 mittleren Befunde (M1–M25) sind behoben**
+> (Commits s. Git-Log). Miterledigt aus dem 🟢-Block: N7, N10, N13–N16, N18, N19.
+> Migrationen `20260806120000_trip_stop_checklist_client_id` (K5) und
+> `20260806130000_expense_has_receipt` (H7) laufen beim Deploy automatisch mit.
+>
+> Offen bleiben die 🟢-Kleinigkeiten **N1–N6, N8, N9, N11, N12, N20** sowie die
+> Performance-Themen **P9–P15** (überwiegend „bei Wachstum").
 
 Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachstum)` erst bei mehr Daten/Nutzern
 
@@ -21,6 +24,9 @@ Legende: `[ ]` offen · `[x]` behoben · `(jetzt)` heute spürbar · `(bei Wachs
 - [🟡 Mittel](#-mittel)
 - [🟢 Niedrig / Kleinkram](#-niedrig--kleinkram)
 - [✅ Was gut gelöst ist](#-was-gut-gelöst-ist)
+- [Umsetzungsnotizen](#umsetzungsnotizen-wo-die-lösung-von-der-empfehlung-abweicht)
+- [Verifikation](#verifikation)
+- [Was noch offen ist](#was-noch-offen-ist)
 - [Empfohlene Reihenfolge](#empfohlene-reihenfolge)
 
 ---
@@ -283,16 +289,16 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Auth / Session
 
-- [ ] **M1 · Login mit großgeschriebener E-Mail unmöglich** — `src/auth.ts:44`
+- [x] **M1 · Login mit großgeschriebener E-Mail unmöglich** — `src/auth.ts:44`
   `findUnique({ where: { email } })` nutzt die Roh-Eingabe, alle Schreibpfade speichern lowercase
   (`trip.ts:246`, `users.ts:30`). Postgres vergleicht case-sensitiv → wer sich als `Max@Firma.de` registriert und
   so einloggt, bekommt „E-Mail oder Passwort ist falsch" und ist **faktisch ausgesperrt** (Reset hilft nicht,
   `/forgot` normalisiert und mailt an die lowercase-Adresse). Fix: `email: email.toLowerCase()`.
-- [ ] **M2 · Passwort-Reset entwertet bestehende Sessions nicht** — `password/reset/route.ts:18-22`,
+- [x] **M2 · Passwort-Reset entwertet bestehende Sessions nicht** — `password/reset/route.ts:18-22`,
   `users.ts:49-52`. JWTs tragen keine Version → nach Kontoübernahme bleibt die Angreifer-Session trotz
   Passwortwechsel bis zu 12 h gültig. Fix: `User.sessionVersion Int @default(0)`, in `auth.config.ts:48-54` ins
   Token, Vergleich in `session.ts:27-32` + neuem `requireSessionUser()`; `setUserPassword` erhöht sie mit.
-- [ ] **M3 · Owner-Lockout über Einladungs-Annahme** — `trip/invitations/[id]/accept/route.ts:13-23` →
+- [x] **M3 · Owner-Lockout über Einladungs-Annahme** — `trip/invitations/[id]/accept/route.ts:13-23` →
   `acceptIncomingInvitation` (`trip.ts:140-169`) hängt die Mitgliedschaft ohne Owner-Prüfung um, während
   `removeFromTrip` genau das blockt (`owner_cannot_leave`, `trip.ts:362`). Folge: Reise mit `ownerId`, der nicht
   mehr Mitglied ist → für alle übrigen Mitglieder liefert `setMemberManage`/`removeFromTrip` „forbidden",
@@ -301,40 +307,40 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Externe Integrationen / Netz
 
-- [ ] **M4 · `notifyEmail` frei wählbar → SMTP-Relay über den öffentlichen Fund-Endpunkt** —
+- [x] **M4 · `notifyEmail` frei wählbar → SMTP-Relay über den öffentlichen Fund-Endpunkt** —
   `luggage/schema.ts:9`, `luggage/route.ts:26`, `luggageService.ts:46-56`, `mailer.ts:117-120`.
   `label` (80 Zeichen, keine Whitelist) landet in Subject **und** Body → Mail mit angreiferkontrolliertem Inhalt
   von der eigenen SMTP-Domain an ein beliebiges Ziel, ausgelöst über den unauthentifizierten
   `POST /api/v1/luggage/found/<token>`. Fix: `notifyEmail` auf verifizierte Adressen der Reise-Mitglieder
   beschränken (Default `user.email`); `label` auf `\r\n`-freie, druckbare Zeichen.
-- [ ] **M5 · Discord-Webhook: `@everyone`-Injection** — `luggageService.ts:61-68`. `label`/`ownerName` gehen roh in
+- [x] **M5 · Discord-Webhook: `@everyone`-Injection** — `luggageService.ts:61-68`. `label`/`ownerName` gehen roh in
   `content`, kein `allowed_mentions`. Fix: `allowed_mentions: { parse: [] }`, Inhalt in `embeds[].fields`,
   Markdown escapen.
-- [ ] **M6 · Web-Push-Abos ohne Ownership-Prüfung** — `push.ts:33-43`, `push/route.ts:16-30`.
+- [x] **M6 · Web-Push-Abos ohne Ownership-Prüfung** — `push.ts:33-43`, `push/route.ts:16-30`.
   `upsert({ where: { endpoint } })` schreibt im Update-Zweig `userId` neu → wer einen Endpoint-String kennt, biegt
   das Abo auf sein Konto um; `DELETE ?endpoint=` löscht per `deleteMany({ where: { endpoint } })` **ohne** `userId`
   → jeder eingeloggte Nutzer kann fremde Abos abschalten. Fix: `userId` in beide `where`-Klauseln.
-- [ ] **M7 · SSRF-Restrisiken in `safeFetch`** — `src/lib/net.ts:41,49-93`.
+- [x] **M7 · SSRF-Restrisiken in `safeFetch`** — `src/lib/net.ts:41,49-93`.
   (a) DNS-Rebinding: die Prüfung löst auf, `fetch` löst **erneut** auf (im Kommentar `:16-17` als offen benannt);
   (b) kein Port-Filter → Server als Port-Scanner/Relay; (c) `ipv6IsPrivate` erkennt IPv4-in-IPv6 nur in
   Punktnotation, NAT64-Hexform (`64:ff9b::7f00:1`) fällt durch. Fix: auf die geprüfte IP verbinden
   (undici-`Agent` mit eigenem `connect`/`lookup`), Ports auf 80/443, Hex-Varianten ergänzen.
-- [ ] **M8 · `res.text()` puffert die ganze Antwort, kürzt erst danach → OOM** —
+- [x] **M8 · `res.text()` puffert die ganze Antwort, kürzt erst danach → OOM** —
   `geo/resolve/route.ts:141,210` (`(await res.text()).slice(0, 200000)`), obwohl `net.ts:14` ein Größenlimit an der
   Aufrufstelle verspricht. `q=https://attacker.tld/huge` (öffentliche IP, passiert die SSRF-Prüfung) streamt GB in
   den Heap. Fix: `res.body.getReader()` + Byte-Zähler + `reader.cancel()`, sinnvoll als `maxBytes`-Option in
   `safeFetch`.
-- [ ] **M9 · Maps-Link-Erkennung prüft die ganze URL statt den Host** — `geo/resolve/route.ts:83`.
+- [x] **M9 · Maps-Link-Erkennung prüft die ganze URL statt den Host** — `geo/resolve/route.ts:83`.
   Das Regex läuft gegen `url`, nicht gegen den in `:79` ermittelten `host` → `https://attacker.tld/x?ref=google.com/maps`
   gilt als vertrauenswürdiger Maps-Link und geht in den Body-Auswertungspfad. Der Instagram-Check (`:94`) macht es
   richtig. Fix: gegen `host` prüfen, `/maps` separat über `new URL(url).pathname`.
-- [ ] **M10 · Nominatim/OSRM ohne Rate-Limit, `geo/route` ohne Punkt-Obergrenze** —
+- [x] **M10 · Nominatim/OSRM ohne Rate-Limit, `geo/route` ohne Punkt-Obergrenze** —
   `geo/search/route.ts:19-36`, `geo/route/route.ts:17-42`, `geo/weather/route.ts:9-26`.
   Wechselnde `q`-Werte umgehen den Cache → OSM kann die Produktions-IP sperren und legt damit **alle**
   Geo-Features lahm. `geo/route` prüft nur `points >= 2`, ohne Obergrenze (OSRM-Trip ist quadratisch).
   Fix: Limits (`geo-search` 60/min, `geo-route` 30/min), `points` auf ~25 begrenzen bzw. ausdünnen wie
   `konbini/route.ts:96-99`.
-- [ ] **M11 · CSP entwertet sich selbst** — `next.config.ts:15-29`. `script-src 'unsafe-inline'` gilt auch in
+- [x] **M11 · CSP entwertet sich selbst** — `next.config.ts:15-29`. `script-src 'unsafe-inline'` gilt auch in
   Produktion → injizierte Skripte/Handler laufen; `connect-src https:` und `img-src https:` erlauben Exfiltration
   an jeden HTTPS-Host. Es bleibt nur React-Escaping als einzige Schicht. Fix: Nonce + `'strict-dynamic'`
   (Theme-Inline-Script bekommt den Nonce aus der Middleware), `connect-src`/`img-src` auf die realen Hosts
@@ -342,68 +348,68 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Autorisierung / Validierung
 
-- [ ] **M12 · `paidById`/`fromId`/`toId` nicht gegen die Mitgliedschaft validiert** —
+- [x] **M12 · `paidById`/`fromId`/`toId` nicht gegen die Mitgliedschaft validiert** —
   `expenses/route.ts:14,56`, `settlements/route.ts:10-11` (im Schema ohne FK, `schema.prisma:292-293`).
   Fremde User-ID → Ausgabe wird einem Nicht-Mitglied zugeschrieben und verzerrt die Abrechnung; Müll-ID löst
   Prisma **P2003** aus, das `handle()` (`http.ts:71-77`, nur P2002/P2025) nicht mappt → **500** statt 400.
   Fix: gegen `getTripMembers(tripId)` prüfen, P2003 auf 400 abbilden.
-- [ ] **M13 · Kalendarisch unmögliche Daten → 500** — `src/lib/api/dates.ts:8`, `schemas.ts:15-18` prüfen nur
+- [x] **M13 · Kalendarisch unmögliche Daten → 500** — `src/lib/api/dates.ts:8`, `schemas.ts:15-18` prüfen nur
   `/^\d{4}-\d{2}-\d{2}$/`. `{"date":"2026-13-45"}` → `parseDateParam` (`time.ts:24-27`) wirft nackt → 500;
   bei `bookings`/`trip-stops`/`trip-hotels` (String-Spalten) wird Müll **still persistiert** und zerstört die
   Timeline-Sortierung. Fix: `.refine()` mit Round-Trip über `Date.UTC`, zentral.
-- [ ] **M14 · `DELETE /api/v1/expenses` löscht alle Ausgaben der Reise — ohne Recht, ohne Audit-Eintrag** —
+- [x] **M14 · `DELETE /api/v1/expenses` löscht alle Ausgaben der Reise — ohne Recht, ohne Audit-Eintrag** —
   `expenses/route.ts:70-76` → `clearExpenses` (`expensesService.ts:47-50`). Kein `logActivity`, im Feed unsichtbar.
   Analog `PUT /trip-stops {"stops":[]}` und `PUT /checklist {"items":[]}`. Fix: destruktive Bulk-Ops auf
   Owner/`canManage`, in jedem Fall `logActivity`.
 
 ### Frontend / Performance
 
-- [ ] **M15 · localStorage nicht an den Nutzer gebunden → Cross-User-Leak** —
+- [x] **M15 · localStorage nicht an den Nutzer gebunden → Cross-User-Leak** —
   `TripPlanner.tsx:101/481/507` (`reiseplaner:import` = aufgelöste Ortsliste **mit Koordinaten und Notizen**),
   `ExpenseCalculator.tsx:162-175/595`, `TripDashboard.tsx:72` (`japan-budget`, `japan-cat-budgets`).
   Der SW-`DATA_CACHE` ist per `/__owner` an den Nutzer gebunden und `TopNav.tsx:83-89` meldet den Logout —
   für localStorage passiert nichts. **Repro:** A importiert eine Liste, loggt aus; B loggt im selben Browser ein →
   A's Vorschauliste steht da und lässt sich in B's Reise übernehmen. Fix: Keys mit User-ID suffixen oder im
   `LogoutForm`-`onSubmit` löschen.
-- [ ] **M16 · `/api/v1/me` inkl. Base64-Bild bei jeder Navigation** — `TopNav.tsx:44-50` (`}, [pathname])`).
+- [x] **M16 · `/api/v1/me` inkl. Base64-Bild bei jeder Navigation** — `TopNav.tsx:44-50` (`}, [pathname])`).
   Pro Seitenwechsel: 2 DB-Queries (`requireUser` **und** `getUserImage`) + bis 300 KB Data-URL, nur für Name und
   Avatar; in Prod kommt ein zweiter Call aus `PwaRegister.tsx:36` dazu (braucht nur `me.id`).
   Fix: `(app)/layout.tsx:13` hat die Session schon — dort einmalig laden und `userName`/`image`/`userId` als Props
   durchgeben.
-- [ ] **M17 · Zwei sequenzielle Neon-Roundtrips vor jedem Request** — `session.ts:27` + `trip.ts:16`, in
+- [x] **M17 · Zwei sequenzielle Neon-Roundtrips vor jedem Request** — `session.ts:27` + `trip.ts:16`, in
   **26 Route-Dateien** als `requireUser()` → `getActiveTripId(user.id)`. Beide brauchen nur `session.user.id`
   (aus dem JWT), sind also unabhängig. Fix: `requireTripUser()` mit `Promise.all` (Fallback auf
   `getActiveTripId`, wenn `member === null`).
-- [ ] **M18 · Presence-Heartbeat hält Neon dauerhaft wach** — `PresenceHeartbeat.tsx:6,26`, `presence/route.ts:13`,
+- [x] **M18 · Presence-Heartbeat hält Neon dauerhaft wach** — `PresenceHeartbeat.tsx:6,26`, `presence/route.ts:13`,
   `trip.ts:70`. 80 Requests/h pro Tab × 2 Queries = 160 Queries/h/Nutzer; bei 6 Leuten ~960 Queries/h.
   Wichtiger: Neon suspendiert nach 5 min Idle — ein 45-s-Takt verhindert das, der Free-Tier (~191 h/Monat) ist
   allein dadurch aufgebraucht. Fix: eine Query (`user.updateMany({ where: { id, active: true }, … })`) statt
   `requireUser` + Update, Intervall auf 2–3 min, „online"-Schwelle anheben.
-- [ ] **M19 · Wetter-Sidebar = 5 Requests pro Seitenaufruf** — `WeatherWidget.tsx:19-24` (`JP_CITIES` = 5),
+- [x] **M19 · Wetter-Sidebar = 5 Requests pro Seitenaufruf** — `WeatherWidget.tsx:19-24` (`JP_CITIES` = 5),
   `geo/weather/route.ts:26`, `fx/rate/route.ts:25`. Der externe Call ist per `revalidate` gecacht, die **Function
   läuft aber trotzdem** — 5 Invocations + 5 `requireUser`-Queries für Daten, die 15 min stabil sind.
   Fix: `?cities=all` (ein Call) + `Cache-Control: private, max-age=900` bzw. `3600` auf der Antwort.
-- [ ] **M20 · `/start` holt `/api/v1/flights` zweimal parallel** — `FlightDayStatus.tsx:32` +
+- [x] **M20 · `/start` holt `/api/v1/flights` zweimal parallel** — `FlightDayStatus.tsx:32` +
   `TripDashboard.tsx:64`; dasselbe Muster in `ReiseUebersicht.tsx:63-67` (5 Einzelaufrufe).
   Fix: einmal im Server-Layout laden und als Prop weitergeben, oder GET-Promise-Dedupe in
   `src/lib/api/client.ts` (gleiche URL innerhalb ~5 s teilt das Promise).
-- [ ] **M21 · Tab-Wechsel in `/geld` und `/info` verwirft Formularzustand** — `GeldTabs.tsx:60-63`,
+- [x] **M21 · Tab-Wechsel in `/geld` und `/info` verwirft Formularzustand** — `GeldTabs.tsx:60-63`,
   `InfoTabs.tsx:65-69` (`{active === "x" && <X/>}` → Unmount). **Repro:** Betrag + Bezeichnung eintippen,
   auf „Zoll" und zurück → Formular leer, `GET /expenses` + `GET /fx/rate` laufen erneut. Der Reiseplaner löst
   genau das richtig (gemountet + `hidden`). Fix: gemountet lassen, per `hidden` umschalten.
-- [ ] **M22 · `loadWeather` feuert bis zu 200 Requests parallel** — `TripPlanner.tsx:958-980`
+- [x] **M22 · `loadWeather` feuert bis zu 200 Requests parallel** — `TripPlanner.tsx:958-980`
   (`Promise.all(stops.map(...))`, kein Limit, kein Abort, auch inaktive Stopps). Fix: nur aktive Stopps,
   Parallelität ~5, AbortController im Cleanup.
-- [ ] **M23 · `importList` läuft nach dem Verlassen der Seite weiter** — `TripPlanner.tsx:1057-1103`
+- [x] **M23 · `importList` läuft nach dem Verlassen der Seite weiter** — `TripPlanner.tsx:1057-1103`
   (sequenzielle Schleife mit `sleep(1100)`, kein Abbruch). **Repro:** 60 Zeilen, „Auflösen", nach 3 s wegnavigieren
   → die Schleife läuft ~63 s weiter, feuert `geo/resolve` und setzt State auf einer unmounteten Komponente; die
   Treffer landen nirgends. Fix: Abbruch-Flag im Ref, im Cleanup setzen, nach jedem `await` prüfen.
-- [ ] **M24 · „Heute" im Tagesplaner ist nachts der Vortag** — `TagesPlaner.tsx:22-24`, `reminders.ts:54`
+- [x] **M24 · „Heute" im Tagesplaner ist nachts der Vortag** — `TagesPlaner.tsx:22-24`, `reminders.ts:54`
   (`new Date().toISOString().slice(0,10)` = UTC). **Repro:** 01:30 Berlin (UTC+2) → Vortag wird angezeigt, „Heute"
   ändert nichts; Folgefehler: `scheduleReminders` verwirft alle Erinnerungen (`dateISO !== todayISO`).
   `TripDashboard.tsx:30-33` und `FlightPlanner.tsx:10-13` machen es korrekt, `src/lib/time.ts#todayParam`
   existiert bereits. Fix: den Helper verwenden.
-- [ ] **M25 · `Booking.url` ohne Schema-Prüfung** — `bookings/schema.ts:17` (`z.string().max(500)`) +
+- [x] **M25 · `Booking.url` ohne Schema-Prüfung** — `bookings/schema.ts:17` (`z.string().max(500)`) +
   `BookingPlanner.tsx:265-274` (`href={b.url}`). React 19 rendert `javascript:` nicht mehr (kein aktives XSS),
   aber „www.klook.com/x" wird ein **relativer** Link → `/programm/www.klook.com/x`, für alle Mitglieder kaputt.
   Fix: `^https?://` im Zod-Schema, fehlendes `https://` im Client ergänzen.
@@ -441,7 +447,7 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 ### Integrationen / Public
 
-- [ ] **N7 · Koffer-Fund verrät den Konfigurationszustand des Owners** — `luggage/found/[token]/route.ts:24,32`.
+- [x] **N7 · Koffer-Fund verrät den Konfigurationszustand des Owners** — `luggage/found/[token]/route.ts:24,32`.
   `{ notified: sent.email || sent.discord }` sagt dem anonymen Finder, ob überhaupt eine Benachrichtigung
   hinterlegt ist — genau das, was der Kommentar in `:31` vermeiden will. Fix: konstant `{ ok: true }` +
   `enforceRateLimit(\`luggage-found:${token}\`, 20, 3600_000)` **ohne** IP-Anteil.
@@ -453,7 +459,7 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   Ohne Key oder ohne `q` antwortet die Route **vor** `requireUser()` mit einem Redirect → unauthentifizierter
   Redirector (kein Open Redirect, `fallbackUrl:22-27` nagelt das Ziel fest, aber als Traffic-Relay nutzbar).
   Fix: `requireUser()` an den Anfang.
-- [ ] **N10 · `Infinity` passiert die Koordinatenprüfung** — `geo/konbini/route.ts:92-107`, `geo/route/route.ts:28`,
+- [x] **N10 · `Infinity` passiert die Koordinatenprüfung** — `geo/konbini/route.ts:92-107`, `geo/route/route.ts:28`,
   `geo/transit/route.ts:44`. `Number("Infinity")` ist nicht `NaN` → `around:120,Infinity,Infinity` in der
   Overpass-QL; kein Injection-Vektor, aber alle drei Spiegel laufen je 12 s ins Timeout und reißen `maxDuration = 30`.
   Fix: `Number.isFinite` + Bereichsprüfung, Spiegel-Timeout auf ~8 s.
@@ -468,24 +474,24 @@ nach `pushConfigured()` lazy importieren (siehe P10).
   `BookingPlanner.tsx:128-205`, `KofferManager.tsx:104-128`, `TripPlanner.tsx:1424`,
   `ExpenseCalculator.tsx:355,367,407`. Klick aufs Label fokussiert nichts, Screenreader liest ein unbenanntes Feld.
   Richtig gemacht in `TripPlanner.tsx:1642/1649`, `ExpenseCalculator.tsx:586/590`.
-- [ ] **N13 · „Alle löschen" ohne Rückfrage, wirkt teamweit und unwiderruflich** — `TripPlanner.tsx:1756-1762`
+- [x] **N13 · „Alle löschen" ohne Rückfrage, wirkt teamweit und unwiderruflich** — `TripPlanner.tsx:1756-1762`
   → `clearAll()` (`:1176`) → `persistStops([])`; `ExpenseCalculator.tsx:467-473` → `DELETE /api/v1/expenses`.
   Sitzt direkt neben „🌦 Wetter". Fix: Bestätigung oder Undo-Toast.
-- [ ] **N14 · `LogoutForm` im Render-Body definiert** — `TopNav.tsx:79-96`. Elementtyp pro Render neu → React
+- [x] **N14 · `LogoutForm` im Render-Body definiert** — `TopNav.tsx:79-96`. Elementtyp pro Render neu → React
   verwirft das `<form>`-DOM und baut es neu. Fix: auf Modul-Ebene ziehen.
-- [ ] **N15 · Uhr tickt doppelt, unsichtbar und im Hintergrund weiter** — `TopNav.tsx:175,340`,
+- [x] **N15 · Uhr tickt doppelt, unsichtbar und im Hintergrund weiter** — `TopNav.tsx:175,340`,
   `JapanClock.tsx:24-28/37-41`. Auf Mobil läuft die per CSS versteckte Desktop-Instanz im 1-s-Takt und rechnet je
   Tick zweimal `toLocaleString`, obwohl `compact` nur HH:MM zeigt. Fix: `diffHours` memoisieren, 1 s nur bei
   Sekundenanzeige, bei `visibilityState === "hidden"` pausieren.
-- [ ] **N16 · Alle QR-Codes werden bei jeder Änderung neu erzeugt** — `KofferManager.tsx:39-56` (`}, [tags]`).
+- [x] **N16 · Alle QR-Codes werden bei jeder Änderung neu erzeugt** — `KofferManager.tsx:39-56` (`}, [tags]`).
   6. Anhänger anlegen → alle 6 × 512 px neu, Bilder flackern auf den Pulse-Platzhalter. Fix: nur fehlende erzeugen
   und in den State mergen.
 - [ ] **N17 · Ein fehlgeschlagener Städte-Request blendet das ganze Wetter-Widget aus** —
   `WeatherWidget.tsx:18-31` (`Promise.all` + `.catch(() => setError(true))`), liegt im `(app)`-Layout.
   Fix: `Promise.allSettled`.
-- [ ] **N18 · Import-Zwischenablage wird pro Tastendruck serialisiert** — `TripPlanner.tsx:504-514`
+- [x] **N18 · Import-Zwischenablage wird pro Tastendruck serialisiert** — `TripPlanner.tsx:504-514`
   (`JSON.stringify` über 200 Kandidaten + Text bei jedem Zeichen). Fix: 300–500 ms entprellen.
-- [ ] **N19 · Irreführender Hinweistext** — `TripPlanner.tsx:2144-2146`: „Orte werden lokal in diesem Browser
+- [x] **N19 · Irreführender Hinweistext** — `TripPlanner.tsx:2144-2146`: „Orte werden lokal in diesem Browser
   gespeichert" — sie liegen in der DB und sind mit dem **gesamten Team** geteilt. Für eine Kollaborations-App eine
   falsche Datenschutzaussage.
 
@@ -501,8 +507,11 @@ nach `pushConfigured()` lazy importieren (siehe P10).
 
 - [ ] **P9 · `/programm` rendert die Ablauf-Timeline immer** — `programm/page.tsx:25` →
   `AblaufTimeline.tsx:61-67`. Der SSR-Node wird als Prop übergeben, also auch bei `?tab=tagesplaner` berechnet:
-  `getActiveTripId` + 4 parallele Queries umsonst. Fix: `<Suspense>`-Insel/eigene RSC-Route, die erst beim
-  Aktivieren rendert.
+  `getActiveTripId` + 4 parallele Queries umsonst.
+  **Bewusst offen gelassen:** die naheliegende Lösung (Tabs als echte Navigation, damit der Server nur den
+  aktiven Tab rendert) würde M21 zurückdrehen — der Client-Zustand der übrigen Tabs ginge bei jedem Wechsel
+  verloren. Vier parallele Queries wiegen das nicht auf. Sinnvoll erst, wenn die Timeline teuer wird; dann
+  als eigene RSC-Route mit `<Suspense>`.
 - [ ] **P10 · Cold-Start: `web-push`/`nodemailer` statisch in allen Mutations-Bundles; kein Neon-Adapter**
   *(bei Wachstum)* — `push.ts:1` → über `activityService.ts:2` in **jeder** Create-Route; `schema.prisma:4` ohne
   `driverAdapters`. Fix: `const webpush = (await import("web-push")).default` erst nach `pushConfigured()`;
@@ -597,26 +606,52 @@ Damit beim Aufräumen nichts kaputtgeht, was bewusst so gebaut wurde:
 
 ---
 
-## Empfohlene Reihenfolge
+## Umsetzungsnotizen (wo die Lösung von der Empfehlung abweicht)
 
-**Runde 1 — kleine, isolierte Patches mit großer Wirkung**
-1. K1 (`inviteUrl`/`token` nur für Verwalter) · K2 (`canManageMembers()` in POST + Revoke) · K3 (`verifyUrl` hinter
-   `NODE_ENV`) — je wenige Zeilen.
-2. M1 (`email.toLowerCase()` in `auth.ts:44`) — Einzeiler, sperrt aktuell echte Nutzer aus.
-3. H7 + H8 (`select` ohne `receipt`, Presence-Endpunkt ohne `image`) — sofort spürbar, kein Schema-Umbau nötig.
+- **M21** — statt „alle Tabs gemountet lassen" ein **lazy mount**: ein Tab wird erst beim ersten
+  Öffnen gemountet und bleibt es danach (`src/components/TabPanel.tsx`). Sofortiges Mounten aller
+  Tabs hätte beim Seitenaufruf die Requests jedes Bereichs ausgelöst — auch für Tabs, die niemand
+  anfasst.
+- **M20** — der GET-Dedupe im api-Client (`src/lib/api/client.ts`) fasst **nur laufende** Anfragen
+  zusammen, ohne Zeitfenster. Ein Zeit-Cache (auch 1–2 s) hätte einer Komponente, die direkt nach
+  einem Write neu lädt, die alte Antwort geliefert.
+- **M15** — zusätzlich zum Logout-Cleanup ein Besitzer-Marker (`syncStorageOwner`), weil ein
+  Nutzerwechsel nicht immer über „Abmelden" läuft. Gleiches Prinzip wie der `/__owner`-Marker des
+  Service-Worker-Caches.
+- **M18** — Heartbeat-Takt 45 s → 2 min **und** die Online-Schwelle in `TripMembers` 2 min → 5 min;
+  beides gehört zusammen, sonst erschiene jeder als offline, während die App offen ist.
+- **M11** — die CSP zog von `next.config.ts` in die Middleware, weil ein Nonce requestabhängig ist.
+  Nebenwirkung: der Middleware-Matcher musste von `api` auf `api/` präzisiert werden, sonst wäre
+  `/api-docs` aus der CSP gefallen. `style-src 'unsafe-inline'` bleibt (Leaflet/Swagger setzen
+  Styles per Attribut) — ohne Code-Ausführung ist das das deutlich kleinere Übel.
+- **M7** — DNS-Rebinding bleibt als Restrisiko offen; ein Pinning der geprüften IP beim Connect
+  bräuchte einen eigenen undici-Dispatcher. Umgesetzt sind Port-Whitelist (80/443) und die
+  NAT64-/Hex-Varianten in der IPv6-Prüfung.
 
-**Runde 2 — Struktur**
-4. K4 (`requireSessionUser()` für den SSR-Pfad) · M2 (`sessionVersion`).
-5. H1 + H2 (`clientIp()` + atomarer Zähler) — bis dahin sind alle IP-Limits Deko.
-6. H3 (Rate-Limit `geo/transit`) · M10 (Limits Nominatim/OSRM).
+---
 
-**Runde 3 — Frontend**
-7. H4 (Marker-Effekt entkoppeln) · H5 (Timer-Cleanup) · H6 (Visibility-Gate) · M21 (Tabs gemountet lassen) ·
-   M24 (`todayParam`).
+## Verifikation
 
-**Runde 4 — Schema/Migration (Migration von Hand schreiben!)**
-8. K5 (`cuid()` + `clientId`) · H7 sauber (`ExpenseReceipt`-Tabelle) · P15.
+Nach jedem Batch: `npm run build` im Container grün, danach `docker compose restart app`.
+Zusätzlich ein Durchlauf mit headless Chromium im Container:
 
-> Nach jeder Runde: `docker compose run --rm app npm run build` grün halten, **danach
-> `docker compose restart app`** (Prod-Build überschreibt den geteilten `.next`-Ordner), und den betroffenen Flow
-> real durchspielen.
+- **Funktional:** Login → `/start`, dann `/reiseplaner`, `/programm`, `/info`, `/geld`, `/fluege`,
+  `/mitglieder` — keine JS-Fehler; Tab-Wechsel in `/geld` behält getippte Eingaben (M21);
+  `GET /api/v1/me` taucht im Netzwerk-Log gar nicht mehr auf (M16).
+- **CSP gegen einen echten Prod-Build** (`next start`, `NODE_ENV=production`): **0 Verstöße**,
+  Hydration läuft, Leaflet-Kacheln laden, Swagger UI und die öffentliche Kofferfinder-Seite
+  funktionieren unverändert.
+- `Cache-Control` auf `fx/rate` (`max-age=3600`) und `geo/weather` (`max-age=900`) per Request geprüft.
+
+---
+
+## Was noch offen ist
+
+**🟢 Kleinigkeiten:** N1–N6 (Passkey-Härtung, Enumeration, `/verify` per GET, `startsWith`-Präfixe),
+N8 (`noindex` für `/k/`), N9 (`geo/place-link` prüft Session spät), N11 (Beleg-Scan: MIME-Whitelist,
+5-MB-Grenze), N12 (`htmlFor` an ~35 Feldern), N20 (Feldlängen/Rate-Limits).
+
+**Performance (überwiegend „bei Wachstum"):** P9 (s. o., bewusst), P10 (`web-push` lazy laden,
+Neon-Adapter), P11 (Cron räumt `RateLimit`/`Token` auf), P12 (Composite-Indizes), P13 (`position`
+per `count()`), P14 (PUT-Replace liest außerhalb der Transaktion — Korrektheit, lohnt zeitnah),
+P15 (Schema-Datentypen: Datums-Strings, Enums, Data-URLs auslagern).
