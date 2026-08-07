@@ -44,6 +44,22 @@ export async function getTripMembers(tripId: string) {
   });
 }
 
+/**
+ * Sind alle `userIds` Mitglieder dieser Reise?
+ *
+ * Für Felder, die auf einen Menschen zeigen (Zahler einer Ausgabe, Von/An einer
+ * Ausgleichszahlung). Ohne diese Prüfung ließen sich fremde User-Ids eintragen, die
+ * dann die Abrechnung verzerren — und unbekannte Ids liefen in einen Prisma-FK-Fehler.
+ */
+export async function areTripMembers(tripId: string, userIds: string[]): Promise<boolean> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return true;
+  const count = await db.tripMember.count({
+    where: { tripId, userId: { in: unique } },
+  });
+  return count === unique.length;
+}
+
 /** Owner-User-Id der Reise (Ersteller) — null bei verwaisten (leeren) Reisen. */
 export async function getTripOwnerId(tripId: string): Promise<string | null> {
   const trip = await db.trip.findUnique({ where: { id: tripId }, select: { ownerId: true } });

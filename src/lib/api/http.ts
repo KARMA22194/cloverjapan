@@ -75,6 +75,11 @@ export async function handle(fn: () => Promise<NextResponse>): Promise<NextRespo
     if (prismaErrorCode(err) === "P2025") {
       return fail(404, "Nicht gefunden.");
     }
+    // Verletzter Fremdschlüssel (z. B. unbekannte User-Id als Zahler) — das ist eine
+    // fehlerhafte Eingabe, kein Serverfehler; ohne diesen Zweig gäbe es dafür eine 500.
+    if (prismaErrorCode(err) === "P2003") {
+      return fail(400, "Verweis auf einen unbekannten Datensatz.");
+    }
     console.error("Unhandled API error:", err);
     return fail(500, "Interner Serverfehler.");
   }

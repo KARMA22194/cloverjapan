@@ -29,8 +29,27 @@ export interface WebPushSub {
   keys: { p256dh: string; auth: string };
 }
 
-/** Abo eines Geräts speichern (idempotent über den unique endpoint). */
+/**
+ * Abo eines Geräts speichern (idempotent über den unique endpoint).
+ *
+ * Der Endpoint identifiziert ein **Gerät**, nicht den Nutzer: gehört er bereits einem
+ * anderen Konto, wird er neu zugeordnet (Gerätewechsel/Nutzerwechsel am selben Browser)
+ * — aber nur, indem der alte Datensatz gelöscht und ein neuer angelegt wird, damit
+ * keine fremden Schlüssel stehen bleiben. Ein blindes `update` mit fremdem `userId`
+ * ließe sich sonst dazu missbrauchen, ein fremdes Gerät auf das eigene Konto umzubiegen
+ * und dessen Benachrichtigungen mitzulesen — deshalb zuerst die Besitzverhältnisse prüfen.
+ */
 export async function savePushSubscription(userId: string, sub: WebPushSub): Promise<void> {
+  const existing = await db.pushSubscription.findUnique({
+    where: { endpoint: sub.endpoint },
+    select: { userId: true },
+  });
+
+  if (existing && existing.userId !== userId) {
+    // Fremdes Abo: alten Datensatz verwerfen statt ihn zu übernehmen.
+    await db.pushSubscription.delete({ where: { endpoint: sub.endpoint } }).catch(() => {});
+  }
+
   await db.pushSubscription.upsert({
     where: { endpoint: sub.endpoint },
     create: { userId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
@@ -38,9 +57,13 @@ export async function savePushSubscription(userId: string, sub: WebPushSub): Pro
   });
 }
 
-/** Abo eines Geräts löschen (beim Abmelden der Benachrichtigungen). */
-export async function deletePushSubscription(endpoint: string): Promise<void> {
-  await db.pushSubscription.deleteMany({ where: { endpoint } });
+/**
+ * Abo eines Geräts löschen (beim Abmelden der Benachrichtigungen).
+ * **Nur eigene** Abos — sonst könnte jeder eingeloggte Nutzer mit einem bekannten
+ * Endpoint fremde Geräte stummschalten.
+ */
+export async function deletePushSubscription(userId: string, endpoint: string): Promise<void> {
+  await db.pushSubscription.deleteMany({ where: { endpoint, userId } });
 }
 
 export interface PushPayload {

@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { handle, ok, readJson } from "@/lib/api/http";
+import { badRequest, forbidden, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { areTripMembers, canManageMembers, getActiveTripId } from "@/lib/services/trip";
 import { clearExpenses, createExpense, listExpenses } from "@/lib/services/expensesService";
 import { logActivity } from "@/lib/services/activityService";
 
@@ -54,6 +54,9 @@ export function POST(req: NextRequest) {
     const body = createBody.parse(await readJson(req));
     // Standard-Zahler = der/die Erfassende, falls nicht anders angegeben.
     const paidById = body.paidById ?? user.id;
+    if (!(await areTripMembers(tripId, [paidById]))) {
+      throw badRequest("Der Zahler muss Mitglied dieser Reise sein.");
+    }
     const created = await createExpense(tripId, { ...body, paidById }, user.name);
     logActivity({
       tripId,
@@ -66,11 +69,26 @@ export function POST(req: NextRequest) {
   });
 }
 
-/** DELETE /api/v1/expenses — alle Ausgaben löschen. */
+/**
+ * DELETE /api/v1/expenses — **alle** Ausgaben der Reise löschen.
+ * Destruktiv und teamweit → nur Owner/Verwalter, und immer mit Eintrag im Feed
+ * (sonst verschwindet die gesamte Historie inkl. Belege spurlos).
+ */
 export function DELETE() {
   return handle(async () => {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
-    return ok({ cleared: await clearExpenses(tripId) });
+    if (!(await canManageMembers(tripId, user.id))) {
+      throw forbidden("Nur Verwalter dürfen alle Ausgaben löschen.");
+    }
+    const cleared = await clearExpenses(tripId);
+    logActivity({
+      tripId,
+      userId: user.id,
+      userName: user.name,
+      action: "expense.clear",
+      summary: `${cleared} Ausgaben gelöscht`,
+    });
+    return ok({ cleared });
   });
 }

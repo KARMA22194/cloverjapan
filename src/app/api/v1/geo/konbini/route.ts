@@ -89,7 +89,17 @@ export function GET(req: NextRequest) {
         return { lat, lng };
       });
     if (points.length < 1) throw badRequest("Mindestens ein Punkt (points=lat,lng;…) nötig.");
-    if (points.some((p) => Number.isNaN(p.lat) || Number.isNaN(p.lng))) {
+    // `Number.isFinite` + Bereichsprüfung: "Infinity" ist kein NaN und landete sonst
+    // in der Overpass-Query — alle Spiegel liefen dann nacheinander ins Timeout.
+    if (
+      points.some(
+        (p) =>
+          !Number.isFinite(p.lat) ||
+          !Number.isFinite(p.lng) ||
+          Math.abs(p.lat) > 90 ||
+          Math.abs(p.lng) > 180,
+      )
+    ) {
       throw badRequest("Ungültige Koordinaten.");
     }
     // Overpass-Anfrage klein halten: höchstens 50 Stützpunkte der Polylinie.

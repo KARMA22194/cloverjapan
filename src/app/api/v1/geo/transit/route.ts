@@ -45,7 +45,9 @@ interface Point {
 function parsePoint(s: string | null): Point | null {
   if (!s) return null;
   const [lat, lng] = s.split(",").map(Number);
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  // isFinite statt !isNaN — "Infinity" ist kein NaN, käme sonst als Koordinate durch.
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { lat, lng };
 }
 

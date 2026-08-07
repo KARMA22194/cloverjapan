@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
 
 const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
 
@@ -18,9 +19,14 @@ interface NominatimResult {
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    await requireUser();
+    const user = await requireUser();
     const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
     if (q.length < 2) throw badRequest("Bitte mindestens 2 Zeichen eingeben.");
+    if (q.length > 200) throw badRequest("Suchbegriff zu lang.");
+    // Wechselnde Suchbegriffe umgehen den Cache und schlagen 1:1 auf Nominatim durch.
+    // Deren Usage-Policy führt bei Flut zur Sperre unserer Server-IP — das legte dann
+    // *alle* Geo-Features lahm, nicht nur diese Route.
+    await enforceRateLimit(`geo-search:${user.id}`, 60, 60 * 1000);
 
     const url = new URL("https://nominatim.openstreetmap.org/search");
     url.searchParams.set("q", q);

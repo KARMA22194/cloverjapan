@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
-import { safeFetch } from "@/lib/net";
+import { readTextLimited, safeFetch } from "@/lib/net";
 
 const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
 
@@ -80,7 +80,7 @@ export function GET(req: NextRequest) {
       } catch {
         /* ignore */
       }
-      if (/(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com)/.test(url)) {
+      if (isMapsLink(url, host)) {
         try {
           return ok(await resolveMapsLink(url));
         } catch (err) {
@@ -111,6 +111,29 @@ export function GET(req: NextRequest) {
 
 /* ---------------- Maps-Link → Koordinaten ---------------- */
 
+/** Kurzlink-Hosts, die direkt auf Maps zeigen (Pfad ist dort beliebig). */
+const MAPS_SHORT_HOSTS = /^(?:maps\.app\.goo\.gl|goo\.gl|maps\.apple\.com)$/;
+/** Google-Domains (google.com, google.de, google.co.jp …) — nur mit /maps-Pfad. */
+const GOOGLE_HOSTS = /^(?:www\.)?google\.[a-z]{2,}(?:\.[a-z]{2,})?$/;
+
+/**
+ * Ist das ein echter Maps-Link? Geprüft wird der **Hostname**, nicht die ganze URL.
+ *
+ * Vorher lief das Muster gegen den kompletten String, sodass
+ * `https://attacker.tld/x?ref=google.com/maps` als vertrauenswürdiger Maps-Link galt
+ * und in den Body-Auswertungspfad geriet.
+ */
+function isMapsLink(url: string, host: string): boolean {
+  if (!host) return false;
+  if (MAPS_SHORT_HOSTS.test(host)) return true;
+  if (!GOOGLE_HOSTS.test(host)) return false;
+  try {
+    return new URL(url).pathname.startsWith("/maps");
+  } catch {
+    return false;
+  }
+}
+
 // Reihenfolge: Pin (!3d!4d) > q/ll/coordinate > Kartenzentrum (@).
 const COORD_PATTERNS = [
   /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
@@ -138,7 +161,7 @@ async function resolveMapsLink(url: string): Promise<Resolved> {
   if (!coords) {
     const res = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
     finalUrl = res.url || url;
-    const body = (await res.text()).slice(0, 200000);
+    const body = await readTextLimited(res);
     coords = findCoords(finalUrl) ?? findCoords(body);
   }
   if (!coords) throw new ApiError(422, "Im Maps-Link wurden keine Koordinaten gefunden.");
@@ -207,7 +230,7 @@ async function resolveGenericUrl(url: string): Promise<Resolved | null> {
   try {
     const res = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
     if (!res.ok) return null;
-    const html = (await res.text()).slice(0, 200000);
+    const html = await readTextLimited(res);
     const og =
       html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1] ??
       html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ??

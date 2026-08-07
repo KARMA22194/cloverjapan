@@ -16,13 +16,22 @@ export function todayParam(): string {
   return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
 }
 
-/** `yyyy-MM-dd` → Date (UTC-Mitternacht). Wirft bei ungültigem Format. */
+/**
+ * `yyyy-MM-dd` → Date (UTC-Mitternacht). Wirft bei ungültigem Format **oder**
+ * bei kalendarisch nicht existierenden Tagen (z. B. 2026-02-31, das JS sonst
+ * still auf den 3. März rollt).
+ */
 export function parseDateParam(param: string): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(param)) {
-    throw new Error(`Ungültiges Datum: ${param}`);
-  }
-  const date = new Date(`${param}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(param);
+  if (!m) throw new Error(`Ungültiges Datum: ${param}`);
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== y ||
+    date.getUTCMonth() !== mo - 1 ||
+    date.getUTCDate() !== d
+  ) {
     throw new Error(`Ungültiges Datum: ${param}`);
   }
   return date;

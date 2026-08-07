@@ -20,15 +20,20 @@ const body = z.object({
 export function POST(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
     const { token } = await ctx.params;
-    // Missbrauchsschutz: max. 5 Fund-Meldungen pro Token & IP in 10 Minuten.
+    // Missbrauchsschutz zweistufig:
+    //  - pro Token & IP: normaler Finder-Fall (5/10 min).
+    //  - pro Token **ohne** IP-Anteil: sonst ließe sich das Limit durch wechselnde
+    //    Quell-IPs beliebig oft neu ziehen und der Owner zumüllen.
     await enforceRateLimit(`luggage-found:${token}:${clientIp(req)}`, 5, 10 * 60 * 1000);
+    await enforceRateLimit(`luggage-found-token:${token}`, 20, 60 * 60 * 1000);
 
     const { lat, lng } = body.parse(await readJson(req));
     const tag = await getLuggageByToken(token);
     if (!tag) throw notFound("Unbekannter Kofferanhänger.");
 
-    const sent = await notifyLuggageFound(tag, lat, lng);
-    // Dem Finder gegenüber generisch bleiben (keine internen Details leaken).
-    return ok({ ok: true, notified: sent.email || sent.discord });
+    await notifyLuggageFound(tag, lat, lng);
+    // Konstante Antwort: ob der Owner überhaupt eine Benachrichtigung hinterlegt hat
+    // (und ob der Versand klappte) geht den anonymen Finder nichts an.
+    return ok({ ok: true });
   });
 }

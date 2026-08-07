@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { dateStr } from "@/lib/api/dates";
 import { ApiError, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
@@ -11,7 +12,7 @@ import { addTripStop } from "@/lib/services/tripStops";
 const body = z.object({
   q: z.string().min(2, "Text zu kurz.").max(300),
   // optionaler Reisetag (wenn aus einem Tagesplaner-Tag übernommen)
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
+  date: dateStr,
 });
 
 /**

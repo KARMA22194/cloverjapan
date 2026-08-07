@@ -23,9 +23,9 @@ export function POST(req: NextRequest) {
 /** DELETE /api/v1/push?endpoint=… — Abo dieses Geräts entfernen. */
 export function DELETE(req: NextRequest) {
   return handle(async () => {
-    await requireUser();
+    const user = await requireUser();
     const endpoint = (req.nextUrl.searchParams.get("endpoint") ?? "").slice(0, 1000);
-    if (endpoint) await deletePushSubscription(endpoint);
+    if (endpoint) await deletePushSubscription(user.id, endpoint);
     return ok({ ok: true });
   });
 }

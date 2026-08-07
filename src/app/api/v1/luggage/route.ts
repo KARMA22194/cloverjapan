@@ -1,9 +1,13 @@
 import type { NextRequest } from "next/server";
 
-import { handle, ok, readJson } from "@/lib/api/http";
+import { badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { getActiveTripId } from "@/lib/services/trip";
-import { createLuggageTag, listLuggageTags } from "@/lib/services/luggageService";
+import {
+  createLuggageTag,
+  isTripMemberEmail,
+  listLuggageTags,
+} from "@/lib/services/luggageService";
 import { luggageBody, toLuggageDto } from "./schema";
 
 /** GET /api/v1/luggage — Kofferanhänger der aktuellen Reise. */
@@ -21,11 +25,19 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = luggageBody.parse(await readJson(req));
-    const created = await createLuggageTag(
-      tripId,
-      { ...body, notifyEmail: body.notifyEmail || user.email },
-      user.name,
-    );
+
+    // Benachrichtigungsziel darf nur eine Adresse aus der eigenen Reise sein: der
+    // Versand wird über die **öffentliche** Fund-Seite ausgelöst, eine freie Adresse
+    // machte die App zum Mail-Relay (Betreff/Inhalt kommen aus dem Label).
+    const notifyEmail = body.notifyEmail?.trim() || user.email;
+    if (
+      notifyEmail.toLowerCase() !== user.email.toLowerCase() &&
+      !(await isTripMemberEmail(tripId, notifyEmail))
+    ) {
+      throw badRequest("Benachrichtigung nur an Mitglieder dieser Reise möglich.");
+    }
+
+    const created = await createLuggageTag(tripId, { ...body, notifyEmail }, user.name);
     return ok(toLuggageDto(created), 201);
   });
 }

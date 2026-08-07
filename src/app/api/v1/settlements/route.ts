@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import { handle, ok, readJson } from "@/lib/api/http";
+import { badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
-import { getActiveTripId } from "@/lib/services/trip";
+import { areTripMembers, getActiveTripId } from "@/lib/services/trip";
 import { createSettlement, listSettlements } from "@/lib/services/settlements";
 
 const settlementBody = z.object({
@@ -47,6 +47,11 @@ export function POST(req: NextRequest) {
     const user = await requireUser();
     const tripId = await getActiveTripId(user.id);
     const body = settlementBody.parse(await readJson(req));
+    // `fromId`/`toId` haben im Schema keinen Fremdschlüssel — ohne diese Prüfung
+    // ließen sich beliebige Ids verbuchen und die Abrechnung verfälschen.
+    if (!(await areTripMembers(tripId, [body.fromId, body.toId]))) {
+      throw badRequest("Zahler und Empfänger müssen Mitglieder dieser Reise sein.");
+    }
     return ok(toSettlementDto(await createSettlement(tripId, body, user.name)), 201);
   });
 }

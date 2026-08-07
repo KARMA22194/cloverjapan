@@ -1,6 +1,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
+import { isRealDate } from "@/lib/api/dates";
+
 // Zod um `.openapi()` erweitern — Schemas sind damit Single Source of Truth
 // für Laufzeit-Validierung UND die generierte OpenAPI-Spec.
 extendZodWithOpenApi(z);
@@ -12,9 +14,12 @@ extendZodWithOpenApi(z);
 export const roleSchema = z.enum(["EMPLOYEE", "MANAGER", "ADMIN"]);
 
 // Datums-Parameter (YYYY-MM-DD) — u. a. vom Tagesplaner genutzt.
+// `isRealDate` zusätzlich zur Regex: sonst käme „2026-13-45" bis in `parseDateParam`
+// durch und würde dort als 500 statt als 400 enden.
 export const dateParamSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Datum muss im Format YYYY-MM-DD vorliegen.")
+  .refine(isRealDate, "Dieses Datum gibt es nicht.")
   .openapi({ example: "2026-07-08", description: "Tag im Format YYYY-MM-DD" });
 
 /* ------------------------------------------------------------------ *

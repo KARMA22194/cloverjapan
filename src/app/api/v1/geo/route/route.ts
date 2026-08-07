@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 
 import { ApiError, badRequest, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { enforceRateLimit } from "@/lib/rate";
+
+/** OSRM-Trip löst ein TSP — der Aufwand wächst quadratisch mit den Punkten. */
+const MAX_POINTS = 25;
 
 const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
 
@@ -12,7 +16,8 @@ const USER_AGENT = "TimeTracker-Reiseplaner/1.0 (self-hosted dev)";
  */
 export function GET(req: NextRequest) {
   return handle(async () => {
-    await requireUser();
+    const user = await requireUser();
+    await enforceRateLimit(`geo-route:${user.id}`, 30, 60 * 1000);
 
     const raw = req.nextUrl.searchParams.get("points") ?? "";
     const points = raw
@@ -25,7 +30,20 @@ export function GET(req: NextRequest) {
       });
 
     if (points.length < 2) throw badRequest("Mindestens zwei Orte nötig.");
-    if (points.some((p) => Number.isNaN(p.lat) || Number.isNaN(p.lng))) {
+    if (points.length > MAX_POINTS) {
+      throw badRequest(`Zu viele Orte für eine Route (max. ${MAX_POINTS}).`);
+    }
+    // `Number.isFinite` statt `!Number.isNaN`: "Infinity" ist kein NaN und käme sonst
+    // als gültige Koordinate durch.
+    if (
+      points.some(
+        (p) =>
+          !Number.isFinite(p.lat) ||
+          !Number.isFinite(p.lng) ||
+          Math.abs(p.lat) > 90 ||
+          Math.abs(p.lng) > 180,
+      )
+    ) {
       throw badRequest("Ungültige Koordinaten.");
     }
 
