@@ -1,10 +1,10 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type BookingKind, type ExpenseCategory } from "@prisma/client";
 
 import { db } from "@/lib/db";
 
 export interface BookingInput {
   title: string;
-  kind?: string;
+  kind?: BookingKind;
   date?: string | null;
   time?: string;
   ref?: string;
@@ -20,8 +20,9 @@ export function listBookings(tripId: string) {
   });
 }
 
-// Buchungsart → passende Ausgaben-Kategorie.
-function expenseCategory(kind: string): string {
+// Buchungsart → passende Ausgaben-Kategorie. Beide Seiten sind Prisma-Enums, das
+// Mapping ist damit vollständig typgeprüft (ein Tippfehler im Wert bricht den Build).
+function expenseCategory(kind: BookingKind): ExpenseCategory {
   switch (kind) {
     case "RESTAURANT":
       return "ESSEN";
@@ -42,7 +43,7 @@ async function syncExpense(
     id: string;
     tripId: string;
     title: string;
-    kind: string;
+    kind: BookingKind;
     priceYen: number | null;
     createdByName: string;
   },

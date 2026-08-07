@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { ExpenseCategory } from "@prisma/client";
 
 import { badRequest, forbidden, handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
@@ -8,7 +9,9 @@ import { clearExpenses, createExpense, listExpenses } from "@/lib/services/expen
 import { logActivity } from "@/lib/services/activityService";
 
 const createBody = z.object({
-  category: z.string().min(1).max(40),
+  // Direkt aus dem Prisma-Enum: ein unbekannter Wert wird jetzt als 400 abgewiesen,
+  // statt erst in der DB als Serverfehler aufzuschlagen.
+  category: z.nativeEnum(ExpenseCategory),
   label: z.string().max(200).optional().default(""),
   yen: z.number().int().positive().max(100_000_000),
   paidById: z.string().max(40).nullish(),
@@ -17,7 +20,7 @@ const createBody = z.object({
 
 const toDto = (e: {
   id: string;
-  category: string;
+  category: ExpenseCategory;
   label: string;
   yen: number;
   createdByName: string;

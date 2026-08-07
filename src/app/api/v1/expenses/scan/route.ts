@@ -1,12 +1,15 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { ExpenseCategory } from "@prisma/client";
 
 import { ApiError, badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 
-const CATEGORIES = ["ESSEN", "FIGUREN", "KLEIDUNG", "SIGHTSEEING", "TRANSPORT", "SONSTIGES"] as const;
-type Category = (typeof CATEGORIES)[number];
+// Erlaubte Kategorien aus dem Prisma-Enum ableiten — eine Quelle statt einer
+// zweiten Liste, die beim Erweitern vergessen werden kann.
+const CATEGORIES = Object.values(ExpenseCategory);
+type Category = ExpenseCategory;
 
 // Anthropic lehnt Bilder über 5 MB ab. Die Data-URL ist Base64, also ~4/3 der
 // Rohgröße — mit 8 MB String liefen ~6 MB Bilddaten durch und endeten verlässlich

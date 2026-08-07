@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from "@prisma/client";
+
 import { db } from "@/lib/db";
 
 export function listExpenses(tripId: string) {
@@ -23,7 +25,7 @@ export function listExpenses(tripId: string) {
 export function createExpense(
   tripId: string,
   input: {
-    category: string;
+    category: ExpenseCategory;
     label: string;
     yen: number;
     paidById?: string | null;

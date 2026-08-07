@@ -25,6 +25,27 @@ enum TokenType {
   PASSWORD_RESET // Passwort-Vergessen-Flow
 }
 
+// Ausgaben-Kategorie. Als Enum statt String: die erlaubten Werte standen vorher nur
+// im Kommentar bzw. im Zod-Schema, die DB akzeptierte jeden Text. Labels/Farben
+// bleiben im Code (src/lib/expenses.ts) — hier zählt nur der gültige Wertebereich.
+enum ExpenseCategory {
+  ESSEN
+  FIGUREN
+  KLEIDUNG
+  SIGHTSEEING
+  TRANSPORT
+  SONSTIGES
+}
+
+// Art einer Buchung/Reservierung (dito).
+enum BookingKind {
+  TICKET
+  RESTAURANT
+  AKTIVITAET
+  TRANSPORT
+  SONSTIGES
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -216,7 +237,7 @@ model TripHotel {
 model Expense {
   id            String   @id @default(cuid())
   tripId        String
-  category      String
+  category      ExpenseCategory
   label         String
   yen           Int
   createdByName String   @default("")
@@ -253,7 +274,7 @@ model Booking {
   id            String   @id @default(cuid())
   tripId        String
   title         String
-  kind          String   @default("TICKET") // TICKET | RESTAURANT | AKTIVITAET | TRANSPORT | SONSTIGES
+  kind          BookingKind @default(TICKET)
   date          String? // YYYY-MM-DD (optional)
   time          String   @default("") // HH:MM (optional)
   ref           String   @default("") // Bestätigungs-/Buchungsnummer
