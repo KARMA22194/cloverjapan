@@ -27,6 +27,24 @@ interface NavGroup {
 // den Kategorie-Menüs, kollidiert dank Präfix nicht mit Gruppen-Labels).
 const PROFILE_MENU = "__profile__";
 
+/** Ausklapp-Panel (Kategorien + Profil) — eine Definition für beide Menüs. */
+const MENU_PANEL =
+  "absolute top-full z-50 mt-2 min-w-48 rounded-card bg-surface p-1.5 ring-1 ring-hairline shadow-pop";
+
+/** Eintrag in einem Ausklapp-Panel bzw. im Mobile-Menü. */
+function menuItem(active: boolean): string {
+  return `block rounded-[0.5rem] px-3 py-1.5 text-sm transition ${
+    active
+      ? "bg-brand/12 font-semibold text-brand-dark dark:text-brand-tint"
+      : "text-ink-muted hover:bg-surface-2 hover:text-ink"
+  }`;
+}
+
+/** Waagerechte Trennlinie im Menü. */
+function MenuDivider() {
+  return <div className="my-1.5 h-px bg-hairline" aria-hidden />;
+}
+
 /**
  * Abmelden-Formular (Desktop + Mobile geteilt): leert beim Logout den
  * personenbezogenen Offline-Cache (Cross-User-Schutz).
@@ -98,20 +116,20 @@ export function TopNav({
   // Tab-Button (Desktop): aktive Kategorie nur dezent (fett), KEIN blauer Block —
   // blau markiert wird ausschließlich der aktuelle Link im Dropdown.
   const buttonClass = (active: boolean) =>
-    `inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition hover:bg-slate-100 dark:hover:bg-slate-800 ${
-      active
-        ? "font-semibold text-slate-900 dark:text-white"
-        : "font-medium text-slate-600 dark:text-slate-300"
+    `inline-flex items-center gap-1 rounded-field px-3 py-1.5 text-sm transition hover:bg-surface-2 ${
+      active ? "font-bold text-ink" : "font-semibold text-ink-muted hover:text-ink"
     }`;
 
   const startActive = pathname === "/start" || pathname === "/";
 
   return (
+    // `sticky` mit hohem z-index: die Leaflet-Karte im Reiseplaner setzt intern
+    // Panes bis z-index 800 — bei z-40 würde die Karte über die Leiste scrollen.
     <header
       ref={navRef}
-      className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 print:hidden"
+      className="sticky top-0 z-[1100] border-b border-hairline bg-surface/85 backdrop-blur-xl print:hidden"
     >
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5">
         <div className="flex items-center gap-4">
           <Link href="/start" className="flex items-center gap-2.5" aria-label="Zur Übersicht">
             <Logo height={26} priority />
@@ -125,10 +143,7 @@ export function TopNav({
               return (
                 <div key={group.label} className="flex items-center gap-1">
                   {gi > 0 && (
-                    <span
-                      className="mx-1 h-5 w-px self-center bg-slate-200 dark:bg-slate-700"
-                      aria-hidden
-                    />
+                    <span className="mx-1 h-5 w-px self-center bg-hairline" aria-hidden />
                   )}
                   <div className="relative">
                     <button
@@ -147,10 +162,7 @@ export function TopNav({
                       </span>
                     </button>
                     {open && (
-                      <div
-                        role="menu"
-                        className="absolute left-0 top-full z-50 mt-1 min-w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg"
-                      >
+                      <div role="menu" className={`left-0 ${MENU_PANEL}`}>
                         {group.items.map((item) => {
                           const itemActive = pathname.startsWith(item.match);
                           return (
@@ -158,11 +170,7 @@ export function TopNav({
                               key={item.href}
                               href={item.href}
                               role="menuitem"
-                              className={`block rounded px-3 py-1.5 text-sm transition ${
-                                itemActive
-                                  ? "bg-brand-tint text-brand-dark"
-                                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                              }`}
+                              className={menuItem(itemActive)}
                             >
                               {item.label}
                             </Link>
@@ -192,11 +200,11 @@ export function TopNav({
               }
               aria-haspopup="menu"
               aria-expanded={openMenu === PROFILE_MENU}
-              className="flex items-center gap-2 rounded-md p-0.5 pr-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="flex items-center gap-2 rounded-full p-0.5 pr-2 ring-1 ring-transparent transition hover:bg-surface-2 hover:ring-hairline"
               title="Profil"
             >
               <Avatar name={userName} image={userImage} size={28} />
-              <span className="hidden text-sm text-slate-600 dark:text-slate-300 sm:inline">
+              <span className="hidden text-sm font-semibold text-ink-muted sm:inline">
                 {userName}
               </span>
               <span
@@ -207,41 +215,27 @@ export function TopNav({
               </span>
             </button>
             {openMenu === PROFILE_MENU && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full z-50 mt-1 min-w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg"
-              >
-                <Link
-                  href="/profil"
-                  role="menuitem"
-                  className="block rounded px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
+              <div role="menu" className={`right-0 ${MENU_PANEL}`}>
+                <Link href="/profil" role="menuitem" className={menuItem(false)}>
                   Profil
                 </Link>
                 {adminItems.length > 0 && (
                   <>
-                    <div className="my-1 h-px bg-slate-200 dark:bg-slate-700" aria-hidden />
-                    {adminItems.map((item) => {
-                      const itemActive = pathname.startsWith(item.match);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          role="menuitem"
-                          className={`block rounded px-3 py-1.5 text-sm transition ${
-                            itemActive
-                              ? "bg-brand-tint text-brand-dark"
-                              : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      );
-                    })}
+                    <MenuDivider />
+                    {adminItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        role="menuitem"
+                        className={menuItem(pathname.startsWith(item.match))}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                   </>
                 )}
-                <div className="my-1 h-px bg-slate-200 dark:bg-slate-700" aria-hidden />
-                <LogoutForm className="block w-full rounded px-3 py-1.5 text-left text-sm text-danger transition hover:bg-slate-100 dark:hover:bg-slate-800" />
+                <MenuDivider />
+                <LogoutForm className="block w-full rounded-[0.5rem] px-3 py-1.5 text-left text-sm font-semibold text-danger transition hover:bg-danger/10" />
               </div>
             )}
           </div>
@@ -255,7 +249,7 @@ export function TopNav({
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Menü schließen" : "Menü öffnen"}
             aria-expanded={mobileOpen}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 dark:border-slate-600 text-lg text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-field text-lg text-ink-muted ring-1 ring-hairline transition hover:bg-surface-2 hover:text-ink"
           >
             {mobileOpen ? "✕" : "☰"}
           </button>
@@ -264,83 +258,43 @@ export function TopNav({
 
       {/* Mobile-Menü: volle Navigation inkl. explizitem „Start". */}
       {mobileOpen && (
-        <div className="border-t border-slate-200 dark:border-slate-700 md:hidden">
-          <nav className="mx-auto max-w-5xl space-y-4 px-4 py-4">
-            <Link
-              href="/start"
-              className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
-                startActive
-                  ? "bg-brand-tint text-brand-dark"
-                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
+        <div className="border-t border-hairline bg-surface/95 md:hidden">
+          <nav className="mx-auto max-w-6xl space-y-4 px-4 py-4">
+            <Link href="/start" className={`${menuItem(startActive)} py-2`}>
               🏠 Start / Übersicht
             </Link>
 
-            {groups.map((group) => (
-              <div key={group.label}>
-                <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  {group.label}
-                </p>
-                <div className="grid grid-cols-2 gap-1">
-                  {group.items.map((item) => {
-                    const itemActive = pathname.startsWith(item.match);
-                    return (
+            {[...groups, ...(adminItems.length > 0 ? [{ label: "Verwaltung", items: adminItems }] : [])].map(
+              (group) => (
+                <div key={group.label}>
+                  <p className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.09em] text-ink-subtle">
+                    {group.label}
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {group.items.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`block rounded-md px-3 py-2 text-sm transition ${
-                          itemActive
-                            ? "bg-brand-tint text-brand-dark"
-                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
+                        className={`${menuItem(pathname.startsWith(item.match))} py-2`}
                       >
                         {item.label}
                       </Link>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-
-            {adminItems.length > 0 && (
-              <div>
-                <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Verwaltung
-                </p>
-                <div className="grid grid-cols-2 gap-1">
-                  {adminItems.map((item) => {
-                    const itemActive = pathname.startsWith(item.match);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`block rounded-md px-3 py-2 text-sm transition ${
-                          itemActive
-                            ? "bg-brand-tint text-brand-dark"
-                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+              ),
             )}
 
-            <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-3">
+            <div className="flex items-center justify-between border-t border-hairline pt-3">
               <Link
                 href="/profil"
-                className="flex items-center gap-2 rounded-md p-0.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 rounded-full p-0.5 pr-2 transition hover:bg-surface-2"
                 title="Profil"
               >
                 <Avatar name={userName} image={userImage} size={28} />
-                <span className="text-sm text-slate-600 dark:text-slate-300">
-                  {userName}
-                </span>
+                <span className="text-sm font-semibold text-ink-muted">{userName}</span>
               </Link>
-              <LogoutForm className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800" />
+              <LogoutForm className="rounded-field px-3 py-1.5 text-sm font-semibold text-danger ring-1 ring-hairline transition hover:bg-danger/10" />
             </div>
 
             <div className="flex items-center gap-3">

@@ -50,3 +50,6 @@ yarn-error.log*
 # --- Betriebssystem / Editor ---
 .DS_Store
 Thumbs.db
+
+# Screenshots der Design-Abnahme (nur lokal)
+e2e/shots/

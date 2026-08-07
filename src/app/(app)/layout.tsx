@@ -50,12 +50,14 @@ export default async function AppLayout({
           userName={user.name || user.email || "Nutzer"}
           userImage={user.image}
         />
-        <main className="mx-auto max-w-6xl px-4 py-6">
-          <div className="lg:flex lg:items-start lg:gap-6">
+        <main className="mx-auto max-w-6xl px-4 py-8">
+          <div className="lg:flex lg:items-start lg:gap-8">
             <div className="min-w-0 flex-1">{children}</div>
             {/* Tokio-Wetter: nur auf Laptop/PC (auf dem Handy gibt es den Info-Bereich). */}
             <aside className="hidden w-64 shrink-0 lg:block print:hidden">
-              <div className="sticky top-6">
+              {/* Abstand von oben = Höhe der jetzt klebenden TopNav + Luft;
+                  mit `top-6` würde die Seitenleiste unter die Leiste rutschen. */}
+              <div className="sticky top-[4.75rem]">
                 <WeatherWidget />
               </div>
             </aside>

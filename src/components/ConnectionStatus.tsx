@@ -26,13 +26,17 @@ export function ConnectionStatus() {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+      className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-subtle"
       title={online ? "Online" : "Offline – du siehst den zuletzt geladenen Stand."}
     >
+      {/* Weicher Halo statt nacktem Punkt — der Zustand ist so auch am Rand des
+          Blickfelds erkennbar, ohne mehr Platz zu brauchen. */}
       <span
         aria-hidden
         className={`inline-block h-2 w-2 rounded-full ${
-          online ? "bg-emerald-500" : "bg-slate-400 dark:bg-slate-500"
+          online
+            ? "bg-emerald-500 ring-2 ring-emerald-500/25"
+            : "bg-ink-subtle ring-2 ring-ink-subtle/20"
         }`}
       />
       <span className="hidden sm:inline">{online ? "Online" : "Offline"}</span>

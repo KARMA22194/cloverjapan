@@ -6,17 +6,68 @@
 
 /* ------------------------------------------------------------------ *
  *  Design-Tokens im Clover-Japan-Branding
- *  (Farben & Schriften, self-hosted)
+ *  (Farben, Flächen, Radien, Schatten & Schriften — self-hosted)
  * ------------------------------------------------------------------ */
 @theme {
+  /* --- Marke --- */
   --color-brand: #009bc9; /* Leitfarbe (Cyan-Blau) */
   --color-brand-dark: #0a314c; /* dunkler Kontrast (Navy) */
   --color-brand-tint: #b9e7f7; /* heller Tint für Badges/Aktiv-Zustände */
+  --color-brand-lift: #00b0e2; /* eine Stufe heller — obere Kante von CTA-Verläufen */
   --color-accent: #f87805; /* Orange (Highlights) */
   --color-danger: #e2001a; /* Signal-Rot (CTA/Fehler) */
 
+  /* --- Semantische Flächen & Text ---
+     Hier stehen die **Light**-Werte; der `.dark`-Block weiter unten überschreibt
+     dieselben Variablen. Dadurch braucht neue UI für Flächen, Linien und Text
+     keine `dark:`-Zwillinge mehr: `bg-surface` bzw. `text-ink` sind in beiden
+     Themes richtig. Nur farbige Sonderfälle (Status-Badges) bleiben explizit. */
+  --color-page: #f3f7fb; /* Seitenhintergrund */
+  --color-surface: #ffffff; /* Karten, Menüs, Eingaben */
+  --color-surface-2: #f4f8fc; /* eingelassene Zeilen, Hover, Tab-Leisten */
+  --color-hairline: rgb(15 23 42 / 0.09); /* Trennlinien & Ringe (weicher als slate-200) */
+  --color-ink: #0f172a; /* Haupttext */
+  --color-ink-muted: #4c5d75; /* Sekundärtext */
+  --color-ink-subtle: #8395ac; /* Labels, Metadaten */
+
+  /* --- Radien ---
+     Größer als der Tailwind-Default: `rounded-card` (16px) für Flächen,
+     `rounded-field` (12px) für Knöpfe/Eingaben. */
+  --radius-card: 1rem;
+  --radius-field: 0.75rem;
+
+  /* --- Schatten ---
+     Zweistufig (enge Kontaktkante + weite, weiche Streuung) statt eines einzelnen
+     harten `shadow-sm` — das erzeugt den „schwebenden" Eindruck. */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 26px -12px rgb(15 23 42 / 0.13);
+  --shadow-card-hover: 0 1px 2px rgb(15 23 42 / 0.05), 0 18px 38px -14px rgb(15 23 42 / 0.22);
+  --shadow-pop: 0 2px 6px rgb(15 23 42 / 0.06), 0 24px 48px -16px rgb(15 23 42 / 0.28);
+
+  /* --- Schriften --- */
   --font-sans: "PT Sans", ui-sans-serif, system-ui, sans-serif;
   --font-heading: "Viga", "PT Sans", ui-sans-serif, sans-serif;
+}
+
+/* Dark-Werte derselben Tokens. Bewusst **unlayered** und am selben Element
+   (<html class="dark">) wie Tailwinds `:root`-Ausgabe: unlayered schlägt
+   `@layer theme`, also gewinnen diese Werte ohne `!important`.
+   ⚠️ Custom Properties werden am Element ersetzt, an dem sie deklariert sind —
+   ein `--color-surface: var(--etwas)` in `@theme` ließe sich hier *nicht*
+   umschalten. Deshalb stehen beide Themes als eigene Deklaration. */
+:root:where(.dark) {
+  --color-page: #060a13;
+  --color-surface: #101a2c;
+  --color-surface-2: #16213a;
+  --color-hairline: rgb(148 163 184 / 0.16);
+  --color-ink: #e9eef7;
+  --color-ink-muted: #a3b2c8;
+  --color-ink-subtle: #6d7f99;
+
+  /* Auf dunklem Grund trägt nicht der Schatten die Tiefe, sondern die Kante —
+     ein aufgehellter Schatten würde nur milchig wirken. */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 26px -14px rgb(0 0 0 / 0.7);
+  --shadow-card-hover: 0 1px 2px rgb(0 0 0 / 0.55), 0 20px 40px -16px rgb(0 0 0 / 0.85);
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5), 0 28px 56px -20px rgb(0 0 0 / 0.9);
 }
 
 /* --- Self-hosted Fonts (siehe public/fonts) --- */
@@ -62,15 +113,71 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  background-color: var(--color-page);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+  @apply antialiased;
 }
 
-/* Überschriften in der Marken-Headline-Schrift (Viga). */
-h1,
-h2,
-h3,
-h4,
-h5 {
-  font-family: var(--font-heading);
+/* Sehr dezenter Marken-Schimmer hinter dem Inhalt: nimmt dem großflächigen
+   Grau die Flachheit, ohne Text-Kontraste anzutasten. `fixed` + `-z-10`, damit
+   er beim Scrollen ruhig stehen bleibt und nichts überdeckt. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 38rem at 8% -12%, rgb(0 155 201 / 0.13), transparent 62%),
+    radial-gradient(46rem 32rem at 104% 2%, rgb(248 120 5 / 0.07), transparent 58%);
+}
+:root:where(.dark) body::before {
+  background:
+    radial-gradient(58rem 38rem at 8% -12%, rgb(0 155 201 / 0.16), transparent 62%),
+    radial-gradient(46rem 32rem at 104% 2%, rgb(248 120 5 / 0.06), transparent 58%);
+}
+
+@layer base {
+  /* Überschriften in der Marken-Headline-Schrift (Viga). */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+  }
+
+  /* Sichtbarer Fokus für Tastatur-Navigation — im `base`-Layer, damit Elemente
+     mit eigenem Fokus-Stil (`outline-none` + `focus:ring-…`, z. B. die
+     Eingabe-Primitives) weiterhin gewinnen: Utilities stehen im späteren Layer. */
+  :where(a, button, summary, [role="button"], [role="tab"]):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-tint);
+    color: var(--color-brand-dark);
+  }
+}
+
+/* Der neue Look nutzt Hover-Anhebungen; wer Bewegung reduziert haben will,
+   bekommt die Zustände ohne Animation (Farb-/Schattenwechsel bleiben). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body::before {
+    display: none;
+  }
 }

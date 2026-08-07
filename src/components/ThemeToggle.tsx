@@ -31,7 +31,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       onClick={toggle}
       aria-label={dark ? "Zu hellem Design wechseln" : "Zu dunklem Design wechseln"}
       title="Design wechseln"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 ${className}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-field text-ink-muted ring-1 ring-hairline transition hover:bg-surface-2 hover:text-ink ${className}`}
     >
       {/* Vor Mount neutral (Icon wird nach Hydration gesetzt → kein Mismatch). */}
       {dark === null ? (

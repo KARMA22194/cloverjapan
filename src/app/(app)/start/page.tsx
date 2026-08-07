@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -8,6 +7,7 @@ import { JapanClock } from "@/components/JapanClock";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { FlightDayStatus } from "@/components/FlightDayStatus";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
+import { CardLink } from "@/components/ui/Card";
 
 export const metadata: Metadata = { title: "Übersicht – Clover Japan" };
 
@@ -52,12 +52,13 @@ export default async function StartPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl text-slate-900 dark:text-slate-100">
-          Hallo {session.user.name ?? "👋"}
+        <h1 className="text-3xl sm:text-4xl">
+          Hallo{" "}
+          <span className="bg-gradient-to-r from-brand-lift to-brand bg-clip-text text-transparent">
+            {session.user.name ?? "👋"}
+          </span>
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Wähle einen Bereich.
-        </p>
+        <p className="mt-1 text-sm text-ink-muted">Wähle einen Bereich.</p>
       </div>
 
       <PwaInstallPrompt />
@@ -74,36 +75,38 @@ export default async function StartPage() {
 
       {groups.map((group) => (
         <details key={group.title} open className="group/section">
-          <summary className="mb-3 flex cursor-pointer list-none items-center gap-2 rounded-md py-1 transition hover:opacity-90">
-            <span className="text-brand transition-transform duration-200 group-open/section:rotate-90" aria-hidden>
+          <summary className="mb-4 flex cursor-pointer list-none items-center gap-2.5 rounded-field py-1 transition hover:opacity-90">
+            <span
+              className="text-brand transition-transform duration-200 group-open/section:rotate-90"
+              aria-hidden
+            >
               ▸
             </span>
             <span>
-              <span className="block text-lg leading-tight text-slate-900 dark:text-slate-100">
-                {group.title}
-              </span>
-              <span className="block text-xs text-slate-500 dark:text-slate-400">{group.hint}</span>
+              <span className="block text-xl leading-tight">{group.title}</span>
+              <span className="block text-xs text-ink-subtle">{group.hint}</span>
             </span>
           </summary>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.tiles.map((tile) => (
-              <Link
-                key={tile.href}
-                href={tile.href}
-                className="group/tile flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 transition hover:border-brand hover:shadow-sm"
-              >
-                <span className="text-2xl" aria-hidden>
-                  {tile.emoji}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-medium text-slate-800 dark:text-slate-100 group-hover/tile:text-brand">
-                    {tile.label}
+              <CardLink key={tile.href} href={tile.href} pad="lg" className="group/tile">
+                <span className="flex items-start gap-3.5">
+                  {/* Emoji auf eigener Tint-Fläche: gibt der Kachel einen Anker
+                      links und trennt Symbol von Text. */}
+                  <span
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-field bg-brand/10 text-xl ring-1 ring-brand/15 transition group-hover/tile:bg-brand/15"
+                    aria-hidden
+                  >
+                    {tile.emoji}
                   </span>
-                  <span className="block text-sm text-slate-500 dark:text-slate-400">
-                    {tile.desc}
+                  <span className="min-w-0">
+                    <span className="block font-bold text-ink transition group-hover/tile:text-brand">
+                      {tile.label}
+                    </span>
+                    <span className="mt-0.5 block text-sm text-ink-muted">{tile.desc}</span>
                   </span>
                 </span>
-              </Link>
+              </CardLink>
             ))}
           </div>
         </details>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import { api } from "@/lib/api/client";
 import { yenFmt } from "@/lib/format";
+import { Card, CardLabel, CardLink } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 
 interface Flight {
   flightNumber: string;
@@ -105,97 +106,104 @@ export function TripDashboard() {
   // Nichts geplant → Dashboard ausblenden (Kacheln reichen).
   if (!startDate && !nextFlight && !nextBooking && spent === 0 && openChecklist === 0) return null;
 
-  const card = "rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4";
+  // Große Zahl in der Marken-Headline-Schrift mit Verlauf — trägt die Kachel,
+  // statt dass ein Label um Aufmerksamkeit mit dem Wert konkurriert.
+  const bigNumber = "font-heading text-3xl leading-none";
 
   return (
-    <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {/* Countdown */}
-      <div className={card}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Countdown
-        </p>
+      <Card pad="lg" className="flex flex-col justify-between gap-3">
+        <CardLabel>Countdown</CardLabel>
         {countdown === null ? (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Noch kein Datum geplant.</p>
+          <p className="text-sm text-ink-muted">Noch kein Datum geplant.</p>
         ) : countdown === 0 ? (
-          <p className="mt-1 text-2xl font-bold text-brand">Heute geht’s los! 🎉</p>
+          <p className={`${bigNumber} bg-gradient-to-r from-brand-lift to-brand bg-clip-text text-transparent`}>
+            Heute geht’s los! 🎉
+          </p>
         ) : (
-          <>
-            <p className="mt-1 text-2xl font-bold text-brand">
-              {countdown} <span className="text-base font-medium">Tage</span>
+          <div>
+            <p className={`${bigNumber} bg-gradient-to-r from-brand-lift to-brand bg-clip-text tabular-nums text-transparent`}>
+              {countdown}
+              <span className="ml-1.5 font-sans text-base font-bold">Tage</span>
             </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">bis {fmtDay(startDate!)}</p>
-          </>
+            <p className="mt-1.5 text-xs font-semibold text-ink-subtle">
+              bis {fmtDay(startDate!)}
+            </p>
+          </div>
         )}
-      </div>
+      </Card>
 
       {/* Als Nächstes */}
-      <Link href="/programm?tab=ablauf" className={`${card} transition hover:border-brand`}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Als Nächstes
-        </p>
+      <CardLink href="/programm?tab=ablauf" pad="lg" className="flex flex-col justify-between gap-3">
+        <CardLabel>Als Nächstes</CardLabel>
         {nextFlight ? (
-          <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">
+          <div className="text-sm font-semibold text-ink">
             ✈️ {nextFlight.flightNumber}
             {nextFlight.fromCode && ` ${nextFlight.fromCode}→${nextFlight.toCode}`}
-            <span className="block text-xs text-slate-400 dark:text-slate-500">
+            <span className="mt-0.5 block text-xs font-normal text-ink-subtle">
               {fmtDay(nextFlight.departure!.slice(0, 10))} · {nextFlight.departure!.slice(11, 16)}
             </span>
             {nextFlight.seats && (
-              <span className="mt-1 inline-block rounded-md bg-brand px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+              <Chip tone="brand" className="mt-2 tabular-nums">
                 💺 {nextFlight.seats}
-              </span>
+              </Chip>
             )}
-          </p>
+          </div>
         ) : nextBooking ? (
-          <p className="mt-1 text-sm text-slate-800 dark:text-slate-100">
+          <div className="text-sm font-semibold text-ink">
             🎟️ {nextBooking.title}
-            <span className="block text-xs text-slate-400 dark:text-slate-500">
+            <span className="mt-0.5 block text-xs font-normal text-ink-subtle">
               {fmtDay(nextBooking.date!)}
               {nextBooking.time && ` · ${nextBooking.time}`}
             </span>
-          </p>
+          </div>
         ) : (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Nichts Anstehendes.</p>
+          <p className="text-sm text-ink-muted">Nichts Anstehendes.</p>
         )}
-      </Link>
+      </CardLink>
 
       {/* Budget */}
-      <Link href="/geld?tab=ausgaben" className={`${card} transition hover:border-brand`}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Ausgaben
-        </p>
-        <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-          {yenFmt.format(spent)}
+      <CardLink href="/geld?tab=ausgaben" pad="lg" className="flex flex-col justify-between gap-3">
+        <CardLabel>Ausgaben</CardLabel>
+        <div>
+          <p className={`${bigNumber} tabular-nums text-ink`}>{yenFmt.format(spent)}</p>
           {budget > 0 && (
-            <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
-              {" "}
-              / {yenFmt.format(budget)}
-            </span>
+            <>
+              <p className="mt-1.5 text-xs font-semibold text-ink-subtle tabular-nums">
+                von {yenFmt.format(budget)} · {pct} %
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2 ring-1 ring-hairline">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-500 ${
+                    over ? "bg-danger" : "bg-gradient-to-r from-brand-lift to-brand"
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </>
           )}
-        </p>
-        {budget > 0 && (
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div
-              className={`h-full rounded-full ${over ? "bg-danger" : "bg-brand"}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        )}
-      </Link>
+        </div>
+      </CardLink>
 
       {/* Checkliste */}
-      <Link href="/programm?tab=checkliste" className={`${card} transition hover:border-brand`}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Checkliste
-        </p>
+      <CardLink
+        href="/programm?tab=checkliste"
+        pad="lg"
+        className="flex flex-col justify-between gap-3"
+      >
+        <CardLabel>Checkliste</CardLabel>
         {openChecklist === 0 ? (
-          <p className="mt-1 text-sm text-green-600 dark:text-green-400">Alles erledigt ✓</p>
+          <Chip tone="success" className="self-start">
+            Alles erledigt ✓
+          </Chip>
         ) : (
-          <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
-            {openChecklist} <span className="text-base font-medium">offen</span>
+          <p className={`${bigNumber} tabular-nums text-ink`}>
+            {openChecklist}
+            <span className="ml-1.5 font-sans text-base font-bold text-ink-muted">offen</span>
           </p>
         )}
-      </Link>
+      </CardLink>
     </div>
   );
 }

@@ -461,8 +461,44 @@ im Team", `GET /api/v1/activity`), `FlightDayStatus.tsx` (Live-Flug am Reisetag)
 
 Eigenes Corporate Design, alle Assets **self-hosted** (kein CDN-Runtime-Fetch):
 - **Fonts:** Viga (Headings) + PT Sans (Body) als `@font-face` in `globals.css`, `public/fonts/`.
-- **Farben:** Tailwind-v4-`@theme`-Tokens → `brand` (`#009BC9`), `brand-dark` (`#0A314C`),
-  `brand-tint` (`#B9E7F7`), `accent` (`#F87805`), `danger` (`#E2001A`).
+- **Farben:** Tailwind-v4-`@theme`-Tokens → `brand` (`#009BC9`), `brand-lift` (`#00B0E2`,
+  obere Kante von CTA-Verläufen), `brand-dark` (`#0A314C`), `brand-tint` (`#B9E7F7`),
+  `accent` (`#F87805`), `danger` (`#E2001A`).
+
+#### Design-System: semantische Tokens + UI-Primitives
+
+Oberflächen werden **nicht** mehr pro Komponente als Klassen-String gebaut (vorher 51-mal
+`rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 …`).
+Zwei Ebenen, beide kanonisch:
+
+1. **Semantische Tokens** (`src/app/globals.css`): `page` · `surface` · `surface-2` ·
+   `hairline` · `ink` · `ink-muted` · `ink-subtle`, dazu `rounded-card`/`rounded-field` und
+   `shadow-card`/`shadow-card-hover`/`shadow-pop`. Im `@theme` stehen die **Light**-Werte,
+   ein **unlayered** `:root:where(.dark)`-Block überschreibt dieselben Variablen.
+   → Neue UI braucht für Flächen/Linien/Text **keine `dark:`-Zwillinge** mehr; nur farbige
+   Bedeutungsträger (Status-Chips) bleiben explizit.
+   ⚠️ `--color-x: var(--y)` im `@theme` funktioniert **nicht** zum Umschalten: Custom
+   Properties werden am deklarierenden Element ersetzt, `.dark` käme zu spät. Deshalb sind
+   beide Themes eigene Deklarationen.
+2. **Primitives** (`src/components/ui/`): `Card`/`CardLink`/`CardLabel` · `Button`
+   (+`buttonClasses`) · `Input`/`Textarea`/`Select`/`Label` · `Chip` · `TabBar`.
+   Alle nehmen `className` als Escape-Hatch.
+
+⚠️ **`cn()` (`src/lib/cn.ts`) muss `tailwind-merge` benutzen** — nicht bloß Strings
+verketten. Bei reiner Verkettung entscheidet die Reihenfolge im *generierten Stylesheet*,
+nicht die im Attribut: `cn(FIELD, "w-24")` ließ `w-full` aus der Basis gewinnen (Feld auf
+Vollbreite), `py-1.5` gegen die `py-2`-Basis blieb wirkungslos. Solche Fehler sind nur im
+Bild zu sehen, nicht im Code.
+
+**Stand der Umstellung:** TopNav (jetzt `sticky` + `backdrop-blur`), `(app)`-Layout,
+`/start` inkl. `TripDashboard`, `WeatherWidget`, `GeldTabs` + `Wunschliste`, sowie
+ThemeToggle/FxPill/ConnectionStatus. **Noch offen:** die übrigen ~45 Komponenten — u. a.
+`ProgrammTabs`/`InfoTabs` (noch Unterstrich-Reiter statt `TabBar`), `TripPlanner`,
+`ExpenseCalculator`, `FlightPlanner`, `TripMembers`, `AblaufTimeline`, `ActivityFeed`,
+Auth-Seiten.
+⚠️ Die sticky TopNav braucht ein hohes `z-index` (`z-[1100]`): Leaflet setzt im Reiseplaner
+interne Panes bis `z-index` 800 — bei `z-40` scrollte die Karte über die Leiste. Wer eine
+eigene sticky Seitenleiste baut, rechnet die Leistenhöhe ein (`top-[4.75rem]`).
 - **Logo/Favicon:** goldenes Japan-Motiv (Torii/Fuji/Kirschblüte/Shinkansen).
   `public/brand/japan-mark.png` (transparent, Header — `src/components/Logo.tsx` rendert es als
   `<img>`, **keine** CSS-Maske mehr) + `public/brand/japan-tile.png` (dunkle Kachel). Tab-/App-/

@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { eurFmt, yenFmt } from "@/lib/format";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Field";
 
 interface Item {
   id: string;
@@ -74,44 +77,35 @@ export function Wunschliste() {
 
   return (
     <div className="max-w-xl">
-      <form
-        onSubmit={add}
-        className="mb-4 flex gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
-      >
-        <input
+      <Card as="form" pad="sm" onSubmit={add} className="mb-4 flex gap-2">
+        <Input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="z. B. Gunpla, Kitkat, Kimono…"
-          className="flex-1 rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          className="flex-1"
         />
-        <input
+        <Input
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           inputMode="decimal"
           placeholder="¥"
-          className="w-24 rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          className="w-24 tabular-nums"
         />
-        <button
-          type="submit"
-          disabled={!label.trim()}
-          className="shrink-0 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button type="submit" disabled={!label.trim()}>
           Hinzufügen
-        </button>
-      </form>
+        </Button>
+      </Card>
 
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-200">
-            Wunschliste ({items.length})
-          </span>
-          <span className="text-slate-500 dark:text-slate-400">
+      <Card pad="none" className="overflow-hidden">
+        <div className="flex items-center justify-between gap-2 border-b border-hairline bg-surface-2 px-4 py-2.5 text-sm">
+          <span className="font-bold text-ink">Wunschliste ({items.length})</span>
+          <span className="tabular-nums text-ink-muted">
             Summe {yenFmt.format(totals.all)}
             {eur(totals.all)}
           </span>
         </div>
         {items.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-10 text-center text-sm text-ink-subtle">
             Noch nichts auf der Liste. Was willst du in Japan kaufen?
           </p>
         ) : (
@@ -119,37 +113,35 @@ export function Wunschliste() {
             {items.map((it) => (
               <li
                 key={it.id}
-                className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+                className="group/row flex items-center gap-3 border-b border-hairline px-4 py-2.5 transition last:border-b-0 hover:bg-surface-2"
               >
                 <input
                   type="checkbox"
                   checked={it.bought}
                   onChange={() => toggleBought(it)}
-                  className="h-4 w-4 accent-[#009bc9]"
+                  className="h-4 w-4 accent-brand"
                   aria-label="Gekauft"
                 />
                 <span
                   className={`min-w-0 flex-1 truncate text-sm ${
-                    it.bought
-                      ? "text-slate-400 line-through dark:text-slate-500"
-                      : "text-slate-800 dark:text-slate-100"
+                    it.bought ? "text-ink-subtle line-through" : "text-ink"
                   }`}
                 >
                   {it.label}
-                  {it.by && (
-                    <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">· {it.by}</span>
-                  )}
+                  {it.by && <span className="ml-2 text-[11px] text-ink-subtle">· {it.by}</span>}
                 </span>
                 {it.priceYen != null && (
-                  <span className="shrink-0 text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-muted">
                     {yenFmt.format(it.priceYen)}
                   </span>
                 )}
+                {/* Löschen tritt erst beim Überfahren der Zeile hervor — auf
+                    Touch-Geräten (kein Hover) bleibt es dauerhaft sichtbar. */}
                 <button
                   type="button"
                   onClick={() => remove(it.id)}
                   aria-label="Entfernen"
-                  className="shrink-0 rounded px-1.5 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                  className="shrink-0 rounded-[0.5rem] px-1.5 py-1 text-xs text-danger opacity-100 transition hover:bg-danger/10 md:opacity-0 md:group-hover/row:opacity-100 md:focus-visible:opacity-100"
                 >
                   ✕
                 </button>
@@ -157,9 +149,9 @@ export function Wunschliste() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
 
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-3 text-xs text-ink-subtle">
         Tipp: Im Zollrechner kannst du die Summe als Warenwert übernehmen.
       </p>
     </div>

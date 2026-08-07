@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { Input } from "@/components/ui/Field";
 
 /**
  * Kompakte Wechselkurs-Pill für die TopNav: „1 € = X ¥" (Kurs keyfrei via
@@ -61,7 +62,7 @@ export function FxPill() {
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Wechselkurs-Rechner öffnen"
-        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:border-brand hover:text-brand dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-muted ring-1 ring-hairline transition hover:text-brand hover:ring-brand/40"
       >
         <span aria-hidden>💶</span>
         <span className="tabular-nums">1&nbsp;€ = {Math.round(rate)}&nbsp;¥</span>
@@ -69,30 +70,30 @@ export function FxPill() {
       {open && (
         <div
           role="dialog"
-          className="absolute right-0 top-full z-[1200] mt-1 w-56 rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          className="absolute right-0 top-full z-[1200] mt-2 w-60 rounded-card bg-surface p-3 ring-1 ring-hairline shadow-pop"
         >
-          <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.09em] text-ink-subtle">
             Schnellrechner · 1&nbsp;€ = {fmt(rate)}&nbsp;¥
           </p>
           <div className="space-y-2">
             <label className="flex items-center gap-2">
-              <span className="w-4 text-sm text-slate-500 dark:text-slate-400">€</span>
-              <input
+              <span className="w-4 text-sm text-ink-subtle">€</span>
+              <Input
                 inputMode="decimal"
                 value={eur}
                 onChange={(e) => onEur(e.target.value)}
                 placeholder="Euro"
-                className="w-full rounded-md border border-slate-300 bg-transparent px-2 py-1 text-sm tabular-nums outline-none focus:border-brand dark:border-slate-600"
+                className="py-1.5 tabular-nums"
               />
             </label>
             <label className="flex items-center gap-2">
-              <span className="w-4 text-sm text-slate-500 dark:text-slate-400">¥</span>
-              <input
+              <span className="w-4 text-sm text-ink-subtle">¥</span>
+              <Input
                 inputMode="decimal"
                 value={yen}
                 onChange={(e) => onYen(e.target.value)}
                 placeholder="Yen"
-                className="w-full rounded-md border border-slate-300 bg-transparent px-2 py-1 text-sm tabular-nums outline-none focus:border-brand dark:border-slate-600"
+                className="py-1.5 tabular-nums"
               />
             </label>
           </div>
