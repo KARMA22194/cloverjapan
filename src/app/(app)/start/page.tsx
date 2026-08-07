@@ -38,13 +38,12 @@ export default async function StartPage() {
     },
     {
       title: "Mehr",
-      hint: "Konto & Schnittstellen",
+      hint: "Konto & Verwaltung",
       tiles: [
         { href: "/profil", label: "Profil", desc: "Profilbild festlegen", emoji: "🙂" },
         ...(isAdmin
           ? [{ href: "/admin", label: "Admin", desc: "Nutzerverwaltung", emoji: "⚙️" }]
           : []),
-        { href: "/api-docs", label: "API-Dokumentation", desc: "Interaktive Swagger UI", emoji: "🧩" },
       ],
     },
   ];

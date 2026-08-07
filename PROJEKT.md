@@ -23,7 +23,6 @@ Zollrechner, Tagesplaner, Checkliste, Wetter und eine druckbare Reiseübersicht.
 - **Prisma** + **PostgreSQL 16**
 - **Auth.js (NextAuth v5)**: Credentials + bcrypt (JWT-Sessions) **und Passkeys/WebAuthn**
 - **Tailwind CSS v4**, **Zod**, **date-fns/date-fns-tz**
-- **OpenAPI 3.1 + Swagger UI** (`@asteasolutions/zod-to-openapi`, `swagger-ui-dist`)
 - **Karten:** Leaflet + OSM/Wikimedia-Tiles; Geocoding **Nominatim**, Routing **OSRM** (keyfrei)
 - **Mobile:** PWA (Manifest + Service-Worker) und **Capacitor 6** (native Hülle) mit
   Fingerabdruck-Lock + Local Notifications
@@ -83,12 +82,11 @@ Zollrechner, Tagesplaner, Checkliste, Wetter und eine druckbare Reiseübersicht.
 
 ---
 
-## 4. REST-API & Swagger
+## 4. REST-API
 - Frontend-**Mutationen ausschließlich** über `/api/v1/*`; **Reads** SSR über dieselbe
   Service-Schicht.
-- Dokumentierte Ressourcen (OpenAPI): `me`, `users`. **Swagger UI:** `/api-docs`,
-  Spec `/api/v1/openapi`.
-- Weitere (utility, nicht in OpenAPI): `register`, `verify`, `password/forgot|reset`,
+- Nutzerverwaltung: `me`, `users` (+`[id]`).
+- Weitere: `register`, `verify`, `password/forgot|reset`,
   `invite/[token]`, `geo/search|route|transit|weather|resolve`, `fx/rate`,
   `trip-stops` (+`from-text`), `expenses`, `flights` (+`[id]`, `lookup`),
   `planner-tasks`, `checklist`, `trip/members` (+`invitations`), `passkey/*`.

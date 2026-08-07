@@ -45,8 +45,8 @@ export function buildCsp(nonce: string, isDev: boolean): string {
   return [
     "default-src 'self'",
     `img-src ${img}`,
-    // Leaflet/Swagger setzen Styles per Attribut — dafür bleibt 'unsafe-inline'
-    // in style-src stehen. Das ist das deutlich kleinere Übel (kein Code-Vollzug).
+    // Leaflet setzt Styles per Attribut — dafür bleibt 'unsafe-inline' in
+    // style-src stehen. Das ist das deutlich kleinere Übel (kein Code-Vollzug).
     "style-src 'self' 'unsafe-inline'",
     `script-src ${script}`,
     `connect-src ${connect}`,

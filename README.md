@@ -16,7 +16,6 @@ Rollen: `EMPLOYEE`, `MANAGER`, `ADMIN` (Admin = Nutzerverwaltung).
 - **Auth.js (NextAuth v5)**, Credentials + bcrypt (JWT-Sessions), **Passkeys/WebAuthn**
 - **E-Mail** via SMTP (Einladungen, Verifikation, Passwort-Reset)
 - **Tailwind CSS v4**, **Zod**, **date-fns**
-- **OpenAPI 3.1 + Swagger UI** (`@asteasolutions/zod-to-openapi`, `swagger-ui-dist`)
 - **Karten:** Leaflet + OSM/CARTO, Nominatim, OSRM, **Overpass** (Konbini), **RainViewer**
   (Regenradar) — alle keyfrei; **Wetter:** Open-Meteo; **Kurs:** open.er-api.com
 - **Flüge:** AeroDataBox (optional); **Beleg-Scan:** Claude Vision (optional); **QR:** `qrcode`
@@ -33,7 +32,7 @@ docker compose run --rm app npx prisma db seed          # 4. Demo-Nutzer
 docker compose up -d app                                # 5. App
 ```
 
-App: http://localhost:3000 · **API-Docs:** http://localhost:3000/api-docs
+App: http://localhost:3000
 
 > Nach `npm run build` den Dev-Server neu starten (`docker compose restart app`) —
 > der Prod-Build überschreibt sonst den `.next`-Ordner des laufenden Dev-Servers.

@@ -29,14 +29,9 @@ export default async function AppLayout({
     },
   ];
 
-  // Verwaltung (Admin + API-Doku) — nur für ADMIN; landet im Profil-Menü,
-  // statt in einem eigenen „Mehr"-Reiter.
-  const adminItems = isAdmin
-    ? [
-        { href: "/admin", label: "Admin", match: "/admin" },
-        { href: "/api-docs", label: "API-Doku", match: "/api-docs" },
-      ]
-    : [];
+  // Verwaltung — nur für ADMIN; landet im Profil-Menü, statt in einem eigenen
+  // „Mehr"-Reiter.
+  const adminItems = isAdmin ? [{ href: "/admin", label: "Admin", match: "/admin" }] : [];
 
   return (
     <BiometricLock>

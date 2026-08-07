@@ -36,9 +36,9 @@ export default auth(function middleware(req) {
 export const config = {
   // Alles außer API-Routen, Next-internen Assets und statischen Dateien.
   //
-  // `api/` mit Schrägstrich (früher nur `api`): sonst fiele auch **`/api-docs`**
-  // unter den Ausschluss — die Swagger-Seite bekäme dann keine CSP, seit diese
-  // hier entsteht. Die eigentlichen `/api/v1/*`-Routen bleiben ausgenommen und
-  // authentifizieren wie gehabt pro Handler.
+  // Der Schrägstrich in `api/` ist Absicht: ohne ihn greift der Ausschluss auf
+  // **jeden** Pfad, der mit „api" beginnt — eine künftige Seite `/api…` bekäme
+  // dann keine CSP, weil die hier entsteht. Die eigentlichen `/api/v1/*`-Routen
+  // bleiben ausgenommen und authentifizieren wie gehabt pro Handler.
   matcher: ["/((?!api/|_next/static|_next/image|favicon.ico|.*\\.).*)"],
 };

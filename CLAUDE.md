@@ -46,8 +46,6 @@ Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerv
 - **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
   `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
 - **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
-- **OpenAPI/Swagger:** `@asteasolutions/zod-to-openapi` (Spec aus Zod) +
-  `swagger-ui-dist` (self-hosted UI unter `/api-docs`)
 - **Karten (Reiseplaner):** `leaflet` + OSM/CARTO-Tiles; Geocoding **Nominatim**,
   Routing **OSRM** (server-seitig, keyfrei)
 - **Konbini-Radar:** **Overpass API / OpenStreetMap** (`shop=convenience`, keyfrei,
@@ -154,9 +152,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
     **`requireTripUser()` ist der Standard-Einstieg der Trip-Endpunkte** — es holt Nutzer und
     `tripId` **parallel** (`Promise.all`) statt in zwei sequenziellen Neon-Roundtrips; im
     SSR-Pfad macht `src/lib/auth-session.ts#requireSessionUser()` dasselbe für Server Components.
-  - `schemas.ts` — **Zod = Single Source of Truth** für Request-Validierung UND OpenAPI.
+  - `schemas.ts` — **Zod = Single Source of Truth** für die Request-Validierung.
   - `dto.ts` — Prisma → schlanke Response-DTOs (nie rohes Prisma; **kein** `passwordHash`).
-  - `openapi.ts` — OpenAPI-3.1-Dokument (nur Session + Users registriert).
   - `client.ts` — **Browser**-Fetch-Helper (`api.get/post/patch/delete`). GETs auf dieselbe
     URL werden zusammengefasst, **solange sie laufen** (kein Zeit-Cache — sonst bekäme ein
     Reload direkt nach einem Write die alte Antwort). Nach Writes:
@@ -177,13 +174,13 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - **Login/Logout** bleiben NextAuth-Server-Actions (`src/app/actions/auth.ts`).
   `/api/auth/*` ist der NextAuth-Flow.
 - **Rollen-Gating doppelt:** Middleware (Seiten) **und** in jeder Page/jedem Handler.
-- **API-Docs:** `/api/v1/openapi` (JSON) + Swagger UI unter `/api-docs` (self-hosted,
-  dynamischer Client-Import). Middleware schützt `/api*` **nicht** — Auth pro Handler.
-  **ADMIN-only:** `/api-docs` liegt außerhalb des `(app)`-Layouts und wird vom
-  Middleware-Matcher (`(?!api…)`) nicht erfasst → die Seite prüft die Rolle selbst
-  (`auth()` → sonst Redirect) **und** der `openapi`-Endpunkt nutzt `requireAdmin()`
-  (sonst ließe sich die Spec direkt laden). Der Nav-Eintrag „Mehr" ist komplett
-  Admin-only (leere Gruppen werden ausgeblendet).
+- **Keine API-Doku mehr.** OpenAPI-Spec, Swagger UI (`/api-docs`) und die drei Pakete
+  (`swagger-ui-dist`, `@asteasolutions/zod-to-openapi`, `@types/…`) sind entfernt: die Spec
+  beschrieb nur `me` + `users` — 4 von 56 Routen — und verschwieg den kompletten Japan-Teil.
+  Eine Doku, die 52 Endpunkte auslässt, führt in die Irre. Die REST-API ist ohnehin
+  ausschließlich für das eigene Frontend, nicht für Dritte.
+  Middleware schützt `/api/*` **nicht** — Auth pro Handler. Der Nav-Eintrag „Mehr" ist
+  komplett Admin-only (leere Gruppen werden ausgeblendet).
 
 ### Sicherheit (nach Audit umgesetzt)
 
@@ -210,8 +207,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   und `ws:` **nur im Dev** (HMR). `img-src`/`connect-src` nennen nur die real vom Browser
   kontaktierten Hosts (cartocdn, rainviewer) — nicht mehr pauschal `https:`.
   `style-src 'unsafe-inline'` bleibt (Leaflet/Swagger setzen Styles per Attribut).
-  ⚠️ Der Middleware-Matcher schließt `api/` **mit Schrägstrich** aus — sonst fiele `/api-docs`
-  aus der CSP.
+  ⚠️ Der Middleware-Matcher schließt `api/` **mit Schrägstrich** aus — ohne ihn griffe der
+  Ausschluss auf jeden Pfad, der mit „api" beginnt, und eine solche Seite bekäme keine CSP.
 - **SSRF-Schutz** (`src/lib/net.ts`, `safeFetch`): nutzergesteuerte Fetches
   (Maps-Links in `geo/resolve`) blocken private/loopback/metadata-Ziele (inkl. IPv4-in-IPv6
   in **Hex**-Schreibweise/NAT64) + nur Ports 80/443 + folgen Redirects manuell.
@@ -299,7 +296,7 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
   (`InfoTabs.tsx`)
 - `/k/[token]` — **öffentliche** Kofferfinder-Seite (kein Login), dreisprachig (DE/EN/日本語)
 - `/mitglieder` · `/profil` (Profilbild 128×128 Data-URL, `PATCH /api/v1/me`) · `/admin` (nur
-  ADMIN) · `/api-docs` (Swagger UI, **nur ADMIN**)
+  ADMIN)
 - **Redirect-Altrouten:** `/ausgaben`,`/zoll`,`/wunschliste`,`/abrechnung` → `/geld?tab=…`;
   `/ablauf`,`/tagesplaner`,`/buchungen`,`/checkliste` → `/programm?tab=…`;
   `/wetter`,`/uebersicht` → `/info?tab=…`.
@@ -311,8 +308,7 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 `bookings` (+`[id]`), `wishlist` (+`[id]`), `settlements` (+`[id]`), `planner-tasks` (+`[id]`),
 `checklist`, `activity`, `stamps` (+`collect`), `luggage` (+`[id]`, +`found/[token]` — **public**),
 `presence` (POST — Heartbeat), `geo/*` (search, route, resolve, transit, **konbini**,
-**place-link**), `fx/rate`, `weather`, `openapi`.
-(Trip-basierte Endpunkte sind nicht in OpenAPI registriert.)
+**place-link**), `fx/rate`, `weather`.
 
 ### Auth-Flows
 
