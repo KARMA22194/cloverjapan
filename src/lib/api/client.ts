@@ -100,5 +100,8 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body ?? {}),
-  delete: <T>(path: string) => request<T>("DELETE", path),
+  // DELETE **mit** Body: die Konto-Löschung verlangt das Passwort zur Bestätigung.
+  // Ein Body ist bei DELETE erlaubt; ohne ihn bräuchte es einen eigenen
+  // POST-„Aktions"-Endpunkt und der Vertrag wäre weniger geradlinig.
+  delete: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
 };

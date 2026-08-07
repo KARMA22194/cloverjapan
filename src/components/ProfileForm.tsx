@@ -8,6 +8,7 @@ import { Avatar } from "@/components/Avatar";
 import { resizeImage } from "@/lib/image";
 import { buttonClasses } from "@/components/ui/Button";
 import { SectionIconSettings } from "@/components/SectionIconSettings";
+import { AccountDelete } from "@/components/AccountDelete";
 
 /** Bild quadratisch auf 128×128 zuschneiden, als JPEG-Data-URL. */
 const resize = (file: File) => resizeImage(file, { max: 128, quality: 0.85, square: true });
@@ -144,6 +145,8 @@ export function ProfileForm() {
       </div>
 
       <SectionIconSettings />
+
+      <AccountDelete />
     </div>
   );
 }

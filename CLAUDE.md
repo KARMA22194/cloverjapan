@@ -249,6 +249,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   Argument wie bei `ExpenseReceipt`. `customIcons` ist das Spiegel-Flag (wie `Expense.hasReceipt`):
   steht es auf `false`, fragt `getSectionIcons` die Tabelle **nicht** ab → der Normalfall
   „alles Standard" kostet keine zusätzliche Query pro Seitenaufruf.
+  Ein **ADMIN** kann die Symbole fremder Konten setzen (`/api/v1/users/{id}/icons/…`);
+  `SectionIconSettings` nimmt dafür ein optionales `userId` und schaltet nur den Endpunkt um.
   ⚠️ Das **Logo** ist bewusst **kein** Bereichs-Symbol (Markenzeichen, `src/components/Logo.tsx`).
   ⚠️ Eigene Bilder werden als **PNG** gespeichert, nicht als JPEG: `resizeImage` nimmt dafür
   `type: "image/png"` — JPEG hat keinen Alphakanal, ein freigestelltes Motiv bekäme sonst
@@ -320,7 +322,9 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
   `/ablauf`,`/tagesplaner`,`/buchungen`,`/checkliste` → `/programm?tab=…`;
   `/wetter`,`/uebersicht` → `/info?tab=…`.
 
-**API-Endpunkte:** `me` (+`icons`, +`icons/[section]` PUT/DELETE), `users` (+`[id]`), `register`, `password/forgot`,
+**API-Endpunkte:** `me` (+`icons`, +`icons/[section]` PUT/DELETE, +**DELETE** = Konto löschen),
+`users` (+`[id]` PATCH/**DELETE**, +`[id]/icons` (+`[section]`) — Admin setzt fremde Symbole),
+`register`, `password/forgot`,
 `password/reset`, `invite/[token]`, `trip/members` (+`[userId]`),
 `trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `trip-hotels`,
 `expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
@@ -345,6 +349,37 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
   Person **mit** Konto → **ausstehende Einladung**, die sie unter „Einladungen an dich"
   selbst **annimmt/ablehnt** (kein Force-Move). Ausstehende Einladungen sind dort
   sichtbar (Restlaufzeit) und widerrufbar.
+
+### Konto löschen
+
+Zwei Wege, beide **unwiderruflich** — wer nur den Zugang sperren will, nutzt weiter
+`PATCH /api/v1/users/{id} {active:false}` (Daten bleiben unberührt):
+- **selbst:** `DELETE /api/v1/me` mit `{ password }` im Body. Das Passwort wird
+  server-seitig geprüft — ein Cookie allein genügte nicht, sonst reichte ein
+  untergeschobener Request, um ein Konto samt Reisedaten zu vernichten. UI:
+  `AccountDelete.tsx` im Profil (eingeklappt + Passwort).
+- **als Admin:** `DELETE /api/v1/users/{id}`. Das eigene Konto ist dort gesperrt
+  (geht nur über `/me` mit Passwort). UI: `UserDeleteButton` — verlangt, dass die
+  **E-Mail abgetippt** wird; ein `confirm()`-„OK" ist in einer Liste gleich
+  aussehender Zeilen zu wenig.
+
+⚠️ **`deleteUserAccount()` (`services/users.ts`) räumt die Reise mit auf.** Ein reines
+`user.delete()` genügt **nicht**: `TripMember` hängt am User mit `Cascade`, `Trip`
+selbst aber nicht (`Trip.ownerId` ist bewusst kein harter FK). Zurück blieben Reisen
+**ohne Mitglieder**, die weiterhin Stopps, Ausgaben, Buchungen und die öffentlich
+erreichbaren Kofferanhänger (`/k/[token]`) enthalten — über die UI unerreichbar, aber
+vorhanden. Deshalb: leere Reise → löschen (cascadet alles); Mitglieder übrig und die
+Person war Owner → Eigentum an den ersten Verwalter bzw. das dienstälteste Mitglied
+weitergeben, sonst kann niemand mehr Mitglieder verwalten.
+
+⚠️ **`wouldLeaveNoAdmin()`** verhindert beide Wege, wenn danach kein aktiver ADMIN
+übrig bliebe — sonst sperrt sich die Installation aus (`/admin` für niemanden
+erreichbar, kein UI-Weg zurück).
+
+**Was bleibt:** die Namens-Schnappschüsse (`createdByName`, `assigneeName`,
+`Activity.userName` — Strings, keine FKs). Absicht: die übrigen Mitglieder brauchen
+für die Abrechnung weiterhin „wer hat was bezahlt". `Expense.paidById` wird per
+`SetNull` zu „Unbekannt".
 
 ### Reiseplaner (`/reiseplaner`)
 

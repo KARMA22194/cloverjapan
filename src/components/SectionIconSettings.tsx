@@ -19,8 +19,12 @@ import { SECTION_GROUPS, SECTION_ICONS, SECTION_IDS, ICON_PIXEL_SIZE, ICON_MAX_B
  * Das App-Logo ist bewusst nicht dabei: es ist Markenzeichen, keine
  * Bereichs-Illustration.
  */
-export function SectionIconSettings() {
+export function SectionIconSettings({ userId }: { userId?: string } = {}) {
   const router = useRouter();
+  // Ohne `userId` das eigene Konto (`/me`), mit `userId` ein fremdes (nur ADMIN).
+  // Beides dieselbe Oberfläche — der einzige Unterschied ist der Endpunkt.
+  const base = userId ? `/api/v1/users/${userId}/icons` : "/api/v1/me/icons";
+  const forOther = Boolean(userId);
   const [icons, setIcons] = useState<Partial<Record<SectionId, string>>>({});
   const [busy, setBusy] = useState<SectionId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +35,10 @@ export function SectionIconSettings() {
 
   useEffect(() => {
     api
-      .get<Partial<Record<SectionId, string>>>("/api/v1/me/icons")
+      .get<Partial<Record<SectionId, string>>>(base)
       .then(setIcons)
       .catch(() => {});
-  }, []);
+  }, [base]);
 
   function pick(id: SectionId) {
     target.current = id;
@@ -60,10 +64,11 @@ export function SectionIconSettings() {
         setError("Bild zu groß – bitte ein einfacheres Motiv nehmen.");
         return;
       }
-      await api.put(`/api/v1/me/icons/${id}`, { data });
+      await api.put(`${base}/${id}`, { data });
       setIcons((prev) => ({ ...prev, [id]: data }));
-      // Layout neu rendern, damit Nav, Kacheln und Tabs das neue Symbol zeigen.
-      router.refresh();
+      // Nur beim eigenen Konto neu rendern — das eigene Layout zeigt die eigenen
+      // Symbole; ein fremdes Konto sieht seine Änderung beim nächsten Aufruf.
+      if (!forOther) router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Konnte nicht gespeichert werden.");
     } finally {
@@ -75,13 +80,13 @@ export function SectionIconSettings() {
     setBusy(id);
     setError(null);
     try {
-      await api.delete(`/api/v1/me/icons/${id}`);
+      await api.delete(`${base}/${id}`);
       setIcons((prev) => {
         const next = { ...prev };
         delete next[id];
         return next;
       });
-      router.refresh();
+      if (!forOther) router.refresh();
     } catch {
       setError("Konnte nicht zurückgesetzt werden.");
     } finally {
@@ -92,11 +97,13 @@ export function SectionIconSettings() {
   const customCount = Object.keys(icons).length;
 
   return (
-    <Card pad="lg" className="mt-6">
+    <Card pad="lg" className={forOther ? "mt-3" : "mt-6"}>
       <h2 className="text-sm font-bold text-ink">Bereichs-Symbole</h2>
       <p className="mt-1 text-xs text-ink-muted">
-        Standard sind Emoji. Du kannst jedes Symbol durch ein eigenes Bild ersetzen — das
-        sehen nur du, nicht die anderen Mitglieder. Das App-Logo bleibt unverändert.
+        {forOther
+          ? "Standard sind Emoji. Als Admin kannst du die Symbole dieses Kontos ersetzen — sie gelten nur für diese Person."
+          : "Standard sind Emoji. Du kannst jedes Symbol durch ein eigenes Bild ersetzen — das sehen nur du, nicht die anderen Mitglieder."}{" "}
+        Das App-Logo bleibt unverändert.
         {customCount > 0 && ` Aktuell ${customCount} eigene.`}
       </p>
 

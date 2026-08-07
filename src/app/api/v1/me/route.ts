@@ -1,9 +1,16 @@
 import type { NextRequest } from "next/server";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { handle, ok, readJson } from "@/lib/api/http";
+import { forbidden, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
-import { getUserImage, setUserImage } from "@/lib/services/users";
+import { db } from "@/lib/db";
+import {
+  deleteUserAccount,
+  getUserImage,
+  setUserImage,
+  wouldLeaveNoAdmin,
+} from "@/lib/services/users";
 
 /** GET /api/v1/me — aktueller Nutzer (id, name, email, role, image). */
 export function GET() {
@@ -35,5 +42,41 @@ export function PATCH(req: NextRequest) {
     const { image } = patchBody.parse(await readJson(req));
     await setUserImage(user.id, image);
     return ok({ image });
+  });
+}
+
+const deleteBody = z.object({
+  password: z.string().min(1, "Passwort fehlt."),
+});
+
+/**
+ * DELETE /api/v1/me — eigenes Konto endgültig löschen.
+ *
+ * Verlangt das **Passwort** im Body: der Schritt ist nicht rückholbar, und ohne
+ * erneute Bestätigung genügte ein einziger untergeschobener Request (XSS, offener
+ * Fremd-Tab), um ein Konto samt Reisedaten zu vernichten. Ein Cookie allein ist
+ * dafür zu wenig — dasselbe Muster wie bei „sensiblen Aktionen" nach dem Login.
+ */
+export function DELETE(req: NextRequest) {
+  return handle(async () => {
+    const user = await requireUser();
+    const { password } = deleteBody.parse(await readJson(req));
+
+    const row = await db.user.findUnique({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+    if (!row || !(await bcrypt.compare(password, row.passwordHash))) {
+      throw forbidden("Passwort stimmt nicht.");
+    }
+    // Auch beim Selbst-Löschen: die Installation darf nicht ohne Admin dastehen.
+    if (await wouldLeaveNoAdmin(user.id)) {
+      throw forbidden(
+        "Du bist der letzte aktive Admin. Ernenne zuerst jemand anderen, sonst ist die Nutzerverwaltung für niemanden mehr erreichbar.",
+      );
+    }
+
+    const { tripDeleted } = await deleteUserAccount(user.id);
+    return ok({ deleted: true, tripDeleted });
   });
 }
