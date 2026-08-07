@@ -21,8 +21,8 @@ export default async function ProgrammPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Programm · Japan</h1>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-xl text-ink">Programm · Japan</h1>
+      <p className="mb-4 text-sm text-ink-muted">
         Reiseablauf, Tagesplaner, Buchungen und Checkliste an einem Ort.
       </p>
       {/* Die Timeline (vier Queries) nur rendern, wenn ihr Tab wirklich aktiv ist —

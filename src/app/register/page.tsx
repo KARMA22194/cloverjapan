@@ -18,12 +18,12 @@ export default async function RegisterPage({ searchParams }: Props) {
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-card border border-hairline bg-surface p-8 shadow-card">
         <div className="mb-6">
           <Logo height={40} priority />
-          <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">Registrieren</h1>
+          <h1 className="mt-4 text-xl text-ink">Registrieren</h1>
           {!token && (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-ink-muted">
               Lege ein Konto an, um loszulegen.
             </p>
           )}
@@ -50,7 +50,7 @@ export default async function RegisterPage({ searchParams }: Props) {
           </div>
         )}
 
-        <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-6 text-center text-sm text-ink-muted">
           Schon ein Konto?{" "}
           <Link href="/login" className="font-medium text-brand hover:underline">
             Anmelden

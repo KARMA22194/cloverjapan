@@ -81,9 +81,32 @@ try {
   });
   console.log("Seed:", seeded.join(", "));
 
+  // Wunschliste füllen, damit die Listen-Optik zu sehen ist.
+  await page.evaluate(async () => {
+    for (const [label, priceYen] of [["Gunpla RG Zaku", 3400], ["Kitkat Matcha", 480], ["Kimono", 12000]])
+      await fetch("/api/v1/wishlist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ label, priceYen }),
+      });
+  });
+
   const views = [
     ["start", `${BASE}/start`],
+    ["geld-ausgaben", `${BASE}/geld?tab=ausgaben`],
+    ["geld-abrechnung", `${BASE}/geld?tab=abrechnung`],
+    ["geld-zoll", `${BASE}/geld?tab=zoll`],
     ["geld-wunschliste", `${BASE}/geld?tab=wunschliste`],
+    ["programm-tagesplaner", `${BASE}/programm?tab=tagesplaner`],
+    ["programm-buchungen", `${BASE}/programm?tab=buchungen`],
+    ["programm-checkliste", `${BASE}/programm?tab=checkliste`],
+    ["info-uebersicht", `${BASE}/info?tab=uebersicht`],
+    ["info-wetter", `${BASE}/info?tab=wetter`],
+    ["info-stempel", `${BASE}/info?tab=stempel`],
+    ["info-koffer", `${BASE}/info?tab=koffer`],
+    ["fluege", `${BASE}/fluege`],
+    ["mitglieder", `${BASE}/mitglieder`],
+    ["profil", `${BASE}/profil`],
     ["reiseplaner", `${BASE}/reiseplaner`],
   ];
 

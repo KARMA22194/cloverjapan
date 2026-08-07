@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api/client";
 import { eurFmt, yenFmt } from "@/lib/format";
 import { FlightLiveStatus } from "@/components/FlightLiveStatus";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 /** Heutiges Datum als YYYY-MM-DD (lokal). */
 function todayStr(): string {
@@ -270,15 +272,15 @@ export function FlightPlanner() {
 
   const yenPreview = priceToYen();
   const inputClass =
-    "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
-  const labelClass = "mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300";
+    fieldClasses;
+  const labelClass = "mb-1 block text-xs font-medium text-ink-muted";
 
   return (
     <div className="space-y-6">
       {/* Formular */}
       <form
         onSubmit={save}
-        className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
+        className="space-y-3 rounded-card border border-hairline bg-surface shadow-card p-4"
       >
         <div className="flex flex-wrap items-end gap-2">
           <div className="w-32">
@@ -352,7 +354,7 @@ export function FlightPlanner() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+        <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-3">
           <div className="w-32">
             <label htmlFor="flug-preis" className={labelClass}>Preis</label>
             <input id="flug-preis" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="z. B. 780" className={inputClass} />
@@ -368,7 +370,7 @@ export function FlightPlanner() {
               <option value="JPY">Yen (¥)</option>
             </select>
           </div>
-          <p className="pb-2 text-xs text-slate-500 dark:text-slate-400">
+          <p className="pb-2 text-xs text-ink-muted">
             {yenPreview
               ? `≈ ${yenFmt.format(yenPreview)} · ${eurFmt.format(yenPreview * rate)} — landet im Ausgabenrechner`
               : "optional — fließt als Ausgabe (Transport) in den Rechner"}
@@ -382,7 +384,7 @@ export function FlightPlanner() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60"
+            className={buttonClasses("primary", "md")}
           >
             {saving ? "Speichert…" : editingId ? "Flug speichern" : "Flug hinzufügen"}
           </button>
@@ -390,7 +392,7 @@ export function FlightPlanner() {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              className={buttonClasses("secondary", "md")}
             >
               Abbrechen
             </button>
@@ -399,34 +401,34 @@ export function FlightPlanner() {
       </form>
 
       {/* Liste */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
           Flüge ({flights.length})
         </div>
         {flights.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-8 text-center text-sm text-ink-subtle">
             Noch keine Flüge. Flugnummer + Datum eingeben und „Flugdaten holen" (oder manuell ausfüllen).
           </p>
         ) : (
           <ul>
             {flights.map((f) => (
-              <li key={f.id} className="border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0">
+              <li key={f.id} className="border-b border-hairline px-4 py-3 last:border-b-0">
                 <div className="flex items-start gap-3">
                 <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand/10 text-brand">✈</span>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
                     {f.flightNumber}
-                    {f.airline && <span className="font-normal text-slate-500 dark:text-slate-400">· {f.airline}</span>}
+                    {f.airline && <span className="font-normal text-ink-muted">· {f.airline}</span>}
                     {directionLabel(f.fromCode, f.toCode) && (
                       <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand">
                         {directionLabel(f.fromCode, f.toCode)}
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-sm text-slate-600 dark:text-slate-300">
+                  <p className="truncate text-sm text-ink-muted">
                     {(f.fromCode || f.fromName || "?")}{f.fromName && f.fromCode ? ` ${f.fromName}` : ""} → {(f.toCode || f.toName || "?")}{f.toName && f.toCode ? ` ${f.toName}` : ""}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-ink-muted">
                     {fmtDate(f.departure)} → {fmtDate(f.arrival)}
                     {overnightDays(f.departure, f.arrival) > 0 && (
                       <span className="ml-1 text-amber-600 dark:text-amber-400">
@@ -437,18 +439,18 @@ export function FlightPlanner() {
                     {f.bookingRef && ` · Buchung ${f.bookingRef}`}
                   </p>
                   {f.seats && (
-                    <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                    <p className="mt-0.5 text-xs text-ink-muted">
                       💺 Sitze:{" "}
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                      <span className="font-semibold tabular-nums text-ink">
                         {f.seats}
                       </span>
                     </p>
                   )}
-                  {f.by && <p className="text-[11px] text-slate-400 dark:text-slate-500">von {f.by}</p>}
+                  {f.by && <p className="text-[11px] text-ink-subtle">von {f.by}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {f.priceYen ? (
-                    <span className="text-sm font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                    <span className="text-sm font-medium tabular-nums text-ink">
                       {eurFmt.format(f.priceYen * rate)}
                     </span>
                   ) : null}
@@ -480,7 +482,7 @@ export function FlightPlanner() {
                       {liveOpen.has(f.id) ? "Live-Status ausblenden" : "🔴 Live-Status anzeigen"}
                     </button>
                     {liveOpen.has(f.id) && (
-                      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/30">
+                      <div className="mt-2 rounded-md border border-hairline bg-surface-2 p-3">
                         <FlightLiveStatus number={f.flightNumber} date={f.departure.slice(0, 10)} />
                       </div>
                     )}
@@ -492,7 +494,7 @@ export function FlightPlanner() {
         )}
       </div>
 
-      <p className="text-xs text-slate-400 dark:text-slate-500">
+      <p className="text-xs text-ink-subtle">
         Wird in der Reise gespeichert und mit Mitgliedern geteilt. Ein hinterlegter Preis erscheint
         automatisch als Ausgabe (Kategorie Transport) im Ausgabenrechner.
       </p>

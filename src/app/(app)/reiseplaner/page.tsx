@@ -14,8 +14,8 @@ export default async function ReiseplanerPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Reiseplaner · Japan</h1>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-xl text-ink">Reiseplaner · Japan</h1>
+      <p className="mb-4 text-sm text-ink-muted">
         Orte eingeben, auf der Karte markieren lassen und die beste Route berechnen.
       </p>
       <TripPlanner />

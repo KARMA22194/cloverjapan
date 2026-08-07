@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { JP_CITIES, type Weather } from "@/lib/cities";
+import { Card } from "@/components/ui/Card";
 
 const wdFmt = new Intl.DateTimeFormat("de-DE", { weekday: "short", timeZone: "UTC" });
 const weekday = (iso: string) => wdFmt.format(new Date(`${iso}T00:00:00Z`));
@@ -37,18 +38,15 @@ export function WeatherBoard() {
       {JP_CITIES.map((c) => {
         const w = data[c.key];
         return (
-          <div
-            key={c.key}
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm"
-          >
-            <h2 className="text-base font-medium text-slate-900 dark:text-slate-100">{c.name}</h2>
+          <Card key={c.key} pad="lg">
+            <h2 className="text-base text-ink">{c.name}</h2>
 
             {w === "error" ? (
-              <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+              <p className="mt-2 text-sm text-ink-subtle">
                 Wetter nicht verfügbar.
               </p>
             ) : !w ? (
-              <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">Lädt…</p>
+              <p className="mt-2 text-sm text-ink-subtle">Lädt…</p>
             ) : (
               <>
                 <div className="mt-1 flex items-center gap-3">
@@ -56,34 +54,34 @@ export function WeatherBoard() {
                     {w.emoji}
                   </span>
                   <div>
-                    <div className="text-4xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                    <div className="text-4xl font-semibold tabular-nums text-ink">
                       {w.tempC}°
                     </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-300">{w.text}</div>
+                    <div className="text-sm text-ink-muted">{w.text}</div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex justify-between gap-1 border-t border-slate-100 dark:border-slate-800 pt-3">
+                <div className="mt-4 flex justify-between gap-1 border-t border-hairline pt-3">
                   {w.daily.map((d, i) => (
-                    <div key={d.date} className="flex flex-col items-center gap-1" title={d.text}>
-                      <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    <div
+                      key={d.date}
+                      className="flex flex-1 flex-col items-center gap-1 rounded-[0.5rem] py-1 transition hover:bg-surface-2"
+                      title={d.text}
+                    >
+                      <span className="text-[11px] font-semibold text-ink-subtle">
                         {i === 0 ? "Heute" : weekday(d.date)}
                       </span>
                       <span className="text-lg" aria-hidden>
                         {d.emoji}
                       </span>
-                      <span className="text-xs tabular-nums text-slate-800 dark:text-slate-100">
-                        {d.max}°
-                      </span>
-                      <span className="text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-                        {d.min}°
-                      </span>
+                      <span className="text-xs font-bold tabular-nums text-ink">{d.max}°</span>
+                      <span className="text-[11px] tabular-nums text-ink-subtle">{d.min}°</span>
                     </div>
                   ))}
                 </div>
               </>
             )}
-          </div>
+          </Card>
         );
       })}
     </div>

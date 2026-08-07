@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { api } from "@/lib/api/client";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 export function ForgotForm() {
   const [email, setEmail] = useState("");
@@ -40,11 +42,11 @@ export function ForgotForm() {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p className="text-sm text-slate-500 dark:text-slate-400">
+      <p className="text-sm text-ink-muted">
         Gib deine E-Mail ein — wir schicken dir einen Link zum Zurücksetzen.
       </p>
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink-muted">
           E-Mail
         </label>
         <input
@@ -54,7 +56,7 @@ export function ForgotForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
       {error && (
@@ -65,7 +67,7 @@ export function ForgotForm() {
       <button
         type="submit"
         disabled={pending || !email.trim()}
-        className="inline-flex w-full items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+        className={buttonClasses("primary", "md", "w-full")}
       >
         {pending ? "Wird gesendet…" : "Link anfordern"}
       </button>

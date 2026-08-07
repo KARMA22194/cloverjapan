@@ -8,6 +8,7 @@ import { NotfallInfo } from "@/components/NotfallInfo";
 import { EkiStampAlbum } from "@/components/EkiStampAlbum";
 import { KofferManager } from "@/components/KofferManager";
 import { TabPanel } from "@/components/TabPanel";
+import { TabBar } from "@/components/ui/TabBar";
 
 const TABS = [
   { key: "uebersicht", label: "Übersicht", emoji: "🧭" },
@@ -35,31 +36,13 @@ export function InfoTabs({ initial }: { initial?: string }) {
 
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="Info-Bereiche"
-        className="mb-4 flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-700"
-      >
-        {TABS.map((t) => {
-          const on = t.key === active;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => select(t.key)}
-              className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition ${
-                on
-                  ? "border-brand text-brand"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
-              }`}
-            >
-              <span aria-hidden>{t.emoji}</span> {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <TabBar
+        items={TABS}
+        active={active}
+        onSelect={select}
+        label="Info-Bereiche"
+        idPrefix="info"
+      />
 
       {/* Einmal geöffnete Tabs bleiben gemountet (siehe TabPanel). */}
       <TabPanel id="info-uebersicht" active={active === "uebersicht"}>

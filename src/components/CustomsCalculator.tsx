@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { eurFmt } from "@/lib/format";
+import { fieldClasses } from "@/components/ui/Field";
 
 // Deutscher Reisezoll (Nicht-EU → Deutschland), Stand 2024:
 const ALLOWANCE_PER_PERSON = 430; // € Reisefreimenge für Flug-/Seereisende
@@ -169,8 +170,8 @@ export function CustomsCalculator() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
-  const labelClass = "mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300";
+    fieldClasses;
+  const labelClass = "mb-1 block text-xs font-medium text-ink-muted";
 
   const recPill = (kind: "flat" | "regular") =>
     calc.recommended === kind ? (
@@ -182,7 +183,7 @@ export function CustomsCalculator() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {/* Eingabe */}
-      <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <div className="space-y-3 rounded-card border border-hairline bg-surface shadow-card p-4">
         {breakdown ? (
           <>
             <div className="flex items-center justify-between">
@@ -202,15 +203,15 @@ export function CustomsCalculator() {
               {breakdown.map((c) => (
                 <li
                   key={c.key}
-                  className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-md border border-hairline px-3 py-2 text-sm"
                 >
-                  <span className="text-slate-700 dark:text-slate-200">
+                  <span className="text-ink-muted">
                     {c.label}
-                    <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">
+                    <span className="ml-1 text-xs text-ink-subtle">
                       · {c.dutyPct} % Zoll
                     </span>
                   </span>
-                  <span className="tabular-nums text-slate-800 dark:text-slate-100">
+                  <span className="tabular-nums text-ink">
                     {eurFmt.format(c.yen * rate)}
                   </span>
                 </li>
@@ -262,7 +263,7 @@ export function CustomsCalculator() {
             </div>
 
             {currency === "JPY" && goodsEur > 0 && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">≈ {eurFmt.format(goodsEur)}</p>
+              <p className="text-xs text-ink-muted">≈ {eurFmt.format(goodsEur)}</p>
             )}
 
             <div>
@@ -299,28 +300,28 @@ export function CustomsCalculator() {
           </button>
         </div>
         {prefillNote && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">{prefillNote}</p>
+          <p className="text-xs text-ink-muted">{prefillNote}</p>
         )}
       </div>
 
       {/* Ergebnis */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-        <h2 className="mb-3 text-lg text-slate-900 dark:text-slate-100">Ergebnis</h2>
+      <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
+        <h2 className="mb-3 text-lg text-ink">Ergebnis</h2>
 
         <dl className="space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <dt className="text-slate-500 dark:text-slate-400">Warenwert</dt>
-            <dd className="tabular-nums text-slate-800 dark:text-slate-100">{eurFmt.format(calc.goods)}</dd>
+            <dt className="text-ink-muted">Warenwert</dt>
+            <dd className="tabular-nums text-ink">{eurFmt.format(calc.goods)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500 dark:text-slate-400">
+            <dt className="text-ink-muted">
               Freimenge ({calc.p} × {eurFmt.format(ALLOWANCE_PER_PERSON)})
             </dt>
-            <dd className="tabular-nums text-slate-800 dark:text-slate-100">− {eurFmt.format(calc.allowance)}</dd>
+            <dd className="tabular-nums text-ink">− {eurFmt.format(calc.allowance)}</dd>
           </div>
-          <div className="flex justify-between border-t border-slate-100 dark:border-slate-800 pt-1.5 font-medium">
-            <dt className="text-slate-700 dark:text-slate-200">Zu verzollen</dt>
-            <dd className="tabular-nums text-slate-900 dark:text-slate-100">{eurFmt.format(calc.dutiable)}</dd>
+          <div className="flex justify-between border-t border-hairline pt-1.5 font-medium">
+            <dt className="text-ink-muted">Zu verzollen</dt>
+            <dd className="tabular-nums text-ink">{eurFmt.format(calc.dutiable)}</dd>
           </div>
         </dl>
 
@@ -335,19 +336,19 @@ export function CustomsCalculator() {
               className={`rounded-md border px-3 py-2 ${
                 calc.recommended === "flat"
                   ? "border-brand/50 bg-brand/5"
-                  : "border-slate-200 dark:border-slate-700"
+                  : "border-hairline"
               }`}
             >
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-200">
+                <span className="font-medium text-ink-muted">
                   Pauschal 17,5 % {recPill("flat")}
                 </span>
-                <span className="tabular-nums font-semibold text-slate-900 dark:text-slate-100">
+                <span className="tabular-nums font-semibold text-ink">
                   {calc.flatAvailable ? eurFmt.format(calc.flat!) : "—"}
                 </span>
               </div>
               {!calc.flatAvailable && (
-                <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                <p className="mt-0.5 text-[11px] text-ink-subtle">
                   Nicht zulässig: Warenwert über {eurFmt.format(calc.flatCap)}
                   {calc.p > 1 ? ` (${eurFmt.format(FLAT_CAP)}/Person)` : ""} — Pauschalierung
                   nur bis dahin.
@@ -360,18 +361,18 @@ export function CustomsCalculator() {
               className={`rounded-md border px-3 py-2 ${
                 calc.recommended === "regular"
                   ? "border-brand/50 bg-brand/5"
-                  : "border-slate-200 dark:border-slate-700"
+                  : "border-hairline"
               }`}
             >
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-200">
+                <span className="font-medium text-ink-muted">
                   Regulär: Zoll je Warenart + 19 % EUSt {recPill("regular")}
                 </span>
-                <span className="tabular-nums font-semibold text-slate-900 dark:text-slate-100">
+                <span className="tabular-nums font-semibold text-ink">
                   {eurFmt.format(calc.regular)}
                 </span>
               </div>
-              <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+              <div className="mt-1.5 space-y-0.5 text-[11px] text-ink-subtle">
                 {calc.lines
                   .filter((l) => l.base > 0)
                   .map((l, i) => (
@@ -398,7 +399,7 @@ export function CustomsCalculator() {
           </div>
         )}
 
-        <p className="mt-4 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+        <p className="mt-4 text-[11px] leading-relaxed text-ink-subtle">
           Schätzung nach deutschem Reisezoll (Flugreisende): Freimenge 430 €/Person; der
           Pauschalsatz 17,5 % ist nur bis 700 € Warenwert/Person zulässig, darüber gilt zwingend
           die reguläre Verzollung (Zoll je Warenart + 19 % EUSt). Der Satz wird auf den Wert nach

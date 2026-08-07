@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 interface Tag {
   id: string;
@@ -16,7 +18,7 @@ interface Tag {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
+  fieldClasses;
 
 export function KofferManager() {
   const [tags, setTags] = useState<Tag[]>([]);
@@ -99,37 +101,37 @@ export function KofferManager() {
     <div className="grid gap-4 lg:grid-cols-[minmax(260px,1fr)_1.4fr]">
       <form
         onSubmit={add}
-        className="space-y-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        className="space-y-2 self-start rounded-card border border-hairline bg-surface shadow-card p-3"
       >
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <p className="text-sm font-semibold text-ink-muted">
           🧳 Neuer Kofferanhänger
         </p>
         <div>
-          <label htmlFor="koffer-bezeichnung" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-bezeichnung" className="mb-1 block text-xs font-medium text-ink-muted">
             Bezeichnung
           </label>
           <input id="koffer-bezeichnung" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="z. B. Papas Koffer" className={inputClass} />
         </div>
         <div>
-          <label htmlFor="koffer-name" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-name" className="mb-1 block text-xs font-medium text-ink-muted">
             Name (für den Finder sichtbar)
           </label>
           <input id="koffer-name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="z. B. Steve" className={inputClass} />
         </div>
         <div>
-          <label htmlFor="koffer-benachrichtigungs-e-mail" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-benachrichtigungs-e-mail" className="mb-1 block text-xs font-medium text-ink-muted">
             Benachrichtigungs-E-Mail (optional)
           </label>
           <input id="koffer-benachrichtigungs-e-mail" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} placeholder="leer = deine Konto-E-Mail" className={inputClass} />
         </div>
         <div>
-          <label htmlFor="koffer-whatsapp-nummer" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-whatsapp-nummer" className="mb-1 block text-xs font-medium text-ink-muted">
             WhatsApp-Nummer (optional, für Finder-Knopf)
           </label>
           <input id="koffer-whatsapp-nummer" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+49170…" className={inputClass} />
         </div>
         <div>
-          <label htmlFor="koffer-direktkontakt-fuer-den-finder" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="koffer-direktkontakt-fuer-den-finder" className="mb-1 block text-xs font-medium text-ink-muted">
             Direktkontakt für den Finder (optional, sichtbar)
           </label>
           <input id="koffer-direktkontakt-fuer-den-finder" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="E-Mail, Telefon oder Hotel" className={inputClass} />
@@ -137,11 +139,11 @@ export function KofferManager() {
         <button
           type="submit"
           disabled={saving || !label.trim() || !ownerName.trim()}
-          className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md", "w-full")}
         >
           {saving ? "…" : "QR-Anhänger erstellen"}
         </button>
-        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+        <p className="text-[11px] text-ink-subtle">
           QR ausdrucken, laminieren, an den Koffer hängen. Wird er gefunden &amp; gescannt, teilt der
           Finder seinen Standort – du wirst per E-Mail/Discord benachrichtigt.
         </p>
@@ -149,26 +151,33 @@ export function KofferManager() {
 
       <div className="space-y-3">
         {tags.length === 0 ? (
-          <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="rounded-card border border-hairline bg-surface shadow-card px-4 py-8 text-center text-sm text-ink-subtle">
             Noch keine Kofferanhänger. Lege links einen an.
           </p>
         ) : (
           tags.map((t) => (
             <div
               key={t.id}
-              className="flex items-start gap-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+              className="flex items-start gap-4 rounded-card border border-hairline bg-surface shadow-card p-3"
             >
               {qr[t.id] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={qr[t.id]} alt={`QR ${t.label}`} className="h-24 w-24 shrink-0 rounded bg-white p-1" />
+                // `bg-white` bleibt hier bewusst hart (kein `bg-surface`): ein QR-Code
+                // braucht seine helle Ruhezone, sonst scannen ihn Kameras im Dark-Mode
+                // nicht mehr.
+                <img
+                  src={qr[t.id]}
+                  alt={`QR ${t.label}`}
+                  className="h-24 w-24 shrink-0 rounded-field bg-white p-1"
+                />
               ) : (
-                <div className="h-24 w-24 shrink-0 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                <div className="h-24 w-24 shrink-0 animate-pulse rounded bg-surface-2" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">🧳 {t.label}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Besitzer: {t.ownerName}</p>
+                <p className="text-sm font-medium text-ink">🧳 {t.label}</p>
+                <p className="text-xs text-ink-muted">Besitzer: {t.ownerName}</p>
                 {t.whatsapp && (
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">WhatsApp: {t.whatsapp}</p>
+                  <p className="text-[11px] text-ink-subtle">WhatsApp: {t.whatsapp}</p>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {qr[t.id] && (
@@ -183,7 +192,7 @@ export function KofferManager() {
                   <button
                     type="button"
                     onClick={() => copyLink(t.token)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className={buttonClasses("secondary", "sm", "h-auto px-2 py-1")}
                   >
                     Link kopieren
                   </button>

@@ -26,6 +26,10 @@ import { api } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 import { addExpenseItem } from "@/lib/expenses";
 import { deDate } from "@/lib/format";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
+import { TabBar } from "@/components/ui/TabBar";
 
 interface Stop {
   id: string;
@@ -154,7 +158,7 @@ function PlaceLink({
       target="_blank"
       rel="noopener noreferrer"
       title={`${label} — in Google Maps öffnen`}
-      className="block w-full truncate text-left text-sm text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+      className="block w-full truncate text-left text-sm text-ink-muted transition hover:text-brand hover:underline dark:hover:text-brand"
     >
       {display}
     </a>
@@ -1407,7 +1411,7 @@ export function TripPlanner() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
+    fieldClasses;
 
   // Gesamt-Übersicht der Zugverbindungen: Fahrzeit, Umstiege und ¥ über alle
   // Etappen aufsummiert (Liste ist klein → Berechnung im Render unkritisch).
@@ -1439,27 +1443,20 @@ export function TripPlanner() {
 
   return (
     <div className="space-y-4">
-      {/* Tab-Umschalter: entlastet den vollen Reiseplaner (Karte vs. Liste). */}
-      <div className="inline-flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-        {([
-          ["map", "🗺️ Karte & Route"],
-          ["list", "📋 Import"],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setView(key)}
-            aria-pressed={view === key}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-              view === key
-                ? "bg-brand text-white"
-                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Tab-Umschalter: entlastet den vollen Reiseplaner (Karte vs. Liste).
+          Dieselbe Segment-Optik wie die Bereichs-Tabs in /geld, /programm und
+          /info — vorher war es hier ein blau gefüllter Knopf, was neben den
+          anderen Reitern nach etwas anderem aussah. */}
+      <TabBar
+        items={[
+          { key: "map", label: "Karte & Route", emoji: "🗺️" },
+          { key: "list", label: "Import", emoji: "📋" },
+        ]}
+        active={view}
+        onSelect={setView}
+        label="Reiseplaner-Ansicht"
+        className="mb-0"
+      />
 
       <div
         className={
@@ -1473,11 +1470,11 @@ export function TripPlanner() {
         {/* Ein Feld für beides: Ortsname/Text ODER Google-/Apple-Maps-Link. */}
         <form
           onSubmit={addStop}
-          className={`rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 ${
+          className={`rounded-card border border-hairline bg-surface shadow-card p-3 ${
             view === "map" ? "" : "hidden"
           }`}
         >
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label className="mb-1 block text-xs font-medium text-ink-muted">
             Ort hinzufügen
           </label>
           <div ref={suggestRef} className="relative">
@@ -1501,12 +1498,12 @@ export function TripPlanner() {
               }}
               rows={2}
               placeholder="Ortsname oder Google-Maps-Link (z. B. „Tokyo Tower“, „Fushimi Inari“)"
-              className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+              className={cn(fieldClasses, "resize-none")}
             />
             {showSuggest && suggestions.length > 0 && (
               <ul
                 role="listbox"
-                className="absolute left-0 right-0 top-full z-[1200] mt-1 max-h-64 overflow-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                className="absolute left-0 right-0 top-full z-[1200] mt-1 max-h-64 overflow-auto rounded-card border border-hairline bg-surface p-1 shadow-pop"
               >
                 {suggestions.map((r, i) => (
                   <li key={i}>
@@ -1515,7 +1512,7 @@ export function TripPlanner() {
                       role="option"
                       aria-selected={false}
                       onClick={() => pickSuggestion(r)}
-                      className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-ink-muted transition hover:bg-surface-2"
                       title={r.label}
                     >
                       📍 {r.label}
@@ -1526,13 +1523,13 @@ export function TripPlanner() {
             )}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-xs text-slate-400 dark:text-slate-500">
+            <span className="text-xs text-ink-subtle">
               Maps-Link = exakt · Name/Text = geschätzt
             </span>
             <button
               type="submit"
               disabled={adding || query.trim().length < 2}
-              className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonClasses("primary", "md", "px-3 shrink-0")}
             >
               {adding ? "…" : "Hinzufügen"}
             </button>
@@ -1551,12 +1548,12 @@ export function TripPlanner() {
         {/* Orte-Liste-Tab: Listen-Import (entlastet den Karten-Tab). */}
         <div className={view === "list" ? "flex flex-col gap-3" : "hidden"}>
         {/* Sammel-Import: mehrere Orte/Maps-Links auf einmal (eine Zeile pro Ort). */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
           <button
             type="button"
             onClick={() => setImportOpen((o) => !o)}
             aria-expanded={importOpen}
-            className="flex w-full items-center justify-between text-sm font-medium text-slate-700 dark:text-slate-200"
+            className="flex w-full items-center justify-between text-sm font-medium text-ink-muted"
           >
             <span>📋 Liste importieren</span>
             <span
@@ -1575,10 +1572,10 @@ export function TripPlanner() {
                 placeholder={
                   "Ein Ort pro Zeile — Name oder Google-Maps-Link, z. B.:\nteamLab Planets\nFushimi Inari\nhttps://maps.app.goo.gl/…"
                 }
-                className="w-full resize-y rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+                className={cn(fieldClasses, "resize-y")}
               />
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                <span className="text-[11px] text-ink-subtle">
                   {importing && importProgress
                     ? `Löse auf… ${importProgress.done + 1}/${importProgress.total}`
                     : "Jede Zeile wird gesucht und unten als Vorschau aufgelistet."}
@@ -1587,14 +1584,14 @@ export function TripPlanner() {
                   type="button"
                   onClick={importList}
                   disabled={importing || importText.trim().length === 0}
-                  className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  className={buttonClasses("primary", "md", "px-3 shrink-0")}
                 >
                   {importing ? "Suche…" : "Auflösen"}
                 </button>
               </div>
 
               {/* Alternativ: Orte-Datei importieren (Takeout/My Maps/GPX). */}
-              <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+              <div className="border-t border-hairline pt-2">
                 <label className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-brand transition hover:underline">
                   📁 Datei importieren
                   <input
@@ -1604,27 +1601,27 @@ export function TripPlanner() {
                     className="hidden"
                   />
                 </label>
-                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                <p className="mt-1 text-[11px] text-ink-subtle">
                   Am besten <strong>GeoJSON/KML/GPX</strong> (enthalten Koordinaten → direkt in
                   die Vorschau). CSV (Google Takeout) hat nur Namen/Links → werden geocodiert;
                   sehr spezielle Shop-Namen findet der Geocoder evtl. nicht.
                 </p>
                 {importNote && (
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{importNote}</p>
+                  <p className="mt-1 text-[11px] text-ink-muted">{importNote}</p>
                 )}
               </div>
 
               {/* Vorschau-Liste: gefundene Orte prüfen, dann in die Stopps übernehmen. */}
               {importCandidates.length > 0 && (
-                <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                <div className="border-t border-hairline pt-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <span className="text-sm font-medium text-ink-muted">
                       Gefundene Orte ({importCandidates.length})
                     </span>
                     <button
                       type="button"
                       onClick={() => setImportCandidates([])}
-                      className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                      className="text-xs text-ink-muted transition hover:text-red-600"
                     >
                       Leeren
                     </button>
@@ -1633,7 +1630,7 @@ export function TripPlanner() {
                     {importCandidates.map((c, i) => (
                       <li
                         key={c.id}
-                        className="rounded-md border border-slate-100 px-2 py-1.5 text-sm dark:border-slate-800"
+                        className="rounded-md border border-hairline px-2 py-1.5 text-sm"
                       >
                         <div className="flex items-center gap-2">
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
@@ -1644,7 +1641,7 @@ export function TripPlanner() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title={`${c.label} — in Google Maps öffnen`}
-                            className="min-w-0 flex-1 truncate text-slate-700 transition hover:text-brand hover:underline dark:text-slate-200 dark:hover:text-brand"
+                            className="min-w-0 flex-1 truncate text-ink-muted transition hover:text-brand hover:underline dark:hover:text-brand"
                           >
                             {shortLabel(c.label)}
                           </a>
@@ -1671,7 +1668,7 @@ export function TripPlanner() {
                           placeholder="📝 Notiz…"
                           maxLength={500}
                           aria-label={`Notiz zu „${shortLabel(c.label)}"`}
-                          className="mt-1 ml-7 w-[calc(100%-1.75rem)] rounded border border-transparent bg-slate-50 px-2 py-1 text-xs text-slate-600 outline-none transition focus:border-brand focus:bg-transparent dark:bg-slate-800/50 dark:text-slate-300"
+                          className="mt-1 ml-7 w-[calc(100%-1.75rem)] rounded-field bg-surface-2 px-2 py-1 text-xs text-ink-muted outline-none ring-1 ring-transparent transition focus:bg-surface focus:ring-brand"
                         />
                       </li>
                     ))}
@@ -1692,11 +1689,11 @@ export function TripPlanner() {
         {/* Hotel/Unterkunft: zurück im Karten-Tab (an alter Stelle). */}
         <div className={view === "map" ? "flex flex-col gap-3" : "hidden"}>
         {/* Unterkunft (Hotel/Ryokan) — eigener Marker, nicht Teil der Route. */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
           <form onSubmit={addHotel}>
             <label
               htmlFor="hotel-input"
-              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300"
+              className="mb-1 block text-xs font-medium text-ink-muted"
             >
               🏨 Hotel / Unterkunft
             </label>
@@ -1716,7 +1713,7 @@ export function TripPlanner() {
                 {hotelAdding ? "…" : "Speichern"}
               </button>
             </div>
-            <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+            <p className="mt-1 text-[11px] text-ink-subtle">
               Maps-Link = exaktes Hotel · Name = geschätzt (bei gleichnamigen ggf. falsch)
             </p>
             {hotelError && (
@@ -1729,7 +1726,7 @@ export function TripPlanner() {
               {hotels.map((h) => (
                 <li
                   key={h.id}
-                  className="rounded-md border border-slate-100 dark:border-slate-800 p-2"
+                  className="rounded-md border border-hairline p-2"
                 >
                   <div className="flex items-center gap-2">
                     <span className="shrink-0 text-base leading-none">🏨</span>
@@ -1742,7 +1739,7 @@ export function TripPlanner() {
                         type="lodging"
                       />
                       {h.by && (
-                        <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                        <p className="truncate text-[11px] text-ink-subtle">
                           von {h.by}
                         </p>
                       )}
@@ -1765,14 +1762,14 @@ export function TripPlanner() {
                       ✕
                     </button>
                   </div>
-                  <div className="mt-1.5 space-y-1 pl-7 text-[11px] text-slate-500 dark:text-slate-400">
+                  <div className="mt-1.5 space-y-1 pl-7 text-[11px] text-ink-muted">
                     <label className="flex items-center gap-2">
                       <span className="w-16 shrink-0">Check-in</span>
                       <input
                         type="date"
                         value={h.checkIn ?? ""}
                         onChange={(e) => setHotelDates(h.id, { checkIn: e.target.value || null })}
-                        className="min-w-0 flex-1 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
+                        className={cn(fieldClasses, "min-w-0 flex-1 px-1.5 py-0.5 text-xs text-ink-muted")}
                       />
                     </label>
                     <label className="flex items-center gap-2">
@@ -1781,7 +1778,7 @@ export function TripPlanner() {
                         type="date"
                         value={h.checkOut ?? ""}
                         onChange={(e) => setHotelDates(h.id, { checkOut: e.target.value || null })}
-                        className="min-w-0 flex-1 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 outline-none focus:border-brand"
+                        className={cn(fieldClasses, "min-w-0 flex-1 px-1.5 py-0.5 text-xs text-ink-muted")}
                       />
                     </label>
                   </div>
@@ -1793,9 +1790,9 @@ export function TripPlanner() {
         </div>
         {/* Karten-Tab: Stopp-Liste (Route-Häkchen, Notizen, Sortierung) — an alter Stelle. */}
         <div className={view === "map" ? "flex flex-col gap-3" : "hidden"}>
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="rounded-card border border-hairline bg-surface shadow-card">
+          <div className="flex items-center justify-between border-b border-hairline px-3 py-2">
+            <span className="text-sm font-medium text-ink-muted">
               Stopps ({activeCount}
               {stops.length > activeCount ? ` in Route · ${stops.length - activeCount} gespeichert` : ""})
             </span>
@@ -1812,7 +1809,7 @@ export function TripPlanner() {
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                  className="text-xs text-ink-muted transition hover:text-red-600"
                 >
                   Alle löschen
                 </button>
@@ -1820,7 +1817,7 @@ export function TripPlanner() {
             )}
           </div>
           {stops.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+            <p className="px-3 py-6 text-center text-sm text-ink-subtle">
               Noch keine Orte. Gib oben einen Ort ein.
             </p>
           ) : (
@@ -1838,7 +1835,7 @@ export function TripPlanner() {
                     <SortableStopLi
                       key={s.id}
                       id={s.id}
-                      className="border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
+                      className="border-b border-hairline px-3 py-2 last:border-b-0"
                     >
                       {({ attributes, listeners, isDragging }) => (
                         <>
@@ -1849,7 +1846,7 @@ export function TripPlanner() {
                               {...attributes}
                               {...listeners}
                               aria-label={`Stopp „${shortLabel(s.label)}" verschieben`}
-                              className={`shrink-0 touch-none rounded px-1 text-slate-400 transition hover:text-brand dark:text-slate-500 ${
+                              className={`shrink-0 touch-none rounded px-1 text-ink-subtle transition hover:text-brand ${
                                 isDragging ? "cursor-grabbing" : "cursor-grab"
                               }`}
                             >
@@ -1870,7 +1867,7 @@ export function TripPlanner() {
                             ) : (
                               <span
                                 title="Gespeichert, nicht in der Route"
-                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400 dark:border-slate-600 dark:text-slate-500"
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-hairline text-xs text-ink-subtle"
                               >
                                 –
                               </span>
@@ -1883,7 +1880,7 @@ export function TripPlanner() {
                                 display={shortLabel(s.label)}
                               />
                               {s.by && (
-                                <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                                <p className="truncate text-[11px] text-ink-subtle">
                                   von {s.by}
                                 </p>
                               )}
@@ -1903,7 +1900,7 @@ export function TripPlanner() {
                             <div className="mt-1.5 flex items-center gap-2 pl-8">
                               {weather[s.id] && (
                                 <span
-                                  className="shrink-0 text-xs text-slate-500 dark:text-slate-400"
+                                  className="shrink-0 text-xs text-ink-muted"
                                   title={weather[s.id].text}
                                 >
                                   {weather[s.id].emoji} {weather[s.id].tempC}°
@@ -1927,7 +1924,7 @@ export function TripPlanner() {
                             placeholder="📝 Notiz…"
                             maxLength={500}
                             aria-label={`Notiz zu „${shortLabel(s.label)}"`}
-                            className="mt-1.5 ml-8 w-[calc(100%-2rem)] rounded border border-transparent bg-slate-50 px-2 py-1 text-xs text-slate-600 outline-none transition focus:border-brand focus:bg-transparent dark:bg-slate-800/50 dark:text-slate-300"
+                            className="mt-1.5 ml-8 w-[calc(100%-2rem)] rounded-field bg-surface-2 px-2 py-1 text-xs text-ink-muted outline-none ring-1 ring-transparent transition focus:bg-surface focus:ring-brand"
                           />
                         </>
                       )}
@@ -1951,18 +1948,18 @@ export function TripPlanner() {
         </button>
 
         {route && (
-          <div className="rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-ink-muted">
             <span className="font-semibold">Beste Route (Auto):</span> {route.distanceKm} km ·{" "}
             {Math.floor(route.durationMin / 60)} h {route.durationMin % 60} min Fahrt
-            <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+            <span className="mt-0.5 block text-xs text-ink-muted">
               Reihenfolge optimiert (ab dem ersten Ort).
             </span>
           </div>
         )}
 
         {/* Konbini-Radar: Convenience-Stores entlang der Route ODER um den Standort (keyfrei via OSM/Overpass) */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
-          <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
+          <p className="mb-2 text-sm font-semibold text-ink-muted">
             🏪 Konbini-Radar
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1974,7 +1971,7 @@ export function TripPlanner() {
               className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 konbiniMode === "route"
                   ? "border-transparent bg-brand text-white"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                  : "border-hairline text-ink-muted hover:bg-surface-2"
               }`}
             >
               Entlang der Route
@@ -1985,7 +1982,7 @@ export function TripPlanner() {
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                 konbiniMode === "location"
                   ? "border-transparent bg-brand text-white"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                  : "border-hairline text-ink-muted hover:bg-surface-2"
               }`}
             >
               📍 {locating ? "Standort…" : "In meiner Nähe"}
@@ -1994,19 +1991,19 @@ export function TripPlanner() {
               <button
                 type="button"
                 onClick={() => setKonbiniMode("off")}
-                className="rounded-full px-3 py-1 text-xs text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                className="rounded-full px-3 py-1 text-xs text-ink-muted transition hover:text-ink"
               >
                 Ausblenden
               </button>
             )}
           </div>
 
-          {konbiniLoading && <p className="mt-2 text-xs text-slate-400">lädt…</p>}
+          {konbiniLoading && <p className="mt-2 text-xs text-ink-subtle">lädt…</p>}
           {konbiniError && (
             <p className="mt-2 text-xs text-red-600 dark:text-red-400">{konbiniError}</p>
           )}
           {konbiniMode !== "off" && !konbiniLoading && !konbiniError && (
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-xs text-ink-muted">
               {konbinis.length > 0
                 ? `${konbinis.filter((k) => !hiddenBrands.has(k.brand)).length}/${konbinis.length} Läden ${
                     konbiniMode === "route" ? "entlang der Route (~120 m)" : "in der Nähe (~400 m)"
@@ -2037,7 +2034,7 @@ export function TripPlanner() {
                         className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
                           active
                             ? "border-transparent text-white"
-                            : "border-slate-300 text-slate-400 line-through dark:border-slate-600 dark:text-slate-500"
+                            : "border-hairline text-ink-subtle line-through"
                         }`}
                         style={active ? { backgroundColor: KONBINI_STYLE[b].color } : undefined}
                       >
@@ -2055,7 +2052,7 @@ export function TripPlanner() {
         </div>
 
         {/* Regenradar-Overlay (RainViewer, keyfrei) */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -2063,10 +2060,10 @@ export function TripPlanner() {
               onChange={(e) => setShowRain(e.target.checked)}
               className="h-4 w-4 accent-[#009bc9]"
             />
-            <span className="font-medium text-slate-700 dark:text-slate-200">🌧️ Regenradar</span>
+            <span className="font-medium text-ink-muted">🌧️ Regenradar</span>
           </label>
           {showRain && !rainError && (
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1.5 text-xs text-ink-muted">
               Aktuelles Niederschlagsradar über der Karte — hineinzoomen für Details (RainViewer).
             </p>
           )}
@@ -2077,12 +2074,12 @@ export function TripPlanner() {
 
         {/* Zugverbindungen je Etappe (Google Directions, Transit) */}
         {route && (
-          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+          <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-semibold text-ink-muted">
                 🚆 Zugverbindungen
               </span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <label className="flex items-center gap-1.5 text-xs text-ink-muted">
                 <input
                   type="checkbox"
                   checked={transitDirect}
@@ -2096,7 +2093,7 @@ export function TripPlanner() {
               type="button"
               onClick={loadTransit}
               disabled={transitLoading}
-              className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+              className={buttonClasses("secondary", "md", "px-3 w-full")}
             >
               {transitLoading ? "Lade Zugverbindungen…" : "Zugverbindungen anzeigen"}
             </button>
@@ -2104,7 +2101,7 @@ export function TripPlanner() {
               <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{transitError}</p>
             )}
             {transitTotals && (
-              <div className="mt-2 rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+              <div className="mt-2 rounded-lg border border-brand/30 bg-brand-tint/40 px-3 py-2 text-sm text-ink-muted">
                 <span className="font-semibold">Gesamt (ÖPNV):</span>{" "}
                 {Math.floor(transitTotals.totalMin / 60)} h {transitTotals.totalMin % 60} min Fahrt
                 {transitTotals.transfers > 0 && (
@@ -2115,11 +2112,11 @@ export function TripPlanner() {
                     {" "}
                     · ≈ {transitTotals.totalYen.toLocaleString("de-DE")} ¥
                     {transitTotals.partialFare && (
-                      <span className="text-slate-500 dark:text-slate-400"> (Etappen mit Preis)</span>
+                      <span className="text-ink-muted"> (Etappen mit Preis)</span>
                     )}
                   </>
                 )}
-                <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                <span className="mt-0.5 block text-xs text-ink-muted">
                   Summe über {transitTotals.count} Etappe{transitTotals.count > 1 ? "n" : ""}
                   {route && <> · Strecke {route.distanceKm} km</>}
                   {transitTotals.estimated && <> · geschätzt</>}
@@ -2127,7 +2124,7 @@ export function TripPlanner() {
               </div>
             )}
             {transitLegs.some((l) => l.conn?.estimated) && (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-2 text-xs text-ink-muted">
                 Angaben sind eine Schätzung.
               </p>
             )}
@@ -2136,14 +2133,14 @@ export function TripPlanner() {
                 {transitLegs.map((leg, i) => (
                   <li
                     key={i}
-                    className="rounded-md border border-slate-100 dark:border-slate-800 p-2 text-sm"
+                    className="rounded-md border border-hairline p-2 text-sm"
                   >
-                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <div className="text-xs font-medium text-ink-muted">
                       {i + 1}. {shortLabel(leg.from.label)} → {shortLabel(leg.to.label)}
                     </div>
                     {leg.conn ? (
                       <>
-                        <div className="text-slate-700 dark:text-slate-200">
+                        <div className="text-ink-muted">
                           {Math.floor(leg.conn.durationMin / 60)} h {leg.conn.durationMin % 60} min ·{" "}
                           {leg.conn.transfers === 0
                             ? "direkt"
@@ -2158,7 +2155,7 @@ export function TripPlanner() {
                             type="button"
                             onClick={() => addLegToCalculator(leg, i)}
                             disabled={addedLegs[i]}
-                            className="mt-1.5 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+                            className={buttonClasses("secondary", "sm", "h-auto px-2 py-1 mt-1.5")}
                           >
                             {addedLegs[i] ? "✓ im Rechner" : "+ In Rechner übernehmen"}
                           </button>
@@ -2171,7 +2168,7 @@ export function TripPlanner() {
                       href={mapsTransitUrl(leg.from, leg.to)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 transition hover:border-brand hover:text-brand"
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-hairline px-2 py-1 text-xs font-medium text-ink-muted transition hover:border-brand hover:text-brand"
                     >
                       🗺️ In Google Maps öffnen (ÖPNV)
                     </a>
@@ -2184,11 +2181,11 @@ export function TripPlanner() {
                 <button
                   type="button"
                   onClick={addAllLegsToCalculator}
-                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
+                  className={buttonClasses("primary", "sm")}
                 >
                   Alle Fahrten in den Rechner
                 </button>
-                <span className="text-xs text-slate-400 dark:text-slate-500">
+                <span className="text-xs text-ink-subtle">
                   landet unter Japan · Ausgaben
                 </span>
               </div>
@@ -2196,7 +2193,7 @@ export function TripPlanner() {
           </div>
         )}
 
-        <p className="text-xs text-slate-400 dark:text-slate-500">
+        <p className="text-xs text-ink-subtle">
           Karte © OpenStreetMap / Wikimedia (intl. Beschriftung) · Routing OSRM · Orte gehören
           zur gemeinsamen Reise und sind für alle Mitglieder sichtbar.
         </p>
@@ -2208,9 +2205,13 @@ export function TripPlanner() {
           gesetzten Klassen (u. a. `leaflet-container`) sonst bei jedem Tab-Wechsel
           überschreiben → Hintergrund/Positionierung weg, Karte bleibt leer. */}
       <div className={view === "map" ? "" : "hidden"}>
+        {/* Radius/Schatten wie bei den Karten daneben, damit die Leaflet-Fläche
+            nicht als einziges Element mit eckigen Kanten dasteht. `overflow-hidden`
+            ist nötig, weil Leaflet seine Kachel-Panes sonst über die Ecken
+            hinausmalt und der Radius wirkungslos bliebe. */}
         <div
           ref={mapEl}
-          className="z-0 h-[420px] w-full rounded-lg border border-slate-200 dark:border-slate-700 lg:h-[600px]"
+          className="z-0 h-[420px] w-full overflow-hidden rounded-card border border-hairline shadow-card lg:h-[600px]"
         />
       </div>
       </div>

@@ -36,7 +36,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   Canceled: { label: "Annulliert", cls: "bg-danger/15 text-danger" },
   CanceledUncertain: { label: "Annulliert?", cls: "bg-danger/15 text-danger" },
   Diverted: { label: "Umgeleitet", cls: "bg-danger/15 text-danger" },
-  Unknown: { label: "Status unbekannt", cls: "bg-slate-500/15 text-slate-600 dark:text-slate-300" },
+  Unknown: { label: "Status unbekannt", cls: "bg-ink-subtle/20 text-ink-muted" },
 };
 
 const hhmm = (local: string | null) => (local && local.length >= 16 ? local.slice(11, 16) : null);
@@ -45,9 +45,9 @@ const hhmm = (local: string | null) => (local && local.length >= 16 ? local.slic
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="rounded-md bg-slate-50 px-2.5 py-1.5 dark:bg-slate-800/60">
-      <p className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{value}</p>
+    <div className="rounded-md bg-surface-2 px-2.5 py-1.5">
+      <p className="text-[10px] uppercase tracking-wide text-ink-subtle">{label}</p>
+      <p className="text-sm font-semibold text-ink">{value}</p>
     </div>
   );
 }
@@ -62,11 +62,11 @@ function TimeLine({ scheduled, revised }: { scheduled: string | null; revised: s
     <span className="tabular-nums">
       {delayed ? (
         <>
-          <span className="text-slate-400 line-through dark:text-slate-500">{s}</span>{" "}
+          <span className="text-ink-subtle line-through">{s}</span>{" "}
           <span className="font-semibold text-danger">{r}</span>
         </>
       ) : (
-        <span className="text-slate-700 dark:text-slate-200">{r || s}</span>
+        <span className="text-ink-muted">{r || s}</span>
       )}
     </span>
   );
@@ -123,10 +123,10 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
   }, [load]);
 
   if (loading && !data) {
-    return <p className="text-xs text-slate-400 dark:text-slate-500">Live-Status wird geladen…</p>;
+    return <p className="text-xs text-ink-subtle">Live-Status wird geladen…</p>;
   }
   if (err && !data) {
-    return <p className="text-xs text-slate-400 dark:text-slate-500">{err}</p>;
+    return <p className="text-xs text-ink-subtle">{err}</p>;
   }
   if (!data) return null;
 
@@ -140,7 +140,7 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span>
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-xs text-ink-muted">
           <TimeLine scheduled={dep.scheduled} revised={dep.revised} />
           {" → "}
           <TimeLine scheduled={arr.scheduled} revised={arr.revised} />
@@ -149,7 +149,7 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <p className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <p className="mb-1 text-xs font-medium text-ink-muted">
             Abflug {dep.airportIata && `· ${dep.airportIata}`}
           </p>
           <div className="grid grid-cols-3 gap-1.5">
@@ -159,7 +159,7 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
           </div>
         </div>
         <div>
-          <p className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <p className="mb-1 text-xs font-medium text-ink-muted">
             Ankunft {arr.airportIata && `· ${arr.airportIata}`}
           </p>
           <div className="grid grid-cols-3 gap-1.5">
@@ -171,7 +171,7 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
       </div>
 
       {noneAssigned && (
-        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+        <p className="text-[11px] text-ink-subtle">
           Gate, Check-in-Schalter und Gepäckband werden meist erst wenige Stunden vor Abflug
           vergeben.
         </p>

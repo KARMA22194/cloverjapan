@@ -10,6 +10,9 @@ import {
   requestReminderPermission,
   scheduleReminders,
 } from "@/lib/reminders";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
 
 interface Task {
   id: string;
@@ -147,8 +150,10 @@ export function TagesPlaner() {
   const sorted = [...tasks].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
   const doneCount = tasks.filter((t) => t.done).length;
 
-  const inputClass =
-    "rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
+  // `w-auto` hebt das `w-full` der Rezeptur auf — das Datumsfeld oben soll sich
+  // nach seinem Inhalt richten. Die beiden Felder im Formular setzen `w-full`
+  // wieder; dank tailwind-merge gewinnt dort die spätere Angabe.
+  const inputClass = cn(fieldClasses, "w-auto");
 
   return (
     <div className="max-w-2xl">
@@ -162,24 +167,24 @@ export function TagesPlaner() {
         <button
           type="button"
           onClick={() => setDate(todayISO())}
-          className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          className={buttonClasses("secondary", "md", "px-3")}
         >
           Heute
         </button>
         {tasks.length > 0 && (
-          <span className="text-sm text-slate-500 dark:text-slate-400">
+          <span className="text-sm text-ink-muted">
             {doneCount}/{tasks.length} erledigt
           </span>
         )}
         {remindersOn ? (
-          <span className="text-xs text-slate-400 dark:text-slate-500">
+          <span className="text-xs text-ink-subtle">
             🔔 Erinnerung 1 h vorher aktiv
           </span>
         ) : (
           <button
             type="button"
             onClick={enableReminders}
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+            className={buttonClasses("secondary", "md", "px-3")}
           >
             🔔 Erinnerungen aktivieren
           </button>
@@ -188,49 +193,49 @@ export function TagesPlaner() {
 
       <form
         onSubmit={add}
-        className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        className="mb-4 flex flex-wrap items-end gap-2 rounded-card border border-hairline bg-surface shadow-card p-3"
       >
         <div className="w-28">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label className="mb-1 block text-xs font-medium text-ink-muted">
             Uhrzeit
           </label>
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className={`w-full ${inputClass}`}
+            className={cn(inputClass, "w-full")}
           />
         </div>
         <div className="min-w-[160px] flex-1">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label className="mb-1 block text-xs font-medium text-ink-muted">
             Was steht an?
           </label>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="z. B. Meeting, Fuji besichtigen…"
-            className={`w-full ${inputClass}`}
+            className={cn(inputClass, "w-full")}
           />
         </div>
         <button
           type="submit"
           disabled={!text.trim()}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md")}
         >
           Hinzufügen
         </button>
       </form>
 
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
         {sorted.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-8 text-center text-sm text-ink-subtle">
             Nichts geplant für diesen Tag.
           </p>
         ) : (
           sorted.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+              className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
             >
               <input
                 type="checkbox"
@@ -239,7 +244,7 @@ export function TagesPlaner() {
                 className="h-4 w-4 accent-[#009bc9]"
               />
               {t.time && (
-                <span className="w-12 shrink-0 tabular-nums text-sm text-slate-500 dark:text-slate-400">
+                <span className="w-12 shrink-0 tabular-nums text-sm text-ink-muted">
                   {t.time}
                 </span>
               )}
@@ -247,14 +252,14 @@ export function TagesPlaner() {
                 <span
                   className={`text-sm ${
                     t.done
-                      ? "text-slate-400 line-through dark:text-slate-500"
-                      : "text-slate-800 dark:text-slate-100"
+                      ? "text-ink-subtle line-through"
+                      : "text-ink"
                   }`}
                 >
                   {t.text}
                 </span>
                 {t.by && (
-                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">
+                  <span className="ml-2 text-[11px] text-ink-subtle">
                     · {t.by}
                   </span>
                 )}
@@ -269,7 +274,7 @@ export function TagesPlaner() {
                   value={t.assignee ?? ""}
                   onChange={(e) => assign(t.id, e.target.value)}
                   aria-label="Zuweisen"
-                  className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1 py-0.5 text-xs text-slate-500 dark:text-slate-400 outline-none focus:border-brand"
+                  className={cn(fieldClasses, "shrink-0 px-1 py-0.5 text-xs text-ink-muted")}
                 >
                   <option value="">— niemand</option>
                   {members.map((m) => (
@@ -322,7 +327,7 @@ export function TagesPlaner() {
           {dayStops.map((s) => (
             <p
               key={s.id}
-              className="truncate border-b border-brand/10 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 last:border-b-0"
+              className="truncate border-b border-brand/10 px-4 py-2 text-sm text-ink-muted last:border-b-0"
               title={s.label}
             >
               {s.label.split(",").slice(0, 2).join(", ")}
@@ -331,7 +336,7 @@ export function TagesPlaner() {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-3 text-xs text-ink-subtle">
         Wird in deinem Konto gespeichert (pro Tag, gerätesynchron). Orte ordnest du im
         Reiseplaner einem Datum zu — sie erscheinen dann hier.
       </p>

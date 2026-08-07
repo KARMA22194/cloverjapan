@@ -477,8 +477,13 @@ Zwei Ebenen, beide kanonisch:
    Properties werden am deklarierenden Element ersetzt, `.dark` käme zu spät. Deshalb sind
    beide Themes eigene Deklarationen.
 2. **Primitives** (`src/components/ui/`): `Card`/`CardLink`/`CardLabel` · `Button`
-   (+`buttonClasses`) · `Input`/`Textarea`/`Select`/`Label` · `Chip` · `TabBar`.
-   Alle nehmen `className` als Escape-Hatch.
+   (+`buttonClasses`) · `Input`/`Textarea`/`Select`/`Label` (+`fieldClasses`) · `Chip` ·
+   `TabBar`. Alle nehmen `className` als Escape-Hatch.
+   Für bestehende `<button>`/`<input>`-Elemente, die ihre eigenen Props/ARIA behalten
+   sollen, gibt es die **Rezepturen** `buttonClasses(variant, size, extra)` und
+   `fieldClasses` — dieselbe Quelle, ohne die Elemente austauschen zu müssen.
+   Knöpfe gibt es nur noch in **zwei** Größen (`sm`/`md`); vorher waren sechs
+   Padding-Varianten im Umlauf.
 
 ⚠️ **`cn()` (`src/lib/cn.ts`) muss `tailwind-merge` benutzen** — nicht bloß Strings
 verketten. Bei reiner Verkettung entscheidet die Reihenfolge im *generierten Stylesheet*,
@@ -486,12 +491,22 @@ nicht die im Attribut: `cn(FIELD, "w-24")` ließ `w-full` aus der Basis gewinnen
 Vollbreite), `py-1.5` gegen die `py-2`-Basis blieb wirkungslos. Solche Fehler sind nur im
 Bild zu sehen, nicht im Code.
 
-**Stand der Umstellung:** TopNav (jetzt `sticky` + `backdrop-blur`), `(app)`-Layout,
-`/start` inkl. `TripDashboard`, `WeatherWidget`, `GeldTabs` + `Wunschliste`, sowie
-ThemeToggle/FxPill/ConnectionStatus. **Noch offen:** die übrigen ~45 Komponenten — u. a.
-`ProgrammTabs`/`InfoTabs` (noch Unterstrich-Reiter statt `TabBar`), `TripPlanner`,
-`ExpenseCalculator`, `FlightPlanner`, `TripMembers`, `AblaufTimeline`, `ActivityFeed`,
-Auth-Seiten.
+**Stand:** vollständig umgestellt — alle Ansichten, Auth-Seiten und die öffentliche
+Kofferfinder-Seite. Alle vier Tab-Leisten (`/geld`, `/programm`, `/info` **und** der interne
+Umschalter im Reiseplaner) nutzen `TabBar`; `slate-*` kommt im Code nicht mehr vor.
+
+⚠️ **Vier Stellen behalten bewusst harte Farben** — dort liegt ein fester heller Grund
+darunter, ein `ink`-Token wäre im Dark-Mode hell auf hell:
+- `ExpenseCalculator`: Kategorie-Chips (Hintergrund per `style={{backgroundColor}}`) und
+  das Overlay über dem Beleg-Foto (`bg-white/90`),
+- `TripPlanner`: der Adress-Text im Leaflet-Popup (Leaflet bringt eigenes Weiß mit),
+- `KofferManager`: `bg-white` hinter dem QR-Bild — die helle Ruhezone ist nötig, sonst
+  scannen Kameras den Code im Dark-Mode nicht,
+- `BiometricLock`: der Sperrbildschirm ist absichtlich immer dunkel.
+
+⚠️ Beim Nachziehen weiterer UI **nie** `` className={`extra ${recipe}`} `` schreiben —
+Verkettung umgeht `twMerge`, dann entscheidet die Stylesheet-Reihenfolge. Immer
+`cn(recipe, "extra")` bzw. `buttonClasses(v, s, "extra")`.
 ⚠️ Die sticky TopNav braucht ein hohes `z-index` (`z-[1100]`): Leaflet setzt im Reiseplaner
 interne Panes bis `z-index` 800 — bei `z-40` scrollte die Karte über die Leiste. Wer eine
 eigene sticky Seitenleiste baut, rechnet die Leistenhöhe ein (`top-[4.75rem]`).

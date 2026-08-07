@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { api } from "@/lib/api/client";
+import { buttonClasses } from "@/components/ui/Button";
 
 type Lang = "de" | "en" | "ja";
 
@@ -102,7 +103,7 @@ function ContactValue({ value }: { value: string }) {
   if (/^\+?[\d\s()/-]{5,}$/.test(value)) {
     return <a href={`tel:${value.replace(/[^\d+]/g, "")}`} className={cls}>{value}</a>;
   }
-  return <p className="text-center text-sm text-slate-700 dark:text-slate-200">{value}</p>;
+  return <p className="text-center text-sm text-ink-muted">{value}</p>;
 }
 
 const LANG_LABEL: Record<Lang, string> = { de: "DE", en: "EN", ja: "日本語" };
@@ -179,7 +180,7 @@ export function LuggageFinder({
             className={`rounded-full px-3 py-1 text-xs font-medium transition ${
               l === lang
                 ? "bg-brand text-white"
-                : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                : "text-ink-muted hover:bg-surface-2"
             }`}
           >
             {LANG_LABEL[l]}
@@ -188,10 +189,10 @@ export function LuggageFinder({
       </div>
 
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{t.thanks}</h1>
-        <p className="text-slate-700 dark:text-slate-200">{t.belongs(ownerName)}</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{t.luggage(label)}</p>
-        <p className="pt-2 text-sm text-slate-500 dark:text-slate-400">{t.hint(ownerName)}</p>
+        <h1 className="text-2xl font-semibold text-ink">{t.thanks}</h1>
+        <p className="text-ink-muted">{t.belongs(ownerName)}</p>
+        <p className="text-sm text-ink-muted">{t.luggage(label)}</p>
+        <p className="pt-2 text-sm text-ink-muted">{t.hint(ownerName)}</p>
       </div>
 
       {done ? (
@@ -214,8 +215,8 @@ export function LuggageFinder({
         <div className="space-y-4">
           {/* Direktkontakt VOR dem Standort-Button (falls man nicht teilen möchte). */}
           {(whatsapp || contact) && (
-            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+            <div className="space-y-2 rounded-lg border border-hairline p-3">
+              <p className="text-center text-xs text-ink-muted">
                 {t.contactHeading(ownerName)}
               </p>
               {whatsapp && (
@@ -237,12 +238,12 @@ export function LuggageFinder({
               type="button"
               onClick={share}
               disabled={busy}
-              className="w-full rounded-md bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonClasses("primary", "md", "h-11 px-4 w-full")}
             >
               📍 {busy ? t.sharing : t.share}
             </button>
             {error && <p className="text-center text-sm text-amber-600 dark:text-amber-400">{error}</p>}
-            <p className="text-center text-xs text-slate-400 dark:text-slate-500">{t.only}</p>
+            <p className="text-center text-xs text-ink-subtle">{t.only}</p>
           </div>
         </div>
       )}

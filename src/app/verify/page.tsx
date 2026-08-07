@@ -4,6 +4,7 @@ import { verifyEmailAction } from "@/app/actions/verify";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ResendVerification } from "@/components/ResendVerification";
+import { buttonClasses } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,10 @@ export default async function VerifyPage({ searchParams }: Props) {
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-card border border-hairline bg-surface p-8 shadow-card">
         <div className="mb-6">
           <Logo height={40} priority />
-          <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">E-Mail bestätigen</h1>
+          <h1 className="mt-4 text-xl text-ink">E-Mail bestätigen</h1>
         </div>
 
         {status === "ok" ? (
@@ -37,7 +38,7 @@ export default async function VerifyPage({ searchParams }: Props) {
             </p>
             <Link
               href="/login"
-              className="block rounded-md bg-brand px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-brand-dark"
+              className={buttonClasses("primary", "md", "flex")}
             >
               Zur Anmeldung
             </Link>
@@ -55,12 +56,12 @@ export default async function VerifyPage({ searchParams }: Props) {
         ) : (
           <form action={verifyEmailAction} className="space-y-4">
             <input type="hidden" name="token" value={token} />
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-ink-muted">
               Klicke auf den Knopf, um deine E-Mail-Adresse zu bestätigen.
             </p>
             <button
               type="submit"
-              className="block w-full rounded-md bg-brand px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-brand-dark"
+              className={buttonClasses("primary", "md", "flex w-full")}
             >
               E-Mail bestätigen
             </button>

@@ -82,20 +82,20 @@ const PHRASES: { de: string; ja: string; roman: string }[] = [
 
 function ContactCard({ title, contacts }: { title: string; contacts: Contact[] }) {
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-      <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
+    <div className="rounded-card border border-hairline bg-surface shadow-card">
+      <div className="border-b border-hairline px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
         {title}
       </div>
       <ul>
         {contacts.map((c) => (
           <li
             key={c.label}
-            className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+            className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
           >
             <div className="min-w-0">
-              <p className="text-sm text-slate-800 dark:text-slate-100">{c.label}</p>
+              <p className="text-sm text-ink">{c.label}</p>
               {c.note && (
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">{c.note}</p>
+                <p className="text-[11px] text-ink-subtle">{c.note}</p>
               )}
             </div>
             {c.tel ? (
@@ -106,7 +106,7 @@ function ContactCard({ title, contacts }: { title: string; contacts: Contact[] }
                 {c.value}
               </a>
             ) : (
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-ink-muted">
                 {c.value}
               </span>
             )}
@@ -120,7 +120,7 @@ function ContactCard({ title, contacts }: { title: string; contacts: Contact[] }
 export function NotfallInfo() {
   return (
     <div className="max-w-2xl space-y-4">
-      <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+      <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-ink-muted">
         <span className="font-semibold text-danger">Im Notfall:</span> Polizei{" "}
         <a href="tel:110" className="font-semibold text-danger underline">110</a>, Feuerwehr &
         Rettung{" "}
@@ -132,45 +132,45 @@ export function NotfallInfo() {
       <ContactCard title="Deutsche Vertretungen" contacts={EMBASSY} />
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <h2 className="mb-2 text-sm font-semibold text-ink-muted">
           Gut zu wissen
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {BASICS.map((b) => (
             <div
               key={b.title}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+              className="rounded-card border border-hairline bg-surface shadow-card p-3"
             >
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              <p className="text-sm font-medium text-ink">
                 <span aria-hidden>{b.emoji}</span> {b.title}
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{b.text}</p>
+              <p className="mt-1 text-xs text-ink-muted">{b.text}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
           Wichtige Sätze
         </div>
         <ul>
           {PHRASES.map((p) => (
             <li
               key={p.de}
-              className="border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+              className="border-b border-hairline px-4 py-2.5 last:border-b-0"
             >
-              <p className="text-sm text-slate-800 dark:text-slate-100">{p.de}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-sm text-ink">{p.de}</p>
+              <p className="text-sm text-ink-muted">
                 <span className="text-base">{p.ja}</span>
-                <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{p.roman}</span>
+                <span className="ml-2 text-xs text-ink-subtle">{p.roman}</span>
               </p>
             </li>
           ))}
         </ul>
       </div>
 
-      <p className="text-xs text-slate-400 dark:text-slate-500">
+      <p className="text-xs text-ink-subtle">
         Angaben ohne Gewähr – vor der Reise auf Aktualität prüfen.
       </p>
     </div>

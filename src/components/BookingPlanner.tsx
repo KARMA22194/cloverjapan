@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { deDate, yenFmt } from "@/lib/format";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
 
 interface Booking {
   id: string;
@@ -29,7 +32,7 @@ const kindMeta = (v: string) => KINDS.find((k) => k.value === v) ?? KINDS[KINDS.
 
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
+  fieldClasses;
 
 export function BookingPlanner() {
   const [items, setItems] = useState<Booking[]>([]);
@@ -122,10 +125,10 @@ export function BookingPlanner() {
       {/* Formular */}
       <form
         onSubmit={add}
-        className="space-y-2 self-start rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        className="space-y-2 self-start rounded-card border border-hairline bg-surface shadow-card p-3"
       >
         <div>
-          <label htmlFor="buchung-titel" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-titel" className="mb-1 block text-xs font-medium text-ink-muted">
             Titel
           </label>
           <input id="buchung-titel"
@@ -137,7 +140,7 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label htmlFor="buchung-art" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-art" className="mb-1 block text-xs font-medium text-ink-muted">
             Art
           </label>
           <select id="buchung-art" value={kind} onChange={(e) => setKind(e.target.value)} className={inputClass}>
@@ -151,13 +154,13 @@ export function BookingPlanner() {
 
         <div className="flex gap-2">
           <div className="flex-1">
-            <label htmlFor="buchung-datum" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor="buchung-datum" className="mb-1 block text-xs font-medium text-ink-muted">
               Datum
             </label>
             <input id="buchung-datum" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
           </div>
           <div className="w-28">
-            <label htmlFor="buchung-uhrzeit" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor="buchung-uhrzeit" className="mb-1 block text-xs font-medium text-ink-muted">
               Uhrzeit
             </label>
             <input id="buchung-uhrzeit" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
@@ -165,7 +168,7 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label htmlFor="buchung-bestaetigungsnummer" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-bestaetigungsnummer" className="mb-1 block text-xs font-medium text-ink-muted">
             Bestätigungsnummer
           </label>
           <input id="buchung-bestaetigungsnummer"
@@ -177,7 +180,7 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label htmlFor="buchung-link" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-link" className="mb-1 block text-xs font-medium text-ink-muted">
             Link (optional)
           </label>
           <input id="buchung-link"
@@ -189,7 +192,7 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label htmlFor="buchung-preis-fliesst-in-die-ausgaben" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-preis-fliesst-in-die-ausgaben" className="mb-1 block text-xs font-medium text-ink-muted">
             Preis (¥, optional) — fließt in die Ausgaben
           </label>
           <input id="buchung-preis-fliesst-in-die-ausgaben"
@@ -202,14 +205,14 @@ export function BookingPlanner() {
         </div>
 
         <div>
-          <label htmlFor="buchung-notiz" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor="buchung-notiz" className="mb-1 block text-xs font-medium text-ink-muted">
             Notiz (optional)
           </label>
           <textarea id="buchung-notiz"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="w-full resize-none rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+            className={cn(fieldClasses, "resize-none")}
           />
         </div>
 
@@ -217,19 +220,19 @@ export function BookingPlanner() {
         <button
           type="submit"
           disabled={saving || !title.trim()}
-          className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md", "w-full")}
         >
           {saving ? "…" : "Buchung hinzufügen"}
         </button>
       </form>
 
       {/* Liste */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
           Buchungen ({items.length})
         </div>
         {items.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-8 text-center text-sm text-ink-subtle">
             Noch keine Buchungen. Erfasse links deine Tickets & Reservierungen.
           </p>
         ) : (
@@ -239,14 +242,14 @@ export function BookingPlanner() {
               return (
                 <li
                   key={b.id}
-                  className="border-b border-slate-100 dark:border-slate-800 px-4 py-3 last:border-b-0"
+                  className="border-b border-hairline px-4 py-3 last:border-b-0"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                      <p className="text-sm font-medium text-ink">
                         {meta.emoji} {b.title}
                       </p>
-                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      <p className="mt-0.5 text-xs text-ink-muted">
                         {meta.label}
                         {b.date && ` · ${deDate(b.date)}`}
                         {b.time && ` · ${b.time}`}
@@ -258,7 +261,7 @@ export function BookingPlanner() {
                         </p>
                       )}
                       {b.ref && (
-                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                        <p className="mt-0.5 text-xs text-ink-muted">
                           Nr.: <span className="font-mono">{b.ref}</span>
                         </p>
                       )}
@@ -273,10 +276,10 @@ export function BookingPlanner() {
                         </a>
                       )}
                       {b.note && (
-                        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{b.note}</p>
+                        <p className="mt-0.5 text-xs text-ink-subtle">{b.note}</p>
                       )}
                       {b.by && (
-                        <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">von {b.by}</p>
+                        <p className="mt-0.5 text-[11px] text-ink-subtle">von {b.by}</p>
                       )}
                     </div>
                     <button

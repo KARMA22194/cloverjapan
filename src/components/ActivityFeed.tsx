@@ -50,8 +50,8 @@ export function ActivityFeed() {
   if (!items || items.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+    <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-subtle">
         Zuletzt im Team
       </p>
       <ul className="space-y-2">
@@ -62,12 +62,12 @@ export function ActivityFeed() {
               <span className="shrink-0" aria-hidden>
                 {v.emoji}
               </span>
-              <span className="min-w-0 flex-1 text-slate-700 dark:text-slate-200">
+              <span className="min-w-0 flex-1 text-ink-muted">
                 <span className="font-medium">{e.userName || "Jemand"}</span>{" "}
-                <span className="text-slate-500 dark:text-slate-400">{v.text}:</span>{" "}
-                <span className="text-slate-800 dark:text-slate-100">{e.summary}</span>
+                <span className="text-ink-muted">{v.text}:</span>{" "}
+                <span className="text-ink">{e.summary}</span>
               </span>
-              <span className="shrink-0 whitespace-nowrap text-[11px] text-slate-400 dark:text-slate-500">
+              <span className="shrink-0 whitespace-nowrap text-[11px] text-ink-subtle">
                 {relTime(e.createdAt)}
               </span>
             </li>

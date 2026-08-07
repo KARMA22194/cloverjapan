@@ -14,8 +14,8 @@ export default async function ProfilPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Profil</h1>
-        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="mb-1 text-xl text-ink">Profil</h1>
+        <p className="mb-4 text-sm text-ink-muted">
           Lege dein Profilbild fest.
         </p>
         <ProfileForm />

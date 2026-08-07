@@ -79,11 +79,11 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
   if (!now) {
     // Kein Server/Client-Mismatch: erst nach Mount rendern.
     return compact ? null : (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
           Uhrzeit
         </p>
-        <p className="mt-1 text-2xl font-bold text-slate-300 dark:text-slate-600">🇯🇵 –:–</p>
+        <p className="mt-1 text-2xl font-bold text-ink-subtle">🇯🇵 –:–</p>
       </div>
     );
   }
@@ -95,13 +95,13 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
       <span
-        className="hidden items-center gap-1.5 rounded-md px-2 py-1 text-sm text-slate-600 dark:text-slate-300 md:inline-flex"
+        className="hidden items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-muted md:inline-flex"
         title={`Japan (Tokio) · Zuhause ${diffLabel}`}
         aria-label={`Uhrzeit Japan ${jpTime}, Deutschland ${homeTime}`}
       >
         <span aria-hidden>🇯🇵</span>
         <span className="tabular-nums font-medium">{jpTime}</span>
-        <span className="text-slate-300 dark:text-slate-600">·</span>
+        <span className="text-ink-subtle">·</span>
         <span aria-hidden>🇩🇪</span>
         <span className="tabular-nums">{homeTime}</span>
       </span>
@@ -109,8 +109,8 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+    <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
         Uhrzeit
       </p>
       {/* Japan: mit Flagge hinterlegt, groß */}
@@ -120,14 +120,14 @@ export function JapanClock({ compact = false }: { compact?: boolean }) {
           {timeFmt(JP_TZ, true).format(now)}
         </span>
       </div>
-      <p className="ml-9 text-xs text-slate-400 dark:text-slate-500">{dateFmt.format(now)}</p>
+      <p className="ml-9 text-xs text-ink-subtle">{dateFmt.format(now)}</p>
       {/* Deutschland darunter */}
-      <div className="mt-2 flex items-baseline gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+      <div className="mt-2 flex items-baseline gap-2 border-t border-hairline pt-2">
         <span className="text-xl leading-none" aria-hidden>🇩🇪</span>
-        <span className="text-lg font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+        <span className="text-lg font-semibold tabular-nums text-ink-muted">
           {homeTime}
         </span>
-        <span className="text-xs text-slate-400 dark:text-slate-500">Zuhause · {diffLabel}</span>
+        <span className="text-xs text-ink-subtle">Zuhause · {diffLabel}</span>
       </div>
     </div>
   );

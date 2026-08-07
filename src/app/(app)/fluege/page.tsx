@@ -12,8 +12,8 @@ export default async function FluegePage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Flüge · Japan</h1>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-xl text-ink">Flüge · Japan</h1>
+      <p className="mb-4 text-sm text-ink-muted">
         Flug per Flugnummer abrufen oder manuell erfassen. Der Preis fließt automatisch in den
         Ausgabenrechner.
       </p>

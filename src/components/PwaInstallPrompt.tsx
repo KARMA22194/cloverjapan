@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buttonClasses } from "@/components/ui/Button";
 
 const DISMISS_KEY = "pwa-install-dismissed";
 
@@ -81,9 +82,9 @@ export function PwaInstallPrompt() {
       <span className="text-xl" aria-hidden>
         📲
       </span>
-      <div className="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200">
+      <div className="min-w-0 flex-1 text-sm text-ink-muted">
         <p className="font-medium">Clover Japan als App installieren</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-ink-muted">
           {iosHint
             ? "In Safari: „Teilen“ → „Zum Home-Bildschirm“ – dann Vollbild & Offline-Zugriff vor Ort."
             : "Vollbild ohne Browser-Leiste und Offline-Zugriff auf Notfall-Basics."}
@@ -93,7 +94,7 @@ export function PwaInstallPrompt() {
         <button
           type="button"
           onClick={install}
-          className="shrink-0 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark"
+          className={buttonClasses("primary", "md", "shrink-0")}
         >
           Installieren
         </button>
@@ -102,7 +103,7 @@ export function PwaInstallPrompt() {
         type="button"
         onClick={dismiss}
         aria-label="Banner schließen"
-        className="shrink-0 rounded p-1 text-slate-400 transition hover:bg-slate-500/10 hover:text-slate-600 dark:hover:text-slate-300"
+        className="shrink-0 rounded p-1 text-ink-subtle transition hover:bg-ink-subtle/10 hover:text-ink-muted"
       >
         ✕
       </button>

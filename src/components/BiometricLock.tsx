@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/Logo";
+import { buttonClasses } from "@/components/ui/Button";
 
 /**
  * Sperrt die App in der nativen Capacitor-Hülle beim Start und nach dem Resume
@@ -60,7 +61,7 @@ export function BiometricLock({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={unlock}
             disabled={checking}
-            className="rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60"
+            className={buttonClasses("primary", "md", "h-11 px-5")}
           >
             {checking ? "…" : "🔒 Entsperren"}
           </button>

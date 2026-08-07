@@ -12,6 +12,9 @@ import {
   type ExpenseCategoryValue,
   type ExpenseItem as Item,
 } from "@/lib/expenses";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
 
 const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst ausfällt
 
@@ -40,7 +43,7 @@ function Donut({ segments }: { segments: { color: string; frac: number }[] }) {
         r={r}
         fill="none"
         strokeWidth={stroke}
-        className="stroke-slate-100 dark:stroke-slate-800"
+        className="stroke-surface-2"
       />
       {segments.map((s, i) => {
         const dash = Math.max(s.frac * c - 2, 0.001);
@@ -79,12 +82,12 @@ function BarList({
       {rows.map((r, i) => (
         <div key={i} title={r.title}>
           <div className="flex items-baseline justify-between gap-2 text-xs">
-            <span className="truncate text-slate-600 dark:text-slate-300">{r.label}</span>
-            <span className="shrink-0 tabular-nums font-medium text-slate-700 dark:text-slate-200">
+            <span className="truncate text-ink-muted">{r.label}</span>
+            <span className="shrink-0 tabular-nums font-medium text-ink-muted">
               {r.value}
             </span>
           </div>
-          <div className="mt-0.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div className="mt-0.5 h-2 overflow-hidden rounded-full bg-surface-2">
             <div
               className="h-full rounded-full bg-brand"
               style={{ width: `${Math.max(r.frac * 100, 2)}%` }}
@@ -310,7 +313,7 @@ export function ExpenseCalculator() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand";
+    fieldClasses;
 
   return (
     <div className="space-y-6">
@@ -318,13 +321,13 @@ export function ExpenseCalculator() {
       {/* Eingabe */}
       <div className="flex flex-col gap-3">
         {/* Kurs-Banner */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-600 dark:text-slate-300">
+        <div className="rounded-card border border-hairline bg-surface shadow-card px-3 py-2 text-sm text-ink-muted">
           {rate === null ? (
             "Wechselkurs wird geladen…"
           ) : (
             <>
               Kurs: <span className="font-semibold">1.000 ¥ ≈ {eurFmt.format(1000 * rate)}</span>
-              <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+              <span className="ml-2 text-xs text-ink-subtle">
                 {rateEstimated ? "(geschätzt – Dienst nicht erreichbar)" : rateDate ? `Stand: ${rateDate}` : ""}
               </span>
             </>
@@ -333,7 +336,7 @@ export function ExpenseCalculator() {
 
         <form
           onSubmit={addItem}
-          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+          className="rounded-card border border-hairline bg-surface shadow-card p-3"
         >
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20">
@@ -360,7 +363,7 @@ export function ExpenseCalculator() {
 
           <div className="flex gap-2">
             <div className="w-32">
-              <label htmlFor="ausgabe-betrag" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor="ausgabe-betrag" className="mb-1 block text-xs font-medium text-ink-muted">
                 Betrag (¥)
               </label>
               <input id="ausgabe-betrag"
@@ -372,7 +375,7 @@ export function ExpenseCalculator() {
               />
             </div>
             <div className="flex-1">
-              <label htmlFor="ausgabe-bezeichnung" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor="ausgabe-bezeichnung" className="mb-1 block text-xs font-medium text-ink-muted">
                 Bezeichnung (optional)
               </label>
               <input id="ausgabe-bezeichnung"
@@ -385,7 +388,7 @@ export function ExpenseCalculator() {
           </div>
 
           <div className="mt-2">
-            <span className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            <span className="mb-1 block text-xs font-medium text-ink-muted">
               Kategorie
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -412,7 +415,7 @@ export function ExpenseCalculator() {
           {members.length > 1 && (
             <div className="mt-2 flex items-end gap-3">
               <div className="flex-1">
-                <label htmlFor="ausgabe-bezahlt-von" className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                <label htmlFor="ausgabe-bezahlt-von" className="mb-1 block text-xs font-medium text-ink-muted">
                   Bezahlt von
                 </label>
                 <select id="ausgabe-bezahlt-von"
@@ -429,7 +432,7 @@ export function ExpenseCalculator() {
                 </select>
               </div>
               <label
-                className="flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-xs text-slate-600 dark:text-slate-300"
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-xs text-ink-muted"
                 title="Aus: persönliche Ausgabe, wird nicht in die Abrechnung aufgeteilt"
               >
                 <input
@@ -444,38 +447,38 @@ export function ExpenseCalculator() {
           )}
 
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-sm text-slate-500 dark:text-slate-400">
+            <span className="text-sm text-ink-muted">
               ={" "}
-              <span className="font-semibold text-slate-800 dark:text-slate-100">
+              <span className="font-semibold text-ink">
                 {validYen ? eurFmt.format(eur(parsedYen)) : "0,00 €"}
               </span>
             </span>
             <button
               type="submit"
               disabled={!validYen}
-              className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonClasses("primary", "md")}
             >
               Zur Rechnung
             </button>
           </div>
         </form>
 
-        <p className="text-xs text-slate-400 dark:text-slate-500">
+        <p className="text-xs text-ink-subtle">
           Wird in der Reise gespeichert und mit eingeladenen Mitgliedern geteilt.
         </p>
       </div>
 
       {/* Rechnung */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-3 py-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="flex items-center justify-between border-b border-hairline px-3 py-2">
+          <span className="text-sm font-medium text-ink-muted">
             Rechnung ({items.length})
           </span>
           {items.length > 0 && (
             <button
               type="button"
               onClick={clearAll}
-              className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+              className="text-xs text-ink-muted transition hover:text-red-600"
             >
               Alles löschen
             </button>
@@ -483,7 +486,7 @@ export function ExpenseCalculator() {
         </div>
 
         {items.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-3 py-8 text-center text-sm text-ink-subtle">
             Noch nichts erfasst. Betrag eingeben und „Zur Rechnung".
           </p>
         ) : (
@@ -493,7 +496,7 @@ export function ExpenseCalculator() {
               return (
                 <li
                   key={it.id}
-                  className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 px-3 py-2 last:border-b-0"
+                  className="flex items-center gap-2 border-b border-hairline px-3 py-2 last:border-b-0"
                 >
                   <span
                     className="shrink-0 rounded-full border border-black/10 px-2 py-0.5 text-[11px] font-medium text-slate-700"
@@ -502,19 +505,19 @@ export function ExpenseCalculator() {
                     {meta.label}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-slate-700 dark:text-slate-200">
+                    <p className="truncate text-sm text-ink-muted">
                       {it.label || "—"}
                     </p>
                     {it.by && (
-                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                      <p className="truncate text-[11px] text-ink-subtle">
                         von {it.by}
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                  <span className="shrink-0 text-right text-sm tabular-nums text-ink-muted">
                     {yenFmt.format(it.yen)}
                   </span>
-                  <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                  <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-ink">
                     {eurFmt.format(eur(it.yen))}
                   </span>
                   {it.hasReceipt ? (
@@ -530,7 +533,7 @@ export function ExpenseCalculator() {
                   ) : (
                     <label
                       title="Beleg anhängen"
-                      className="shrink-0 cursor-pointer rounded px-1.5 py-1 text-xs text-slate-400 transition hover:text-brand dark:text-slate-500"
+                      className="shrink-0 cursor-pointer rounded px-1.5 py-1 text-xs text-ink-subtle transition hover:text-brand"
                     >
                       📷
                       <input
@@ -561,19 +564,19 @@ export function ExpenseCalculator() {
 
         {/* Summen */}
         {items.length > 0 && (
-          <div className="border-t border-slate-200 dark:border-slate-700 px-3 py-2">
+          <div className="border-t border-hairline px-3 py-2">
             <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1">
               {EXPENSE_CATEGORIES.filter((c) => totals.perCat.has(c.value)).map((c) => {
                 const y = totals.perCat.get(c.value) ?? 0;
                 return (
-                  <span key={c.value} className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                  <span key={c.value} className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
                     <span className="h-2.5 w-2.5 rounded-sm border border-black/10" style={{ backgroundColor: c.color }} />
                     {c.label}: {eurFmt.format(eur(y))}
                   </span>
                 );
               })}
             </div>
-            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between border-t border-hairline pt-2 text-sm font-semibold text-ink">
               <span>Gesamt</span>
               <span className="tabular-nums">
                 {yenFmt.format(totals.yen)} · {eurFmt.format(eur(totals.yen))}
@@ -585,13 +588,13 @@ export function ExpenseCalculator() {
       </div>
 
       {items.length > 0 && (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <h2 className="mb-3 text-lg text-slate-900 dark:text-slate-100">Auswertung</h2>
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
+          <h2 className="mb-3 text-lg text-ink">Auswertung</h2>
 
           {/* Budget */}
           <div className="mb-4">
             <div className="mb-1.5 flex items-center gap-2">
-              <label htmlFor="budget" className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor="budget" className="text-xs font-medium text-ink-muted">
                 Budget (¥)
               </label>
               <input
@@ -607,12 +610,12 @@ export function ExpenseCalculator() {
                 }}
                 inputMode="decimal"
                 placeholder="z. B. 200000"
-                className="w-32 rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-2 py-1 text-sm outline-none focus:border-brand"
+                className={cn(fieldClasses, "w-32 px-2 py-1")}
               />
             </div>
             {budgetYen > 0 && (
               <>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -623,7 +626,7 @@ export function ExpenseCalculator() {
                 </div>
                 <p
                   className={`mt-1 text-xs ${
-                    over ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
+                    over ? "text-red-600 dark:text-red-400" : "text-ink-muted"
                   }`}
                 >
                   {yenFmt.format(totals.yen)} von {yenFmt.format(budgetYen)} ({pct}%)
@@ -638,8 +641,8 @@ export function ExpenseCalculator() {
             <div className="relative">
               <Donut segments={catBreakdown.map((c) => ({ color: c.color, frac: c.frac }))} />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">Gesamt</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <span className="text-[11px] text-ink-subtle">Gesamt</span>
+                <span className="text-sm font-semibold text-ink">
                   {eurFmt.format(eur(totals.yen))}
                 </span>
               </div>
@@ -659,8 +662,8 @@ export function ExpenseCalculator() {
                         className="h-3 w-3 shrink-0 rounded-sm border border-black/10"
                         style={{ backgroundColor: c.color }}
                       />
-                      <span className="text-slate-700 dark:text-slate-200">{c.label}</span>
-                      <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">
+                      <span className="text-ink-muted">{c.label}</span>
+                      <span className="ml-auto tabular-nums text-ink-muted">
                         {eurFmt.format(c.eur)} · {Math.round(c.frac * 100)}%
                       </span>
                     </div>
@@ -671,11 +674,11 @@ export function ExpenseCalculator() {
                         inputMode="decimal"
                         placeholder="Budget ¥"
                         aria-label={`Budget für ${c.label} (¥)`}
-                        className="w-24 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1.5 py-0.5 text-xs outline-none focus:border-brand"
+                        className={cn(fieldClasses, "w-24 px-1.5 py-0.5 text-xs")}
                       />
                       {cBudget > 0 && (
                         <div className="flex flex-1 items-center gap-2">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                             <div
                               className={`h-full rounded-full ${cOver ? "bg-danger" : "bg-brand"}`}
                               style={{ width: `${Math.min(cPct, 100)}%` }}
@@ -685,7 +688,7 @@ export function ExpenseCalculator() {
                             className={`shrink-0 text-[11px] tabular-nums ${
                               cOver
                                 ? "text-red-600 dark:text-red-400"
-                                : "text-slate-400 dark:text-slate-500"
+                                : "text-ink-subtle"
                             }`}
                           >
                             {cPct}%
@@ -702,7 +705,7 @@ export function ExpenseCalculator() {
           {/* Wer hat bezahlt (nur sinnvoll ab 2 Zahlern) */}
           {perPerson.length > 1 && (
             <div className="mt-5">
-              <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+              <p className="mb-2 text-xs font-medium text-ink-muted">
                 Wer hat bezahlt
               </p>
               <BarList
@@ -719,7 +722,7 @@ export function ExpenseCalculator() {
           {/* Verlauf: Ausgaben je Tag (ab 2 Tagen) */}
           {perDay.length > 1 && (
             <div className="mt-5">
-              <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+              <p className="mb-2 text-xs font-medium text-ink-muted">
                 Ausgaben je Tag
               </p>
               <BarList

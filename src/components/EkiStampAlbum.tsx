@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { STAMP_CATALOG } from "@/lib/ekiStamps";
+import { buttonClasses } from "@/components/ui/Button";
 
 interface Collected {
   stampKey: string;
@@ -72,13 +73,13 @@ export function EkiStampAlbum() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <p className="text-sm font-semibold text-ink">
             Stempel-Sammlung{" "}
             <span className="tabular-nums" style={{ color: SEAL }}>
               {count}/{total}
             </span>
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-ink-muted">
             Steh an einer Station oder einem Tempel und schalte den Stempel frei.
           </p>
         </div>
@@ -86,7 +87,7 @@ export function EkiStampAlbum() {
           type="button"
           onClick={collectHere}
           disabled={locating}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md")}
         >
           📍 {locating ? "Suche Ort…" : "Stempel hier sammeln"}
         </button>
@@ -105,7 +106,7 @@ export function EkiStampAlbum() {
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-400 dark:text-slate-500">Album wird geladen…</p>
+        <p className="text-sm text-ink-subtle">Album wird geladen…</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {STAMP_CATALOG.map((s) => {
@@ -115,8 +116,8 @@ export function EkiStampAlbum() {
                 key={s.key}
                 className={`flex flex-col items-center rounded-xl border p-3 text-center transition ${
                   got
-                    ? "bg-white dark:bg-slate-900"
-                    : "border-dashed border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/30"
+                    ? "bg-surface"
+                    : "border-dashed border-hairline bg-surface-2/50"
                 }`}
                 style={got ? { borderColor: `${SEAL}66` } : undefined}
               >
@@ -134,12 +135,12 @@ export function EkiStampAlbum() {
                 </div>
                 <p
                   className={`mt-2 text-xs font-medium ${
-                    got ? "text-slate-800 dark:text-slate-100" : "text-slate-400 dark:text-slate-500"
+                    got ? "text-ink" : "text-ink-subtle"
                   }`}
                 >
                   {s.name}
                 </p>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500">{s.area}</p>
+                <p className="text-[10px] text-ink-subtle">{s.area}</p>
                 {got && got.by && (
                   <p className="mt-0.5 text-[10px]" style={{ color: SEAL }}>
                     ✓ {got.by}

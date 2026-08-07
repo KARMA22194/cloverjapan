@@ -17,8 +17,8 @@ export default async function GeldPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Geld · Japan</h1>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-xl text-ink">Geld · Japan</h1>
+      <p className="mb-4 text-sm text-ink-muted">
         Ausgaben, Abrechnung, Zollrechner und Einkaufs-Wunschliste an einem Ort.
       </p>
       <GeldTabs initial={tab} />

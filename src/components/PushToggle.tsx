@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { Card } from "@/components/ui/Card";
+import { buttonClasses } from "@/components/ui/Button";
 
 /** VAPID-Public-Key (base64url) → Uint8Array für pushManager.subscribe. */
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -99,20 +101,18 @@ export function PushToggle() {
 
   if (!supported) {
     return (
-      <p className="text-xs text-slate-400 dark:text-slate-500">
+      <p className="text-xs text-ink-subtle">
         Dieser Browser unterstützt keine Push-Benachrichtigungen.
       </p>
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+    <Card pad="sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-            🔔 Team-Benachrichtigungen
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-bold text-ink">🔔 Team-Benachrichtigungen</p>
+          <p className="text-xs text-ink-muted">
             Push aufs Gerät, wenn jemand einen Stopp, eine Buchung o. Ä. hinzufügt.
           </p>
         </div>
@@ -120,21 +120,17 @@ export function PushToggle() {
           type="button"
           onClick={enabled ? disable : enable}
           disabled={busy || !hasSW}
-          className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-            enabled
-              ? "border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              : "bg-brand text-white hover:bg-brand-dark"
-          }`}
+          className={buttonClasses(enabled ? "secondary" : "primary", "sm", "text-sm")}
         >
           {busy ? "…" : enabled ? "Deaktivieren" : "Aktivieren"}
         </button>
       </div>
       {!hasSW && (
-        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-2 text-xs text-ink-subtle">
           Nur in der installierten bzw. veröffentlichten App verfügbar (im Dev-Modus aus).
         </p>
       )}
-      {msg && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{msg}</p>}
-    </div>
+      {msg && <p className="mt-2 text-xs text-ink-muted">{msg}</p>}
+    </Card>
   );
 }

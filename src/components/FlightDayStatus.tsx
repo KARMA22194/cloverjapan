@@ -54,10 +54,10 @@ export function FlightDayStatus() {
         {relevant.map((f) => (
           <div key={f.id}>
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              <p className="text-sm font-medium text-ink">
                 {f.flightNumber}
                 {f.fromCode && (
-                  <span className="text-slate-500 dark:text-slate-400">
+                  <span className="text-ink-muted">
                     {" "}
                     · {f.fromCode} → {f.toCode}
                   </span>

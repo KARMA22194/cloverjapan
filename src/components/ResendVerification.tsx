@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { fieldClasses } from "@/components/ui/Field";
+import { buttonClasses } from "@/components/ui/Button";
 
 /**
  * „Bestätigungsmail erneut senden" — Ausweg, wenn der Einmal-Token abgelaufen ist
@@ -32,7 +34,7 @@ export function ResendVerification() {
 
   if (sent) {
     return (
-      <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+      <p className="rounded-md bg-surface-2 px-3 py-2 text-sm text-ink-muted">
         Falls für diese Adresse ein unbestätigtes Konto existiert, ist eine neue
         Bestätigungsmail unterwegs.
       </p>
@@ -43,7 +45,7 @@ export function ResendVerification() {
     <form onSubmit={submit} className="space-y-2">
       <label
         htmlFor="resend-email"
-        className="block text-sm text-slate-600 dark:text-slate-300"
+        className="block text-sm text-ink-muted"
       >
         Neuen Bestätigungslink anfordern
       </label>
@@ -54,12 +56,12 @@ export function ResendVerification() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="deine@email.de"
-        className="w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand dark:border-slate-600"
+        className={fieldClasses}
       />
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+        className={buttonClasses("secondary", "md", "w-full")}
       >
         {busy ? "Wird gesendet…" : "Link erneut senden"}
       </button>

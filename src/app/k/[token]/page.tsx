@@ -26,7 +26,7 @@ export default async function KofferFinderPage({
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
       <Logo height={72} />
       {!tag ? (
-        <div className="space-y-1 text-slate-600 dark:text-slate-300">
+        <div className="space-y-1 text-ink-muted">
           <p>Dieser Kofferanhänger ist unbekannt oder wurde entfernt.</p>
           <p>This luggage tag is unknown or has been removed.</p>
           <p>この荷物タグは無効か、削除されています。</p>

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 
 import { api } from "@/lib/api/client";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 interface Props {
   /** Bei Einladung gesetzt → Invite-Modus (E-Mail fix, Beitritt zur fremden Reise). */
@@ -87,14 +89,14 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
   return (
     <form onSubmit={submit} className="space-y-4">
       {isInvite && (
-        <p className="rounded-md bg-brand-tint/40 dark:bg-brand/10 px-3 py-2 text-sm text-slate-700 dark:text-slate-200">
+        <p className="rounded-md bg-brand-tint/40 dark:bg-brand/10 px-3 py-2 text-sm text-ink-muted">
           <strong>{invitedBy}</strong> hat dich zu <strong>{tripName}</strong> eingeladen. Lege ein
           Konto an, um gemeinsam zu planen.
         </p>
       )}
 
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink-muted">
           E-Mail
         </label>
         <input
@@ -107,13 +109,13 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
           onChange={(e) => setEmail(e.target.value)}
           className={
             isInvite
-              ? "w-full cursor-not-allowed rounded-md border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 outline-none"
-              : "w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              ? "w-full cursor-not-allowed rounded-md border border-hairline bg-surface-2 px-3 py-2 text-sm text-ink-muted outline-none"
+              : fieldClasses
           }
         />
       </div>
       <div>
-        <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="name" className="mb-1 block text-sm font-medium text-ink-muted">
           Name
         </label>
         <input
@@ -123,11 +125,11 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
           Passwort
         </label>
         <input
@@ -138,11 +140,11 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
       <div>
-        <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-ink-muted">
           Passwort bestätigen
         </label>
         <input
@@ -152,7 +154,7 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
 
@@ -165,7 +167,7 @@ export function RegisterForm({ token, email: invitedEmail, invitedBy, tripName }
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+        className={buttonClasses("primary", "md", "w-full")}
       >
         {pending
           ? "Konto wird angelegt…"

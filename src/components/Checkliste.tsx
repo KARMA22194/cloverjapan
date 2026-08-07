@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { useMembers } from "@/lib/useMembers";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
 
 interface Item {
   id: string;
@@ -102,26 +105,26 @@ export function Checkliste() {
     <div className="max-w-xl">
       <form
         onSubmit={add}
-        className="mb-4 flex gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        className="mb-4 flex gap-2 rounded-card border border-hairline bg-surface shadow-card p-3"
       >
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Neuer Punkt… (z. B. Reisepass, Adapter, JR-Pass)"
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          className={fieldClasses}
         />
         <button
           type="submit"
           disabled={!text.trim()}
-          className="shrink-0 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md", "shrink-0")}
         >
           Hinzufügen
         </button>
       </form>
 
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-4 py-2">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
+          <span className="text-sm font-medium text-ink-muted">
             {items.length === 0 ? "Checkliste" : `${doneCount}/${items.length} erledigt`}
           </span>
           <div className="flex items-center gap-3">
@@ -136,7 +139,7 @@ export function Checkliste() {
               <button
                 type="button"
                 onClick={clearDone}
-                className="text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                className="text-xs text-ink-muted transition hover:text-red-600"
               >
                 Erledigte löschen
               </button>
@@ -145,14 +148,14 @@ export function Checkliste() {
         </div>
 
         {items.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-8 text-center text-sm text-ink-subtle">
             Noch keine Punkte. Füge oben etwas hinzu.
           </p>
         ) : (
           items.map((it) => (
             <div
               key={it.id}
-              className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+              className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
             >
               <input
                 type="checkbox"
@@ -164,14 +167,14 @@ export function Checkliste() {
                 <span
                   className={`text-sm ${
                     it.done
-                      ? "text-slate-400 line-through dark:text-slate-500"
-                      : "text-slate-800 dark:text-slate-100"
+                      ? "text-ink-subtle line-through"
+                      : "text-ink"
                   }`}
                 >
                   {it.text}
                 </span>
                 {it.by && (
-                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">· {it.by}</span>
+                  <span className="ml-2 text-[11px] text-ink-subtle">· {it.by}</span>
                 )}
                 {it.assignee && (
                   <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
@@ -189,7 +192,7 @@ export function Checkliste() {
                   value={it.assignee ?? ""}
                   onChange={(e) => assign(it.id, e.target.value)}
                   aria-label="Zuweisen"
-                  className="shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1 py-0.5 text-xs text-slate-500 dark:text-slate-400 outline-none focus:border-brand"
+                  className={cn(fieldClasses, "shrink-0 px-1 py-0.5 text-xs text-ink-muted")}
                 >
                   <option value="">— niemand</option>
                   {members.map((m) => (
@@ -213,7 +216,7 @@ export function Checkliste() {
         )}
       </div>
 
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-3 text-xs text-ink-subtle">
         Wird in deinem Konto gespeichert (gerätesynchron).
       </p>
     </div>

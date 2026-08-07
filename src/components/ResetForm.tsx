@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { api } from "@/lib/api/client";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 export function ResetForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
@@ -41,7 +43,7 @@ export function ResetForm({ token }: { token: string }) {
         </p>
         <Link
           href="/login"
-          className="block rounded-md bg-brand px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-brand-dark"
+          className={buttonClasses("primary", "md", "flex")}
         >
           Zur Anmeldung
         </Link>
@@ -52,7 +54,7 @@ export function ResetForm({ token }: { token: string }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
           Neues Passwort
         </label>
         <input
@@ -63,11 +65,11 @@ export function ResetForm({ token }: { token: string }) {
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
       <div>
-        <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label htmlFor="confirm" className="mb-1 block text-sm font-medium text-ink-muted">
           Passwort bestätigen
         </label>
         <input
@@ -77,7 +79,7 @@ export function ResetForm({ token }: { token: string }) {
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className={fieldClasses}
         />
       </div>
       {error && (
@@ -88,7 +90,7 @@ export function ResetForm({ token }: { token: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+        className={buttonClasses("primary", "md", "w-full")}
       >
         {pending ? "Wird gespeichert…" : "Passwort ändern"}
       </button>

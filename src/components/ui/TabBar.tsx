@@ -24,8 +24,15 @@ export function TabBar<K extends string>({
   onSelect: (key: K) => void;
   /** Beschriftung der Leiste für Screenreader, z. B. „Geld-Bereiche". */
   label: string;
-  /** Präfix der Panel-IDs — muss zu den `id`s der `TabPanel`s passen. */
-  idPrefix: string;
+  /**
+   * Präfix der Panel-IDs — muss zu den `id`s der `TabPanel`s passen.
+   *
+   * Optional, weil nicht jede Leiste **ein** Panel schaltet: der Reiseplaner
+   * blendet mehrere verteilte Blöcke ein/aus. Dort bleibt `aria-controls` weg,
+   * statt auf eine nicht existierende ID zu zeigen — ein toter Verweis ist für
+   * Screenreader schlechter als keiner.
+   */
+  idPrefix?: string;
   className?: string;
 }) {
   return (
@@ -50,7 +57,7 @@ export function TabBar<K extends string>({
             type="button"
             role="tab"
             aria-selected={on}
-            aria-controls={`${idPrefix}-${t.key}`}
+            aria-controls={idPrefix ? `${idPrefix}-${t.key}` : undefined}
             onClick={() => onSelect(t.key)}
             className={cn(
               "shrink-0 rounded-[0.5rem] px-3 py-1.5 text-sm font-semibold transition duration-150",

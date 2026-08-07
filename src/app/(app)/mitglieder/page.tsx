@@ -12,8 +12,8 @@ export default async function MitgliederPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-xl text-slate-900 dark:text-slate-100">Mitglieder · Japan-Reise</h1>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-xl text-ink">Mitglieder · Japan-Reise</h1>
+      <p className="mb-4 text-sm text-ink-muted">
         Lade Leute ein, um Reiseplaner, Ausgaben, Tagesplaner und Checkliste gemeinsam zu bearbeiten.
       </p>
       <TripMembers />

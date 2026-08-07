@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { eurFmt, yenFmt } from "@/lib/format";
+import { buttonClasses } from "@/components/ui/Button";
 
 interface Stop {
   id: string;
@@ -45,8 +46,8 @@ const fmtD = (iso: string | null) => (iso ? dFmt.format(new Date(`${iso}T00:00:0
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-      <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+    <section className="rounded-card border border-hairline bg-surface shadow-card p-4">
+      <h2 className="mb-2 text-base font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );
@@ -72,13 +73,13 @@ export function ReiseUebersicht() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-ink-muted">
           Alles Wichtige auf einen Blick — zum Drucken oder als PDF speichern.
         </p>
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark print:hidden"
+          className={buttonClasses("primary", "md", "print:hidden")}
         >
           Drucken / PDF
         </button>
@@ -86,16 +87,16 @@ export function ReiseUebersicht() {
 
       <Section title={`Flüge (${flights.length})`}>
         {flights.length === 0 ? (
-          <p className="text-sm text-slate-400 dark:text-slate-500">Keine Flüge hinterlegt.</p>
+          <p className="text-sm text-ink-subtle">Keine Flüge hinterlegt.</p>
         ) : (
           <ul className="space-y-1.5 text-sm">
             {flights.map((f) => (
               <li key={f.id} className="flex flex-wrap justify-between gap-2">
-                <span className="text-slate-800 dark:text-slate-100">
+                <span className="text-ink">
                   <strong>{f.flightNumber}</strong>
                   {f.airline && ` · ${f.airline}`} — {f.fromCode || "?"} → {f.toCode || "?"}
                 </span>
-                <span className="text-slate-500 dark:text-slate-400">
+                <span className="text-ink-muted">
                   {fmtDt(f.departure)} → {fmtDt(f.arrival)}
                   {f.priceYen ? ` · ${eurFmt.format(f.priceYen * rate)}` : ""}
                 </span>
@@ -107,16 +108,16 @@ export function ReiseUebersicht() {
 
       <Section title={`Route (${stops.length} Stopps)`}>
         {stops.length === 0 ? (
-          <p className="text-sm text-slate-400 dark:text-slate-500">Noch keine Orte im Reiseplaner.</p>
+          <p className="text-sm text-ink-subtle">Noch keine Orte im Reiseplaner.</p>
         ) : (
           <ol className="space-y-1 text-sm">
             {stops.map((s, i) => (
               <li key={s.id} className="flex justify-between gap-2">
-                <span className="text-slate-800 dark:text-slate-100">
+                <span className="text-ink">
                   {i + 1}. {s.label.split(",").slice(0, 2).join(", ")}
                 </span>
                 {fmtD(s.date) && (
-                  <span className="text-slate-500 dark:text-slate-400">{fmtD(s.date)}</span>
+                  <span className="text-ink-muted">{fmtD(s.date)}</span>
                 )}
               </li>
             ))}
@@ -126,12 +127,12 @@ export function ReiseUebersicht() {
 
       <Section title={`Checkliste (${checklist.filter((c) => c.done).length}/${checklist.length})`}>
         {checklist.length === 0 ? (
-          <p className="text-sm text-slate-400 dark:text-slate-500">Keine Punkte.</p>
+          <p className="text-sm text-ink-subtle">Keine Punkte.</p>
         ) : (
           <ul className="space-y-1 text-sm">
             {checklist.map((c) => (
-              <li key={c.id} className="text-slate-800 dark:text-slate-100">
-                {c.done ? "☑" : "☐"} <span className={c.done ? "line-through text-slate-400" : ""}>{c.text}</span>
+              <li key={c.id} className="text-ink">
+                {c.done ? "☑" : "☐"} <span className={c.done ? "line-through text-ink-subtle" : ""}>{c.text}</span>
               </li>
             ))}
           </ul>
@@ -140,8 +141,8 @@ export function ReiseUebersicht() {
 
       <Section title="Ausgaben">
         <div className="flex justify-between text-sm">
-          <span className="text-slate-600 dark:text-slate-300">{expenses.length} Einträge</span>
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
+          <span className="text-ink-muted">{expenses.length} Einträge</span>
+          <span className="font-semibold text-ink">
             {yenFmt.format(totalYen)} · {eurFmt.format(totalYen * rate)}
           </span>
         </div>

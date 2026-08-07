@@ -9,6 +9,8 @@ import { api } from "@/lib/api/client";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { fieldClasses } from "@/components/ui/Field";
+import { buttonClasses } from "@/components/ui/Button";
 
 const initial: LoginState = {};
 
@@ -43,16 +45,16 @@ export default function LoginPage() {
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-card border border-hairline bg-surface p-8 shadow-card">
         <div className="mb-6">
           <Logo height={40} priority />
-          <h1 className="mt-4 text-xl text-slate-900 dark:text-slate-100">Clover Japan</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Bitte melde dich an.</p>
+          <h1 className="mt-4 text-xl text-ink">Clover Japan</h1>
+          <p className="text-sm text-ink-muted">Bitte melde dich an.</p>
         </div>
 
         <form action={formAction} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink-muted">
               E-Mail
             </label>
             <input
@@ -61,11 +63,11 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               required
-              className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className={fieldClasses}
             />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink-muted">
               Passwort
             </label>
             <input
@@ -74,7 +76,7 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
-              className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className={fieldClasses}
             />
           </div>
 
@@ -89,24 +91,24 @@ export default function LoginPage() {
           <p className="text-center">
             <Link
               href="/forgot"
-              className="text-xs text-slate-500 hover:text-brand hover:underline dark:text-slate-400"
+              className="text-xs text-ink-muted hover:text-brand hover:underline"
             >
               Passwort vergessen?
             </Link>
           </p>
         </form>
 
-        <div className="my-4 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+        <div className="my-4 flex items-center gap-3 text-xs text-ink-subtle">
+          <span className="h-px flex-1 bg-hairline" />
           oder
-          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          <span className="h-px flex-1 bg-hairline" />
         </div>
 
         <button
           type="button"
           onClick={passkeyLogin}
           disabled={pkPending}
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+          className={buttonClasses("secondary", "md", "w-full")}
         >
           {pkPending ? "…" : "🔒 Mit Fingerabdruck anmelden"}
         </button>
@@ -114,7 +116,7 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-red-600 dark:text-red-400">{pkError}</p>
         )}
 
-        <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-6 text-center text-sm text-ink-muted">
           Noch kein Konto?{" "}
           <Link href="/register" className="font-medium text-brand hover:underline">
             Registrieren

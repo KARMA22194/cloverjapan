@@ -4,12 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api/client";
+import { fieldClasses } from "@/components/ui/Field";
+import { buttonClasses } from "@/components/ui/Button";
 
-const inputClass =
-  "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm outline-none focus:border-brand";
-
-const submitClass =
-  "inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60";
+const inputClass = fieldClasses;
+const submitClass = buttonClasses("primary", "md");
 
 export function UserCreateForm() {
   const router = useRouter();
@@ -41,22 +40,22 @@ export function UserCreateForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4"
+      className="flex flex-wrap items-end gap-3 rounded-card border border-hairline bg-surface shadow-card p-4"
     >
       <div className="flex-1 min-w-[140px]">
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Name</label>
+        <label className="mb-1 block text-xs font-medium text-ink-muted">Name</label>
         <input name="name" required className={inputClass} />
       </div>
       <div className="flex-1 min-w-[160px]">
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">E-Mail</label>
+        <label className="mb-1 block text-xs font-medium text-ink-muted">E-Mail</label>
         <input name="email" type="email" required className={inputClass} />
       </div>
       <div className="w-36">
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Passwort</label>
+        <label className="mb-1 block text-xs font-medium text-ink-muted">Passwort</label>
         <input name="password" type="text" required className={inputClass} />
       </div>
       <div className="w-32">
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Rolle</label>
+        <label className="mb-1 block text-xs font-medium text-ink-muted">Rolle</label>
         <select name="role" defaultValue="EMPLOYEE" className={inputClass}>
           <option value="EMPLOYEE">Employee</option>
           <option value="MANAGER">Manager</option>

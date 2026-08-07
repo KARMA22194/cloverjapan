@@ -131,7 +131,7 @@ export async function AblaufTimeline() {
   return (
     <div className="max-w-2xl">
       {days.length === 0 ? (
-        <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+        <p className="rounded-card border border-hairline bg-surface shadow-card px-4 py-8 text-center text-sm text-ink-subtle">
           Noch nichts mit Datum. Weise im Reiseplaner Orten einen Reisetag zu, erfasse Flüge oder
           lege Aufgaben im Tagesplaner an.
         </p>
@@ -140,18 +140,18 @@ export async function AblaufTimeline() {
           {days.map((day) => (
             <div
               key={day}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              className="rounded-card border border-hairline bg-surface shadow-card"
             >
-              <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
+              <div className="border-b border-hairline px-4 py-2 text-sm font-semibold text-brand-dark dark:text-brand-tint">
                 {formatDay(day)}
               </div>
               <ul>
                 {byDay.get(day)!.map((e, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+                    className="flex items-start gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
                   >
-                    <span className="w-11 shrink-0 pt-0.5 text-xs tabular-nums text-slate-400 dark:text-slate-500">
+                    <span className="w-11 shrink-0 pt-0.5 text-xs tabular-nums text-ink-subtle">
                       {e.time || "—"}
                     </span>
                     <span className="shrink-0 pt-0.5">{e.emoji}</span>
@@ -161,7 +161,7 @@ export async function AblaufTimeline() {
                           href={e.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-slate-800 hover:text-brand hover:underline dark:text-slate-100"
+                          className="text-sm text-ink hover:text-brand hover:underline"
                         >
                           {e.label}
                         </a>
@@ -169,15 +169,15 @@ export async function AblaufTimeline() {
                         <span
                           className={`text-sm ${
                             e.done
-                              ? "text-slate-400 line-through dark:text-slate-500"
-                              : "text-slate-800 dark:text-slate-100"
+                              ? "text-ink-subtle line-through"
+                              : "text-ink"
                           }`}
                         >
                           {e.label}
                         </span>
                       )}
                       {e.sub && (
-                        <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{e.sub}</p>
+                        <p className="truncate text-[11px] text-ink-subtle">{e.sub}</p>
                       )}
                     </div>
                   </li>
@@ -189,7 +189,7 @@ export async function AblaufTimeline() {
       )}
 
       {undatedFlights > 0 && (
-        <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-4 text-xs text-ink-subtle">
           {undatedFlights} Flug(e) ohne Abflugdatum werden hier nicht angezeigt.
         </p>
       )}

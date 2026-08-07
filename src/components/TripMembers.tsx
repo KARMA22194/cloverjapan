@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
+import { buttonClasses } from "@/components/ui/Button";
+import { fieldClasses } from "@/components/ui/Field";
 
 interface Member {
   id: string;
@@ -235,24 +237,24 @@ export function TripMembers() {
           </div>
           {incoming.map((inv) => (
             <div key={inv.id} className="border-b border-brand/10 px-4 py-3 last:border-b-0">
-              <p className="text-sm text-slate-800 dark:text-slate-100">
+              <p className="text-sm text-ink">
                 <strong>{inv.invitedBy}</strong> lädt dich zu <strong>{inv.tripName}</strong> ein.
               </p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-xs text-ink-muted">
                 {expiryLabel(inv.expiresAt)} · Beim Beitreten verlässt du deine aktuelle Reise.
               </p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
                   onClick={() => acceptIncoming(inv.id)}
-                  className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark"
+                  className={buttonClasses("primary", "sm")}
                 >
                   Beitreten
                 </button>
                 <button
                   type="button"
                   onClick={() => declineIncoming(inv.id)}
-                  className="rounded-md px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-500/10 dark:text-slate-300"
+                  className="rounded-md px-3 py-1.5 text-xs text-ink-muted transition hover:bg-ink-subtle/10"
                 >
                   Ablehnen
                 </button>
@@ -264,19 +266,19 @@ export function TripMembers() {
 
       <form
         onSubmit={invite}
-        className="mb-4 flex gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3"
+        className="mb-4 flex gap-2 rounded-card border border-hairline bg-surface shadow-card p-3"
       >
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="E-Mail der Person"
-          className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm outline-none focus:border-brand"
+          className={fieldClasses}
         />
         <button
           type="submit"
           disabled={pending || !email.trim()}
-          className="shrink-0 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+          className={buttonClasses("primary", "md", "shrink-0")}
         >
           {pending ? "…" : "Einladen"}
         </button>
@@ -299,7 +301,7 @@ export function TripMembers() {
                 ✉
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                <p className="truncate text-sm font-medium text-ink">
                   {inv.email}
                 </p>
                 <p className="flex items-center gap-1.5 text-xs">
@@ -312,7 +314,7 @@ export function TripMembers() {
                   >
                     {inv.expired ? "Abgelaufen" : "Ausstehend"}
                   </span>
-                  <span className="text-slate-500 dark:text-slate-400">
+                  <span className="text-ink-muted">
                     · {expiryLabel(inv.expiresAt, inv.expired)}
                   </span>
                 </p>
@@ -338,29 +340,29 @@ export function TripMembers() {
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
           Mitglieder ({members.length})
         </div>
         {members.map((m) => (
           <div
             key={m.id}
-            className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+            className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
           >
             <div className="relative shrink-0">
               <Avatar name={m.name} image={m.image} size={36} />
               {/* Präsenz-Punkt: grün = online, grau = offline. */}
               <span
                 title={m.isMe ? "du bist online" : exactSeen(m.lastSeenAt)}
-                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 ${
-                  isOnline(m.lastSeenAt) ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${
+                  isOnline(m.lastSeenAt) ? "bg-emerald-500" : "bg-ink-subtle"
                 }`}
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-1.5 truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+              <p className="flex items-center gap-1.5 truncate text-sm font-medium text-ink">
                 <span className="truncate">{m.name}</span>
-                {m.isMe && <span className="text-xs text-slate-400">(du)</span>}
+                {m.isMe && <span className="text-xs text-ink-subtle">(du)</span>}
                 {m.isOwner && (
                   <span
                     title="Ersteller der Reise"
@@ -378,7 +380,7 @@ export function TripMembers() {
                   </span>
                 )}
               </p>
-              <p className="flex items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              <p className="flex items-center gap-1.5 truncate text-xs text-ink-muted">
                 <span className="truncate">{m.email}</span>
                 {presenceLabel(m.lastSeenAt) && (
                   <>
@@ -406,7 +408,7 @@ export function TripMembers() {
                 className={`shrink-0 rounded border px-2 py-1 text-xs transition ${
                   m.canManage
                     ? "border-brand text-brand hover:bg-brand/10"
-                    : "border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
+                    : "border-hairline text-ink-muted hover:bg-surface-2"
                 }`}
               >
                 {m.canManage ? "Verwalter ✓" : "Zum Verwalter"}
@@ -436,7 +438,7 @@ export function TripMembers() {
         ))}
       </div>
 
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-3 text-xs text-ink-subtle">
         Eingeladene Mitglieder bearbeiten Reiseplaner, Ausgaben, Tagesplaner und Checkliste
         gemeinsam. Einladungen müssen von der eingeladenen Person bestätigt werden (Konten über
         „Einladungen an dich", neue Konten über den Registrierungs-Link, 14 Tage gültig).

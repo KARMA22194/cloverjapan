@@ -6,6 +6,7 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
 import { resizeImage } from "@/lib/image";
+import { buttonClasses } from "@/components/ui/Button";
 
 /** Bild quadratisch auf 128×128 zuschneiden, als JPEG-Data-URL. */
 const resize = (file: File) => resizeImage(file, { max: 128, quality: 0.85, square: true });
@@ -87,17 +88,17 @@ export function ProfileForm() {
 
   return (
     <div className="max-w-md">
-      <div className="flex items-center gap-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <div className="flex items-center gap-4 rounded-card border border-hairline bg-surface shadow-card p-4">
         <Avatar name={name || "?"} image={image} size={72} />
         <div className="min-w-0">
-          <p className="truncate font-medium text-slate-800 dark:text-slate-100">{name}</p>
-          <p className="truncate text-sm text-slate-500 dark:text-slate-400">{email}</p>
+          <p className="truncate font-medium text-ink">{name}</p>
+          <p className="truncate text-sm text-ink-muted">{email}</p>
           <div className="mt-2 flex gap-2">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={pending}
-              className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60"
+              className={buttonClasses("primary", "md")}
             >
               {pending ? "…" : image ? "Bild ändern" : "Bild wählen"}
             </button>
@@ -106,7 +107,7 @@ export function ProfileForm() {
                 type="button"
                 onClick={removeImage}
                 disabled={pending}
-                className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+                className={buttonClasses("secondary", "md")}
               >
                 Entfernen
               </button>
@@ -116,15 +117,15 @@ export function ProfileForm() {
         </div>
       </div>
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
-      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-3 text-xs text-ink-subtle">
         Das Bild wird auf 128×128 verkleinert und in deinem Konto gespeichert.
       </p>
 
-      <div className="mt-6 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-        <h2 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="mt-6 rounded-card border border-hairline bg-surface shadow-card p-4">
+        <h2 className="mb-1 text-sm font-medium text-ink-muted">
           Anmeldung per Fingerabdruck (Passkey)
         </h2>
-        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mb-3 text-xs text-ink-muted">
           Richte auf diesem Gerät einen Passkey ein, um dich künftig per Fingerabdruck oder
           Face ID anzumelden.
         </p>
@@ -132,11 +133,11 @@ export function ProfileForm() {
           type="button"
           onClick={addPasskey}
           disabled={pkPending}
-          className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-60"
+          className={buttonClasses("primary", "md")}
         >
           {pkPending ? "…" : "Passkey einrichten"}
         </button>
-        {pkMsg && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{pkMsg}</p>}
+        {pkMsg && <p className="mt-2 text-sm text-ink-muted">{pkMsg}</p>}
       </div>
     </div>
   );

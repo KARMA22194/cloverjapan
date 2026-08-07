@@ -135,12 +135,12 @@ export function Abrechnung() {
   const eur = (yen: number) => (rate ? eurFmt.format(yen * rate) : null);
 
   if (!loaded) {
-    return <p className="text-sm text-slate-400 dark:text-slate-500">Lädt…</p>;
+    return <p className="text-sm text-ink-subtle">Lädt…</p>;
   }
 
   if (members.length < 2) {
     return (
-      <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+      <p className="rounded-card border border-hairline bg-surface shadow-card px-4 py-8 text-center text-sm text-ink-subtle">
         Die Abrechnung teilt Ausgaben unter allen Reise-Mitgliedern auf. Lade unter „Mitglieder"
         jemanden ein, dann rechnet sich hier, wer wem was schuldet.
       </p>
@@ -149,14 +149,14 @@ export function Abrechnung() {
 
   return (
     <div className="max-w-xl space-y-4">
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <div className="rounded-card border border-hairline bg-surface shadow-card p-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm text-slate-500 dark:text-slate-400">Gesamt (aufgeteilt)</span>
-          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <span className="text-sm text-ink-muted">Gesamt (aufgeteilt)</span>
+          <span className="text-lg font-semibold text-ink">
             {yenFmt.format(calc.total)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-1 text-xs text-ink-subtle">
           {yenFmt.format(Math.round(calc.share))} pro Person ({members.length} Mitglieder, gleichmäßig geteilt).
           {calc.personal > 0 && ` ${calc.personal} persönliche Ausgabe(n) nicht aufgeteilt.`}
           {calc.unassigned > 0 && ` ${calc.unassigned} ohne Zahler nicht berücksichtigt.`}
@@ -164,8 +164,8 @@ export function Abrechnung() {
       </div>
 
       {/* Saldo je Person */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
           Saldo je Person
         </div>
         <ul>
@@ -175,14 +175,14 @@ export function Abrechnung() {
             return (
               <li
                 key={b.name}
-                className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0"
+                className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
               >
                 <div className="min-w-0">
-                  <span className="text-sm text-slate-800 dark:text-slate-100">
+                  <span className="text-sm text-ink">
                     {b.name}
                     {b.isMe && " (ich)"}
                   </span>
-                  <span className="ml-2 text-[11px] text-slate-400 dark:text-slate-500">
+                  <span className="ml-2 text-[11px] text-ink-subtle">
                     gezahlt {yenFmt.format(b.paid)}
                   </span>
                 </div>
@@ -192,7 +192,7 @@ export function Abrechnung() {
                       ? "text-green-600 dark:text-green-400"
                       : negative
                         ? "text-red-600 dark:text-red-400"
-                        : "text-slate-400 dark:text-slate-500"
+                        : "text-ink-subtle"
                   }`}
                   title={positive ? "bekommt zurück" : negative ? "schuldet" : "ausgeglichen"}
                 >
@@ -206,12 +206,12 @@ export function Abrechnung() {
       </div>
 
       {/* Ausgleich */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <div className="rounded-card border border-hairline bg-surface shadow-card">
+        <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
           Ausgleich – wer zahlt wem
         </div>
         {calc.transfers.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+          <p className="px-4 py-6 text-center text-sm text-ink-subtle">
             Alles ausgeglichen 🎉
           </p>
         ) : (
@@ -219,19 +219,19 @@ export function Abrechnung() {
             {calc.transfers.map((t, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0 text-sm"
+                className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0 text-sm"
               >
-                <span className="min-w-0 text-slate-800 dark:text-slate-100">
+                <span className="min-w-0 text-ink">
                   <span className="text-red-600 dark:text-red-400">{t.fromName}</span> →{" "}
                   <span className="text-green-600 dark:text-green-400">{t.toName}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className="text-right">
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                    <span className="font-medium text-ink">
                       {yenFmt.format(t.yen)}
                     </span>
                     {eur(t.yen) && (
-                      <span className="ml-1 text-[11px] text-slate-400 dark:text-slate-500">
+                      <span className="ml-1 text-[11px] text-ink-subtle">
                         ≈ {eur(t.yen)}
                       </span>
                     )}
@@ -253,23 +253,23 @@ export function Abrechnung() {
 
       {/* Verbuchte Zahlungen (mit Undo) */}
       {settlements.length > 0 && (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-          <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="rounded-card border border-hairline bg-surface shadow-card">
+          <div className="border-b border-hairline px-4 py-2 text-sm font-medium text-ink-muted">
             Beglichen
           </div>
           <ul>
             {settlements.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 last:border-b-0 text-sm"
+                className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0 text-sm"
               >
-                <span className="min-w-0 text-slate-500 line-through dark:text-slate-400">
+                <span className="min-w-0 text-ink-muted line-through">
                   {s.fromName} → {s.toName} · {yenFmt.format(s.yen)}
                 </span>
                 <button
                   type="button"
                   onClick={() => undoSettlement(s.id)}
-                  className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 transition hover:text-red-600 dark:text-slate-400"
+                  className="shrink-0 rounded px-2 py-1 text-xs text-ink-muted transition hover:text-red-600"
                 >
                   rückgängig
                 </button>
@@ -279,7 +279,7 @@ export function Abrechnung() {
         </div>
       )}
 
-      <p className="text-xs text-slate-400 dark:text-slate-500">
+      <p className="text-xs text-ink-subtle">
         Gleichmäßige Aufteilung aller zugeordneten Ausgaben unter allen Mitgliedern. Den Zahler
         legst du beim Erfassen im Ausgabenrechner fest.
       </p>
