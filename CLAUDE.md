@@ -578,6 +578,14 @@ darunter, ein `ink`-Token wäre im Dark-Mode hell auf hell:
 ⚠️ Beim Nachziehen weiterer UI **nie** `` className={`extra ${recipe}`} `` schreiben —
 Verkettung umgeht `twMerge`, dann entscheidet die Stylesheet-Reihenfolge. Immer
 `cn(recipe, "extra")` bzw. `buttonClasses(v, s, "extra")`.
+⚠️ **`fieldClasses` enthält `w-full`.** Steht ein Feld in einer Flex-Zeile neben Text,
+muss die Aufrufstelle `w-auto` (oder eine feste Breite) mitgeben — `shrink-0` allein
+hebt `w-full` **nicht** auf, `twMerge` sieht darin keinen Konflikt. Passiert war das
+den Zuweisungs-Auswahlen in Checkliste und Tagesplaner: die Auswahl forderte die
+ganze Zeile und konnte nicht nachgeben, der Textblock wurde auf wenige Pixel
+gequetscht und brach nach jedem Wort um (nur auf schmalen Bildschirmen sichtbar).
+Prüfskript für solche Fälle: `e2e/mobile-check.mjs` (Überlauf + gequetschte Spalten
+über alle Hauptansichten in 390 px Breite).
 ⚠️ Die sticky TopNav braucht ein hohes `z-index` (`z-[1100]`): Leaflet setzt im Reiseplaner
 interne Panes bis `z-index` 800 — bei `z-40` scrollte die Karte über die Leiste. Wer eine
 eigene sticky Seitenleiste baut, rechnet die Leistenhöhe ein (`top-[4.75rem]`).

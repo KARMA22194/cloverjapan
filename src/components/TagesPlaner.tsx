@@ -12,6 +12,7 @@ import {
 } from "@/lib/reminders";
 import { buttonClasses } from "@/components/ui/Button";
 import { fieldClasses } from "@/components/ui/Field";
+import { Chip } from "@/components/ui/Chip";
 import { cn } from "@/lib/cn";
 
 interface Task {
@@ -235,38 +236,35 @@ export function TagesPlaner() {
           sorted.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
+              // Wie in der Checkliste: umbruchfähige Zeile, damit Auswahl und
+              // Knöpfe auf dem Handy umbrechen statt den Text zu zerquetschen.
+              className="flex flex-wrap items-start gap-x-3 gap-y-2 border-b border-hairline px-4 py-2.5 last:border-b-0"
             >
               <input
                 type="checkbox"
                 checked={t.done}
                 onChange={() => toggle(t.id, t.done)}
-                className="h-4 w-4 accent-[#009bc9]"
+                aria-label={t.text}
+                className="mt-1 h-4 w-4 shrink-0 accent-brand"
               />
               {t.time && (
-                <span className="w-12 shrink-0 tabular-nums text-sm text-ink-muted">
+                <span className="mt-0.5 w-12 shrink-0 tabular-nums text-sm text-ink-muted">
                   {t.time}
                 </span>
               )}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-40">
                 <span
-                  className={`text-sm ${
-                    t.done
-                      ? "text-ink-subtle line-through"
-                      : "text-ink"
+                  className={`block break-words text-sm ${
+                    t.done ? "text-ink-subtle line-through" : "text-ink"
                   }`}
                 >
                   {t.text}
                 </span>
-                {t.by && (
-                  <span className="ml-2 text-[11px] text-ink-subtle">
-                    · {t.by}
-                  </span>
-                )}
-                {t.assignee && (
-                  <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
-                    👤 {t.assignee}
-                  </span>
+                {(t.by || t.assignee) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {t.by && <span className="text-[11px] text-ink-subtle">· {t.by}</span>}
+                    {t.assignee && <Chip tone="brand">👤 {t.assignee}</Chip>}
+                  </div>
                 )}
               </div>
               {members.length > 1 && (
@@ -274,7 +272,12 @@ export function TagesPlaner() {
                   value={t.assignee ?? ""}
                   onChange={(e) => assign(t.id, e.target.value)}
                   aria-label="Zuweisen"
-                  className={cn(fieldClasses, "shrink-0 px-1 py-0.5 text-xs text-ink-muted")}
+                  // `w-auto` gegen das `w-full` der Rezeptur — sonst nimmt die
+                  // Auswahl die ganze Zeile ein und kann wegen `shrink-0` nicht nachgeben.
+                  className={cn(
+                    fieldClasses,
+                    "ml-auto w-auto max-w-40 shrink-0 px-1.5 py-1 text-xs text-ink-muted",
+                  )}
                 >
                   <option value="">— niemand</option>
                   {members.map((m) => (

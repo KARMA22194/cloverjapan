@@ -6,6 +6,7 @@ import { api } from "@/lib/api/client";
 import { useMembers } from "@/lib/useMembers";
 import { buttonClasses } from "@/components/ui/Button";
 import { fieldClasses } from "@/components/ui/Field";
+import { Chip } from "@/components/ui/Chip";
 import { cn } from "@/lib/cn";
 
 interface Item {
@@ -110,8 +111,10 @@ export function Checkliste() {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Neuer Punkt… (z. B. Reisepass, Adapter, JR-Pass)"
-          className={fieldClasses}
+          placeholder="Neuer Punkt…"
+          // `min-w-0`: ohne das kann das Feld neben dem Knopf nicht schrumpfen und
+          // schiebt ihn auf schmalen Bildschirmen aus der Zeile.
+          className={cn(fieldClasses, "min-w-0")}
         />
         <button
           type="submit"
@@ -123,11 +126,11 @@ export function Checkliste() {
       </form>
 
       <div className="rounded-card border border-hairline bg-surface shadow-card">
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
-          <span className="text-sm font-medium text-ink-muted">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-hairline px-4 py-2">
+          <span className="text-sm font-bold text-ink">
             {items.length === 0 ? "Checkliste" : `${doneCount}/${items.length} erledigt`}
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={insertTemplate}
@@ -153,38 +156,36 @@ export function Checkliste() {
           </p>
         ) : (
           items.map((it) => (
+            // `flex-wrap` + `basis-48` am Textblock: reicht der Platz nicht (Handy),
+            // rutschen Auswahl und ✕ in eine zweite Zeile, statt den Text auf ein
+            // paar Pixel zusammenzudrücken.
             <div
               key={it.id}
-              className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0"
+              className="flex flex-wrap items-start gap-x-3 gap-y-2 border-b border-hairline px-4 py-2.5 last:border-b-0"
             >
               <input
                 type="checkbox"
                 checked={it.done}
                 onChange={() => toggle(it.id)}
-                className="h-4 w-4 accent-[#009bc9]"
+                aria-label={it.text}
+                className="mt-1 h-4 w-4 shrink-0 accent-brand"
               />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-48">
                 <span
-                  className={`text-sm ${
-                    it.done
-                      ? "text-ink-subtle line-through"
-                      : "text-ink"
+                  className={`block break-words text-sm ${
+                    it.done ? "text-ink-subtle line-through" : "text-ink"
                   }`}
                 >
                   {it.text}
                 </span>
-                {it.by && (
-                  <span className="ml-2 text-[11px] text-ink-subtle">· {it.by}</span>
-                )}
-                {it.assignee && (
-                  <span className="ml-2 rounded bg-brand-tint/60 px-1.5 py-0.5 text-[11px] text-brand-dark dark:bg-brand/20 dark:text-brand-tint">
-                    👤 {it.assignee}
-                  </span>
-                )}
-                {it.done && it.completedBy && (
-                  <span className="ml-2 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                    ✓ {it.completedBy}
-                  </span>
+                {(it.by || it.assignee || (it.done && it.completedBy)) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {it.by && <span className="text-[11px] text-ink-subtle">· {it.by}</span>}
+                    {it.assignee && <Chip tone="brand">👤 {it.assignee}</Chip>}
+                    {it.done && it.completedBy && (
+                      <Chip tone="success">✓ {it.completedBy}</Chip>
+                    )}
+                  </div>
                 )}
               </div>
               {members.length > 1 && (
@@ -192,7 +193,12 @@ export function Checkliste() {
                   value={it.assignee ?? ""}
                   onChange={(e) => assign(it.id, e.target.value)}
                   aria-label="Zuweisen"
-                  className={cn(fieldClasses, "shrink-0 px-1 py-0.5 text-xs text-ink-muted")}
+                  // `w-auto` hebt das `w-full` der Rezeptur auf — sonst beansprucht
+                  // die Auswahl die ganze Zeile und `shrink-0` lässt sie nicht nach.
+                  className={cn(
+                    fieldClasses,
+                    "ml-auto w-auto max-w-40 shrink-0 px-1.5 py-1 text-xs text-ink-muted",
+                  )}
                 >
                   <option value="">— niemand</option>
                   {members.map((m) => (
@@ -206,7 +212,10 @@ export function Checkliste() {
               <button
                 type="button"
                 onClick={() => remove(it.id)}
-                className="shrink-0 rounded px-1.5 py-1 text-xs text-red-600 transition hover:bg-red-500/10 dark:text-red-400"
+                className={cn(
+                  "shrink-0 rounded-field px-1.5 py-1 text-xs text-danger transition hover:bg-danger/10",
+                  members.length > 1 ? "" : "ml-auto",
+                )}
                 aria-label="Entfernen"
               >
                 ✕
