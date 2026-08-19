@@ -53,8 +53,11 @@ Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerv
 - **Regenradar:** **RainViewer** (keyfrei, Kachel-Overlay)
 - **Flüge:** **AeroDataBox** über RapidAPI (optional, `AERODATABOX_API_KEY`) — Auto-Abruf
   **und** Live-Status
-- **Beleg-Scan:** **Claude Vision** (Anthropic Messages API, `ANTHROPIC_API_KEY`,
-  Modell via `RECEIPT_MODEL`, Default Haiku 4.5) — liest Kassenzettel
+- **Beleg-Scan (zweistufig):** **Google Cloud Vision** (OCR, `GOOGLE_VISION_API_KEY`,
+  gratis bis 1.000 Bilder/Monat) mit eigener Betragszuordnung in `src/lib/receipt.ts`;
+  findet die keinen Betrag, übernimmt **Claude Vision** (Anthropic Messages API,
+  `ANTHROPIC_API_KEY`, Modell via `RECEIPT_MODEL`, Default Haiku 4.5).
+  Reihenfolge über `RECEIPT_ENGINE` (`vision`|`claude`|`auto`, Default `auto`)
 - **QR-Codes** (Kofferanhänger): `qrcode` (clientseitig als Data-URL)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
 - **Deployment:** Vercel + Neon (Postgres). `vercel.json` `buildCommand`:
@@ -90,7 +93,14 @@ Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-6647
    Fehlt es im Dev → EvalError, kein Client-JS.
 3. **Nach `prisma migrate`/`generate` den Dev-Server neu starten** (sonst alter
    Prisma-Client im Speicher → neue Modelle `undefined`).
-4. **Diagnose** am schnellsten per **headless Playwright** im Container
+4. **In Playwright auf Hydration warten, nicht auf das Element.** `waitForSelector`
+   belegt nur, dass das server-gerenderte HTML da ist — React kann noch nicht
+   hydriert sein. Wird dann per `setInputFiles`/`filechooser` eine Datei gesetzt,
+   feuert das native `change`-Event ins Leere (der `onChange` hängt noch nicht),
+   und der Test scheitert, obwohl das Feature funktioniert. Auf ein
+   Client-Effekt-Signal warten (z. B. verschwundenes „Wechselkurs wird geladen…"),
+   dann handeln. Kostete beim Beleg-Scan-Test eine ganze Fehlersuche.
+5. **Diagnose** am schnellsten per **headless Playwright** im Container
    (`page.on('console'/'pageerror')`): zeigt CSP-EvalError bzw. 404/`text/plain`-Chunks.
 
 ## Setup & Befehle (alles über Docker)
@@ -189,7 +199,9 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   — IP-Limit fängt E-Mail-Spraying ab), Einladungen (20/h), Passwort-forgot (5/h),
   Flug-Lookup/-Live (30–60/h), Geocode-Übernahme (30/min), Geo-Suche (60/min), Routing (30/min),
   **Zugverbindung/Google Directions (60/h — einziger wirklich abgerechneter Call)**,
-  Konbini (20/h), Beleg-Scan (30/h), Koffer-Fund (5/10 min pro Token & IP **plus** 20/h pro Token
+  Konbini (20/h), Beleg-Scan (30/h pro Nutzer **und** 40/Tag pro Reise — Letzteres
+  schützt das Monatskontingent von Vision vor sechs gleichzeitig scannenden
+  Mitgliedern), Koffer-Fund (5/10 min pro Token & IP **plus** 20/h pro Token
   ohne IP-Anteil). Der Zähler ist **atomar** (ein `INSERT … ON CONFLICT … RETURNING`), sonst
   rutschten gleichzeitige Requests alle mit `count = 0` durch. `clientIp()` nimmt die IP nur aus
   vertrauenswürdiger Quelle (Vercel-Header / `cf-connecting-ip` / `TRUSTED_PROXY_HOPS` von rechts) —
@@ -465,8 +477,91 @@ Dashboard gespiegelt.
 - **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro live via `GET /api/v1/fx/rate`
   (open.er-api.com, keyfrei). Kategorien (`src/lib/expenses.ts`) + Budget + Donut + Zahler +
   „auf alle aufteilen" + Beleg-Foto. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
-  (**Claude Vision**) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
-  Foto beim Speichern automatisch angehängt. Ohne `ANTHROPIC_API_KEY` → 422 → manuell.
+  (Cloud Vision → Claude) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
+  Foto beim Speichern automatisch angehängt. Ohne beide Keys → 422 → manuell.
+  ⚠️ **Die Antwort ist ein Vorschlag, keine Wahrheit.** `source` (`total` |
+  `taxIncluded` | `subtotal` | `guess`) sagt, wie belastbar der Betrag ist; bei
+  `subtotal`/`guess` bzw. `yen = 0` zeigt das Formular einen Prüfhinweis
+  (`scanNoteFor`). `category` bleibt **weg**, wenn nichts sicher passt — eine
+  falsch überschriebene Kategorie fällt erst in der Auswertung auf.
+
+  **Betragszuordnung (`src/lib/receipt.ts`, reine Funktionen):** Vision liefert nur *Text* —
+  welche Zahl die Summe ist, entscheidet dieses Modul. Zentrale Falle japanischer Belege:
+  der **größte** Betrag ist meist **お預り** (hingelegtes Geld), darunter steht **お釣り**
+  (Wechselgeld) — „größte Zahl gewinnt" greift also systematisch den Schein ab. Deshalb
+  Gewichtung nach Schlüsselwörtern (合計/総計/お支払 → `total`, 税込 → `taxIncluded`,
+  小計/計 → `subtotal`, sonst Rateschritt) und harter Ausschluss jeder Zeile mit 預/釣/
+  ポイント/残高/TEL.
+  ⚠️ **Zeilen kommen aus den Wortkoordinaten** (`rowsFromWords`), nicht aus
+  `fullTextAnnotation.text`: bei zweispaltigen Belegen liefert die OCR gern erst alle
+  Beschriftungen und dann alle Werte — „合計" stünde ohne Zahl da und der Rateschritt
+  griffe das hingelegte Geld. Messbar in `e2e/receipt-parse.ts` (Leserichtung ¥2.000 vs.
+  Koordinaten ¥1.274).
+  ⚠️ **OCR-Leerzeichen tilgen** (`tightenJapanese`): Vision zerlegt japanischen Text in
+  Wörter, beim Zusammensetzen entsteht „セブン - イレブン". Japanisch setzt keine
+  Wortabstände — ohne diesen Schritt greift **kein** Markenmuster (real aufgetreten).
+  **Kategorie automatisch (drei Stufen, `categoryFrom` sagt welche):**
+  1. `keywords` — Punktesystem in `guessMeta` über **Marken *und* Artikelbegriffe**
+     (Gewicht: Fachgeschäft 3 > Artikel 2 > Gemischtwarenladen 1). Die Gewichte sind
+     inhaltlich begründet: ein T-Shirt-Beleg von Don Quijote ist Kleidung, nicht
+     „Sonstiges" — mit gleichem Gewicht gäbe es Gleichstand und damit **keine**
+     Kategorie. Artikelbegriffe sind der wichtigere Teil: der Ladenname steht einmal
+     auf dem Zettel, die Artikel zeilenweise. Punkte statt `find()`, weil Letzteres
+     an der **Reihenfolge** der Liste hing — ein eingefügtes Muster verschob unbemerkt
+     Ergebnisse.
+  2. `history` — greift nur, wenn 1. nichts findet: `categoryForLabel()`
+     (`services/expensesService.ts`) sucht in der Reise nach derselben Bezeichnung und
+     übernimmt die **häufigste** dort vergebene Kategorie (nicht die erste — eine alte
+     Fehlzuordnung soll nicht alle künftigen Scans verderben). Der Abgleich läuft über
+     den Namen, weil der beim Scan aus demselben OCR-Pfad kommt wie beim ersten Mal;
+     verglichen wird ohne Leerzeichen/Groß-Kleinschreibung. **Damit lernt der Scan
+     unbekannte Läden ab dem zweiten Beleg — ohne API, ohne Kosten.**
+  ⚠️ **Teilwort-Kollisionen sind hier die Hauptfehlerquelle** — sie sind im Code nicht
+  zu sehen, nur im Ergebnis. Real aufgetreten: `パン` (Brot) steckt in „ジャ**パン**"
+  → jeder JAPAN RAIL PASS wurde „Essen"; `水` (Wasser) ist die Abkürzung für
+  **Mittwoch** und steht in „2026年8月19日**(水)**" auf jedem an einem Mittwoch
+  gedruckten Beleg; `TEL` traf „HO**TEL**" im Namens-Rauschfilter und verwarf
+  ausgerechnet die Zeile mit dem Ladennamen. Daraus zwei Regeln:
+  **(a)** japanische Begriffe unter drei Zeichen nur mit eindeutiger Variante
+  (`食パン` statt `パン`) oder Negativ-Lookahead (`バス(?!タオル|ケット…)`);
+  **(b)** lateinische Muster tragen `\b` und werden über `on: "text"` gegen den Text
+  **mit** Leerzeichen geprüft — auf dem lückenlosen `compact` gibt es keine Wortgrenzen.
+  ⚠️ Tourismus-Belege sind oft **englisch** (JR-Pass-Voucher, Museum, Hotel). Das
+  Vokabular deckt beide Sprachen ab; wer nur japanisch ergänzt, lässt die Hälfte liegen.
+  3. `fallback` — **`SONSTIGES`**, wenn 1. und 2. nichts ergeben (auch bei
+     Gleichstand). ⚠️ Das ist wichtiger, als es aussieht: das Formular ist auf
+     **`ESSEN`** voreingestellt (`ExpenseCalculator.tsx`), „Feld nicht überschreiben"
+     hieß in der Praxis also „bleibt Essen" — ein unbekannter Beleg wurde still zu
+     Essen. `SONSTIGES` benennt das Nichtwissen, statt es zu verstecken, und das
+     Formular zeigt dazu „Kategorie unklar" (`scanNoteFor`).
+  ⚠️ Die Entscheidung sitzt in der **Route** (`withCategory`), nicht in `guessMeta`:
+  das Modul bleibt bei „unbekannt = `undefined`" und damit ohne Netz prüfbar; welche
+  Kategorie ein unbekannter Beleg bekommt, ist eine Produktfrage und gehört an **eine**
+  Stelle. Die Parser-Tests erwarten deshalb weiter `undefined`.
+  Prüfskripte: `e2e/receipt-parse.ts` (Parser ohne Netz, via
+  `node --experimental-strip-types`) und `e2e/receipt-scan.mjs` (Ende-zu-Ende mit
+  gerendertem Beleg gegen die echte Vision-API, 1 Bild pro Lauf).
+  **Kategorie nachträglich änderbar:** die farbige Pille in der Liste öffnet eine
+  Auswahl (`PATCH /api/v1/expenses/{id}` mit `{ category }`) — optimistisch mit
+  **Rücknahme** im Fehlerfall, weil Donut, Summen und Zollrechner auf der Liste
+  aufbauen und nicht etwas anderes zeigen dürfen als die DB hält.
+  ⚠️ **Das `<select>` liegt unsichtbar (`opacity-0`, `absolute inset-0`) über der Pille,
+  die den Text selbst trägt.** Ein sichtbares `<select>` ist immer so breit wie seine
+  **längste** Option — damit waren alle Pillen auf „Sightseeing"-Breite (81 px) und
+  „Essen" hatte eine große Leerstelle. So folgt die Breite dem gewählten Text
+  (Essen 52 px), und nativer Auswahldialog, Tastatur und Screenreader bleiben erhalten;
+  den Fokus zeichnet `focus-within` auf der Pille nach. Messung in
+  `e2e/expense-category.mjs`.
+  ⚠️ Im PATCH-Rumpf ist `receipt` `nullable` **und** `optional`, und der Unterschied
+  trägt Bedeutung: `null` = Beleg entfernen, fehlend = Beleg nicht anfassen. Ohne die
+  Trennung löschte ein reiner Kategorie-Wechsel das Beleg-Foto mit. Test dafür:
+  `e2e/expense-category.mjs`.
+  ⚠️ Das Rate-Limit (`expense-receipt`, 120/h) greift **nur**, wenn `receipt` im Rumpf
+  steht — sonst verbrauchte das Umsortieren der Liste das Budget für Beleg-Uploads.
+  ⚠️ Gekoppelte Ausgaben: bei **Flügen** bleibt eine manuell gesetzte Kategorie
+  erhalten (der `update`-Zweig in `flightsService.ts` schreibt sie nicht), bei
+  **Buchungen** wird sie beim nächsten Bearbeiten der Buchung auf die aus `kind`
+  abgeleitete zurückgesetzt (`bookingsService.ts:64`).
 - **Abrechnung** (`Abrechnung.tsx`): wer-schuldet-wem (Gleichteilung, greedy), „Bezahlt"
   markieren (`Settlement`).
 - **Zollrechner** (`CustomsCalculator.tsx`): dt. Reisezoll — Freimenge 430 €/Person,
@@ -614,7 +709,8 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS) | für Passkeys |
 | `SMTP_*` | E-Mail (Einladung/Verify/Reset, **Koffer-Fund**) | für Mailversand |
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
-| `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`) | **Beleg-Scan** (Claude Vision) | für Beleg-Scan |
+| `GOOGLE_VISION_API_KEY` | **Beleg-Scan** Stufe 1 (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
+| `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`, `RECEIPT_ENGINE`) | **Beleg-Scan** Stufe 2 (Claude Vision), greift nur ohne Vision-Treffer | optional |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |

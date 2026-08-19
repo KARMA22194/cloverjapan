@@ -100,3 +100,63 @@ export async function clearExpenses(tripId: string) {
   const res = await db.expense.deleteMany({ where: { tripId } });
   return res.count;
 }
+
+/**
+ * Kategorie aus der eigenen Historie der Reise.
+ *
+ * Die Stichwortliste in `@/lib/receipt` kennt Marken und Warengruppen, aber
+ * naturgemäß nicht den kleinen Laden um die Ecke. Dort hilft, was die Reise
+ * schon weiß: hat jemand denselben Laden bereits einmal erfasst, wird dessen
+ * Kategorie übernommen. Der Beleg-Scan wird damit **von Nutzung zu Nutzung
+ * treffsicherer** — ohne API, ohne Kosten.
+ *
+ * Der Abgleich läuft über die Bezeichnung, weil die beim Scan aus demselben
+ * OCR-Pfad stammt wie beim ersten Mal: derselbe Laden ergibt denselben Namen.
+ * Verglichen wird ohne Leerzeichen und Groß-/Kleinschreibung — die OCR setzt
+ * Wortabstände nicht reproduzierbar.
+ *
+ * Bei mehreren Treffern gewinnt die **häufigste** Kategorie: eine einzelne
+ * Fehlzuordnung von früher soll nicht alle künftigen Scans verderben.
+ */
+export async function categoryForLabel(
+  tripId: string,
+  label: string,
+): Promise<ExpenseCategory | null> {
+  const needle = label.replace(/\s+/g, "").toLowerCase();
+  if (needle.length < 2) return null;
+
+  const past = await db.expense.findMany({
+    where: { tripId },
+    select: { label: true, category: true },
+    orderBy: { createdAt: "desc" },
+    // Deckel gegen unbegrenztes Wachstum; für die Trefferquote reicht das
+    // Jüngste bei Weitem (eine Reise hat Dutzende, nicht Tausende Ausgaben).
+    take: 300,
+  });
+
+  const counts = new Map<ExpenseCategory, number>();
+  for (const e of past) {
+    if (e.label.replace(/\s+/g, "").toLowerCase() !== needle) continue;
+    counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
+  }
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return ranked.length > 0 ? ranked[0][0] : null;
+}
+
+/**
+ * Kategorie einer Ausgabe ändern.
+ *
+ * `updateMany` mit `{ id, tripId }` statt `update` mit `{ id }`: die Reise steckt
+ * in der Bedingung, nicht in einer nachgelagerten Prüfung — damit kann kein
+ * Mitglied einer anderen Reise fremde Ausgaben umsortieren. Rückgabe ist die
+ * Trefferzahl (0 = nicht gefunden → 404 im Handler).
+ */
+export async function updateExpenseCategory(
+  id: string,
+  tripId: string,
+  category: ExpenseCategory,
+): Promise<number> {
+  const { count } = await db.expense.updateMany({ where: { id, tripId }, data: { category } });
+  return count;
+}

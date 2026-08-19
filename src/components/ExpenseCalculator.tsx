@@ -21,6 +21,29 @@ const FALLBACK_RATE = 0.0058; // grober JPY→EUR-Fallback, falls der Dienst aus
 /** Beleg-Bild client-seitig verkleinern → JPEG-Data-URL (max. 1000 px lange Kante). */
 const resizeReceipt = (file: File) => resizeImage(file, { max: 1000, quality: 0.6 });
 
+/**
+ * Hinweis zur Verlässlichkeit des erkannten Betrags.
+ *
+ * Der Beleg-Scan liefert einen **Vorschlag**, keine Wahrheit — bei einem
+ * schwachen Fund (kein „合計" auf dem Zettel, nur eine Zwischensumme) muss der
+ * Betrag geprüft werden, sonst geht später die Abrechnung nicht auf. Bei einem
+ * klaren Summenfund bleibt die Zeile leer, damit der Hinweis nicht abstumpft.
+ */
+function scanNoteFor(
+  yen: number,
+  source?: "total" | "taxIncluded" | "subtotal" | "guess",
+  categoryFrom?: "keywords" | "history" | "fallback",
+): string | null {
+  const notes: string[] = [];
+  if (yen <= 0) notes.push("Betrag nicht erkannt – bitte eintippen.");
+  else if (source === "guess") notes.push("Betrag unsicher – bitte prüfen.");
+  else if (source === "subtotal") notes.push("Nur Zwischensumme erkannt – bitte prüfen.");
+  // Bei „fallback" steht SONSTIGES nur, weil nichts erkannt wurde — das gehört
+  // gesagt, sonst sieht die Kategorie wie ein Befund aus.
+  if (categoryFrom === "fallback") notes.push("Kategorie unklar \u2013 auf \u201eSonstiges\u201c gesetzt.");
+  return notes.length > 0 ? notes.join(" ") : null;
+}
+
 
 /** Donut aus Anteilen; 2px-Lücke zwischen Segmenten (Track scheint durch). */
 function Donut({ segments }: { segments: { color: string; frac: number }[] }) {
@@ -113,6 +136,8 @@ export function ExpenseCalculator() {
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
   const [receiptView, setReceiptView] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  // Hinweis nach dem Scan: sagt, ob der Betrag nachgeprüft werden sollte.
+  const [scanNote, setScanNote] = useState<string | null>(null);
   const [pendingReceipt, setPendingReceipt] = useState<string | null>(null);
 
   const members = useMembers();
@@ -263,16 +288,26 @@ export function ExpenseCalculator() {
 
   async function scanReceipt(file: File) {
     setScanning(true);
+    setScanNote(null);
     try {
       const dataUrl = await resizeReceipt(file);
-      const r = await api.post<{ yen: number; category: ExpenseCategoryValue; label: string }>(
-        "/api/v1/expenses/scan",
-        { image: dataUrl },
-      );
+      const r = await api.post<{
+        yen: number;
+        category?: ExpenseCategoryValue;
+        label: string;
+        /** Wie belastbar der Betrag ist — siehe `@/lib/receipt`. */
+        source?: "total" | "taxIncluded" | "subtotal" | "guess";
+        /** Woher die Kategorie kam — `fallback` heißt „geraten". */
+        categoryFrom?: "keywords" | "history" | "fallback";
+      }>("/api/v1/expenses/scan", { image: dataUrl });
       if (r.yen > 0) setYenInput(String(r.yen));
-      setCategory(r.category);
+      // Die Route setzt inzwischen immer eine Kategorie (im Zweifel SONSTIGES),
+      // damit ein unbekannter Beleg nicht auf der Voreinstellung „Essen" liegen
+      // bleibt. `categoryFrom` sagt, ob sie erkannt oder nur eingeordnet wurde.
+      if (r.category) setCategory(r.category);
       if (r.label) setLabel(r.label);
       setPendingReceipt(dataUrl); // wird beim Speichern automatisch angehängt
+      setScanNote(scanNoteFor(r.yen, r.source, r.categoryFrom));
     } catch {
       /* Fehlermeldung (z. B. kein API-Key) erscheint als Toast */
     } finally {
@@ -287,6 +322,25 @@ export function ExpenseCalculator() {
       setItems((prev) => prev.map((it) => (it.id === id ? { ...it, hasReceipt: true } : it)));
     } catch {
       /* ignore */
+    }
+  }
+
+  /**
+   * Kategorie einer bereits erfassten Ausgabe ändern.
+   *
+   * Optimistisch, aber mit **Rücknahme** im Fehlerfall: die Liste ist die
+   * Grundlage für Donut, Summen und Zollrechner — sie darf nicht etwas anderes
+   * zeigen als die Datenbank hält. Die Fehlermeldung selbst kommt als Toast aus
+   * dem API-Client.
+   */
+  async function changeCategory(id: string, category: ExpenseCategoryValue) {
+    const before = items.find((it) => it.id === id)?.category;
+    if (!before || before === category) return;
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, category } : it)));
+    try {
+      await api.patch(`/api/v1/expenses/${id}`, { category });
+    } catch {
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, category: before } : it)));
     }
   }
 
@@ -358,6 +412,9 @@ export function ExpenseCalculator() {
               <span className="text-xs text-emerald-600 dark:text-emerald-400">
                 Foto wird angehängt ✓
               </span>
+            )}
+            {scanNote && (
+              <span className="text-xs text-amber-600 dark:text-amber-400">{scanNote}</span>
             )}
           </div>
 
@@ -498,11 +555,38 @@ export function ExpenseCalculator() {
                   key={it.id}
                   className="flex items-center gap-2 border-b border-hairline px-3 py-2 last:border-b-0"
                 >
+                  {/* Kategorie direkt in der Liste änderbar.
+                      ⚠️ Ein natives <select> ist immer so breit wie seine
+                      LÄNGSTE Option („Sightseeing") — als sichtbares Element
+                      waren damit alle Pillen gleich lang und „Essen" hatte eine
+                      große Lücke. Deshalb trägt die Pille den Text selbst (und
+                      damit ihre Breite), und das <select> liegt unsichtbar
+                      darüber: nativer Auswahldialog auf dem Handy, Tastatur und
+                      Screenreader bleiben erhalten, `focus-within` zeichnet den
+                      Fokus auf der Pille nach.
+                      Feste Farben sind hier Absicht (siehe CLAUDE.md): der Grund
+                      ist ein helles Pastell, dunkle Schrift muss bleiben. */}
                   <span
-                    className="shrink-0 rounded-full border border-black/10 px-2 py-0.5 text-[11px] font-medium text-slate-700"
-                    style={{ backgroundColor: meta.color }}
+                    title="Kategorie ändern"
+                    className="relative inline-flex shrink-0 items-center rounded-full border border-black/10 py-0.5 pl-2 pr-3.5 text-[11px] font-medium focus-within:ring-2 focus-within:ring-brand/60"
+                    style={{ backgroundColor: meta.color, color: "#334155" }}
                   >
                     {meta.label}
+                    <span aria-hidden className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] leading-none">
+                      ▾
+                    </span>
+                    <select
+                      value={it.category}
+                      onChange={(e) => changeCategory(it.id, e.target.value as ExpenseCategoryValue)}
+                      aria-label={`Kategorie von ${it.label || "Ausgabe"}`}
+                      className="absolute inset-0 h-full w-full cursor-pointer appearance-none border-0 bg-transparent p-0 opacity-0"
+                    >
+                      {EXPENSE_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-ink-muted">
