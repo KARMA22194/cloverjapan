@@ -476,7 +476,15 @@ Dashboard gespiegelt.
 
 - **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro live via `GET /api/v1/fx/rate`
   (open.er-api.com, keyfrei). Kategorien (`src/lib/expenses.ts`) + Budget + Donut + Zahler +
-  „auf alle aufteilen" + Beleg-Foto. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
+  „auf alle aufteilen" + Beleg-Foto.
+  ⚠️ **„Auf alle aufteilen" ist standardmäßig AUS** und wird nach jedem Eintrag
+  zurückgesetzt (`setShared(false)` in `addItem`) — der Haken muss aktiv gesetzt
+  werden. Bliebe er stehen, ginge die nächste, persönliche Ausgabe still an alle;
+  das fällt erst in der Abrechnung auf. Ein Klick zu viel ist der billigere Fehler.
+  Der Prisma-Default `Expense.shared = true` bleibt davon unberührt — er gilt für
+  Zeilen **ohne** das Feld, also die gekoppelten Flug- und Buchungsausgaben.
+  ⚠️ Der Block „Bezahlt von" + „Auf alle aufteilen" rendert nur bei
+  `members.length > 1`. Tests, die ihn anfassen, brauchen ein zweites `TripMember`. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
   (Cloud Vision → Claude) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
   Foto beim Speichern automatisch angehängt. Ohne beide Keys → 422 → manuell.
   ⚠️ **Die Antwort ist ein Vorschlag, keine Wahrheit.** `source` (`total` |

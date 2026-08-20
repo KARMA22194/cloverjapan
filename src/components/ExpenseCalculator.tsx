@@ -142,7 +142,12 @@ export function ExpenseCalculator() {
 
   const members = useMembers();
   const [paidById, setPaidById] = useState("");
-  const [shared, setShared] = useState(true);
+  // Aufteilen ist bewusst **aus** voreingestellt und wird nach jedem Eintrag
+  // zurückgesetzt: der Haken muss aktiv gesetzt werden. Bliebe er stehen, würde
+  // die nächste, persönliche Ausgabe still auf alle verteilt — das fällt erst in
+  // der Abrechnung auf und ist der teurere der beiden Fehler (ein Klick zu viel
+  // gegen falsch verteiltes Geld).
+  const [shared, setShared] = useState(false);
 
   // Kurs laden (mit Fallback).
   useEffect(() => {
@@ -276,6 +281,7 @@ export function ExpenseCalculator() {
       setItems((prev) => [...prev, item]);
       setYenInput("");
       setLabel("");
+      setShared(false);
     } catch {
       /* ignore */
     }

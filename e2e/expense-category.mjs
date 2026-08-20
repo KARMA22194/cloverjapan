@@ -29,6 +29,9 @@ async function mkUser(tag) {
 
 const a = await mkUser("a");
 const b = await mkUser("b");
+// „Bezahlt von" und „Auf alle aufteilen" rendert der Client nur bei
+// `members.length > 1` — allein in einer Reise gibt es nichts aufzuteilen.
+const c = await mkUser("c");
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 const results = [];
 const ok = (name, cond, extra = "") =>
@@ -164,6 +167,43 @@ try {
   ok("390 px: Bezeichnung nicht zerquetscht", mob.labelVisible, `select=${mob.selWidth} px`);
   await pageA.setViewportSize({ width: 1280, height: 900 });
 
+  // ── 2c. „Auf alle aufteilen" ist aus, bis man es setzt ──────────────────
+  //     Dafür braucht die Reise ein zweites Mitglied, sonst zeigt der Client
+  //     den ganzen Block nicht.
+  const aTrip = await db.tripMember.findUnique({
+    where: { userId: a.id },
+    select: { tripId: true },
+  });
+  await db.tripMember.create({ data: { userId: c.id, tripId: aTrip.tripId } });
+  await pageA.reload({ waitUntil: "domcontentloaded" });
+  await pageA.waitForFunction(
+    () => !document.body.innerText.includes("Wechselkurs wird geladen"),
+    null,
+    { timeout: 30000 },
+  );
+  const box = pageA.locator('label:has-text("Auf alle aufteilen") input[type="checkbox"]');
+  ok("Haken ist standardmäßig NICHT gesetzt", (await box.isChecked()) === false);
+
+  await box.check();
+  await pageA.fill("#ausgabe-betrag", "777");
+  await pageA.fill("#ausgabe-bezeichnung", "Geteiltes Essen");
+  await Promise.all([
+    pageA.waitForResponse(
+      (r) => r.url().endsWith("/api/v1/expenses") && r.request().method() === "POST",
+      { timeout: 15000 },
+    ),
+    pageA.getByRole("button", { name: "Zur Rechnung" }).click(),
+  ]);
+  await pageA.waitForTimeout(400);
+
+  const sharedRow = await db.expense.findFirst({
+    where: { label: "Geteiltes Essen" },
+    select: { shared: true, yen: true },
+  });
+  ok("gesetzter Haken wird gespeichert", sharedRow?.shared === true, `shared=${sharedRow?.shared}`);
+  ok("Betrag übernommen", sharedRow?.yen === 777, `yen=${sharedRow?.yen}`);
+  ok("Haken danach wieder aus", (await box.isChecked()) === false);
+
   // ── 3. Fremde Ausgabe ist unerreichbar ─────────────────────────────────
   const pageB = await browser.newPage();
   await login(pageB, b.email);
@@ -213,10 +253,10 @@ try {
 } finally {
   await browser.close();
   const ms = await db.tripMember.findMany({
-    where: { userId: { in: [a.id, b.id] } },
+    where: { userId: { in: [a.id, b.id, c.id] } },
     select: { tripId: true },
   });
-  await db.user.deleteMany({ where: { id: { in: [a.id, b.id] } } }).catch(() => {});
+  await db.user.deleteMany({ where: { id: { in: [a.id, b.id, c.id] } } }).catch(() => {});
   await db.trip.deleteMany({ where: { id: { in: ms.map((m) => m.tripId) } } }).catch(() => {});
   await db.$disconnect();
 }
