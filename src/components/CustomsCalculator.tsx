@@ -21,18 +21,37 @@ const FALLBACK_RATE = 0.0058; // JPY→EUR-Fallback
 const DUTY_CATEGORIES = [
   { value: 0, label: "Figuren/Spielzeug (0 %)" },
   { value: 0, label: "Elektronik (0 %)" },
+  { value: 0, label: "Kosmetik/Drogerie (0 %)" },
   { value: 12, label: "Kleidung/Textilien (12 %)" },
   { value: 8, label: "Schuhe (8 %)" },
   { value: 4, label: "Sonstiges (≈4 %)" },
 ];
 
-// Zuordnung Ausgaben-/Warenkategorie → Zollsatz + Anzeige-Label. Nur „Waren"
-// (keine Verpflegung/Fahrten/Sightseeing) sind zollrelevant.
+// Zuordnung Ausgaben-/Warenkategorie → Zollsatz + Anzeige-Label.
+//
+// ⚠️ **Wer hier fehlt, ist für den Zoll unsichtbar — und wer zu Unrecht drinsteht,
+// wird verzollt.** Beides fällt im Ergebnis nicht auf, weil nur die Summe zu sehen
+// ist. Zollrelevant sind ausschließlich **Waren**, die mit nach Hause kommen:
+// Verpflegung, Fahrkarten, Eintritte und **Übernachtungen** sind es nicht.
+// `UNTERKUNFT` gibt es genau deshalb als eigene Kategorie: Hotelrechnungen
+// landeten vorher in „Sonstiges" und wurden damit als Ware zu ≈4 % verzollt —
+// bei zwei Wochen Japan der mit Abstand größte Einzelposten.
+//
+// Sätze = Regel-/Drittlandzoll der EU (gerundet). Kosmetik, Parfum und
+// Arzneimittel sind zollfrei (Kapitel 30/33), Einfuhrumsatzsteuer fällt
+// trotzdem an — die rechnet der Block unten ohnehin auf alles.
 const GOODS_DUTY: Record<string, { label: string; dutyPct: number }> = {
   FIGUREN: { label: "Figuren/Spielzeug", dutyPct: 0 },
+  ELEKTRONIK: { label: "Elektronik", dutyPct: 0 },
+  KOSMETIK: { label: "Kosmetik/Drogerie", dutyPct: 0 },
   KLEIDUNG: { label: "Kleidung/Textilien", dutyPct: 12 },
   SONSTIGES: { label: "Sonstiges", dutyPct: 4 },
 };
+
+/** Für Hinweistexte: „Figuren/Spielzeug, Elektronik, …" — aus einer Quelle. */
+const GOODS_LABELS = Object.values(GOODS_DUTY)
+  .map((g) => g.label)
+  .join(", ");
 
 type Currency = "EUR" | "JPY";
 
@@ -127,7 +146,7 @@ export function CustomsCalculator() {
     setPrefillNote(null);
     try {
       const items = await api.get<{ category: string; yen: number }[]>("/api/v1/expenses");
-      // Nur Waren (Figuren/Kleidung/Sonstiges), gruppiert je Kategorie.
+      // Nur Waren (s. GOODS_DUTY), gruppiert je Kategorie.
       const byCat = new Map<string, number>();
       for (const i of items) {
         if (!GOODS_DUTY[i.category]) continue;
@@ -135,7 +154,7 @@ export function CustomsCalculator() {
       }
       if (byCat.size === 0) {
         setBreakdown(null);
-        setPrefillNote("Keine passenden Waren-Ausgaben (Figuren/Kleidung/Sonstiges) gefunden.");
+        setPrefillNote(`Keine passenden Waren-Ausgaben (${GOODS_LABELS}) gefunden.`);
         return;
       }
       const bd: BreakdownItem[] = [...byCat.entries()].map(([key, yen]) => ({

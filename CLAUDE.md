@@ -285,9 +285,22 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 - `Expense.yen` als **Int** (Yen); `Expense.flightId`/`bookingId` (unique, `onDelete: Cascade`)
   koppeln optional Flug-/Buchungspreis als Ausgabe. `Expense.paidById` (FK User, SetNull) =
   Zahler für die Abrechnung; `Expense.shared` (Bool) = auf alle aufteilen.
-  **`Expense.category` ist ein Prisma-`enum`** (`ExpenseCategory`), ebenso `Booking.kind`
-  (`BookingKind`) — Zod validiert per `z.nativeEnum`, und `src/lib/expenses.ts` ist per
-  `satisfies` + **type-only**-Import daran gebunden (kein Prisma im Client-Bundle).
+  **`Expense.category` ist ein Prisma-`enum`** (`ExpenseCategory`: `ESSEN` · `FIGUREN` ·
+  `KLEIDUNG` · `KOSMETIK` · `ELEKTRONIK` · `SIGHTSEEING` · `TRANSPORT` · `UNTERKUNFT` ·
+  `SONSTIGES`), ebenso `Booking.kind` (`BookingKind`) — Zod validiert per `z.nativeEnum`,
+  und `src/lib/expenses.ts` ist über einen **type-only**-Import daran gebunden (kein Prisma
+  im Client-Bundle).
+  ⚠️ Die Kategorien stehen dort als **`Record<ExpenseCategory, …>`**, nicht als Array mit
+  `satisfies`. Der Unterschied ist der entscheidende: `satisfies readonly {value:
+  ExpenseCategory}[]` prüft nur „jeder Eintrag ist eine gültige Kategorie" — eine **neu ins
+  Schema aufgenommene** Kategorie fehlte still in Auswahl, Pillen, Donut und Zollrechner,
+  ohne dass der Build etwas merkte (die frühere Zusage an dieser Stelle war schlicht falsch).
+  Der Record erzwingt die Gegenrichtung. Die **Reihenfolge der Schlüssel ist die
+  Anzeigereihenfolge** (`Object.keys` = Einfügereihenfolge).
+  ⚠️ Enum-Werte ergänzt man mit einer **handgeschriebenen** Migration
+  (`ALTER TYPE … ADD VALUE … BEFORE …`); `BEFORE` hält die Reihenfolge deckungsgleich zum
+  Schema, sonst meldet `prisma migrate diff` Drift. Im selben Transaktionsblock darf der
+  neue Wert **nicht benutzt** werden — also kein `UPDATE` in derselben Datei.
 - **`ExpenseReceipt`** (eigene Tabelle, `expenseId @id`, Cascade) — das Beleg-Foto liegt **nicht**
   als Spalte in `Expense`: so kann der Blob nicht versehentlich mitgeladen werden. `Expense.hasReceipt`
   (Bool) spiegelt „Beleg vorhanden?", damit die Liste ohne Join auskommt. Zugriff nur über
@@ -509,6 +522,12 @@ Dashboard gespiegelt.
   Wörter, beim Zusammensetzen entsteht „セブン - イレブン". Japanisch setzt keine
   Wortabstände — ohne diesen Schritt greift **kein** Markenmuster (real aufgetreten).
   **Kategorie automatisch (drei Stufen, `categoryFrom` sagt welche):**
+  Vokabular deckt **neun** Kategorien ab; `KOSMETIK` (Drogerie: マツモトキヨシ/ツルハ/
+  薬局, 化粧水, 日焼け止め…), `ELEKTRONIK` (ヨドバシ/ビックカメラ/家電, イヤホン,
+  充電器…) und `UNTERKUNFT` (ホテル/旅館/宿泊, HOTEL/RYOKAN/INN) kamen später dazu.
+  ⚠️ ヨドバシ/ビックカメラ standen vorher als **Gemischtwarenladen mit Gewicht 1** in der
+  Liste und verloren damit gegen jeden beliebigen Artikelbegriff — es sind
+  Elektronik-Fachmärkte und gehören auf Gewicht 3.
   1. `keywords` — Punktesystem in `guessMeta` über **Marken *und* Artikelbegriffe**
      (Gewicht: Fachgeschäft 3 > Artikel 2 > Gemischtwarenladen 1). Die Gewichte sind
      inhaltlich begründet: ein T-Shirt-Beleg von Don Quijote ist Kleidung, nicht
@@ -534,6 +553,12 @@ Dashboard gespiegelt.
   (`食パン` statt `パン`) oder Negativ-Lookahead (`バス(?!タオル|ケット…)`);
   **(b)** lateinische Muster tragen `\b` und werden über `on: "text"` gegen den Text
   **mit** Leerzeichen geprüft — auf dem lückenlosen `compact` gibt es keine Wortgrenzen.
+  ⚠️ **Kollisionen gibt es auch *zwischen* Kategorien — und dort erzeugen sie keinen
+  falschen Treffer, sondern einen Gleichstand, also gar keine Kategorie.** Beim Einbau von
+  KOSMETIK trat das sofort auf: `入浴` (Baden → Sightseeing) steckt in `入浴剤`
+  (Badezusatz aus der Drogerie), 2:2 → „Sonstiges". Der Sightseeing-Begriff heißt deshalb
+  jetzt `入浴料` (Badegebühr). Neue Begriffe also gegen **alle** Listen prüfen, nicht nur
+  gegen die eigene.
   ⚠️ Tourismus-Belege sind oft **englisch** (JR-Pass-Voucher, Museum, Hotel). Das
   Vokabular deckt beide Sprachen ab; wer nur japanisch ergänzt, lässt die Hälfte liegen.
   3. `fallback` — **`SONSTIGES`**, wenn 1. und 2. nichts ergeben (auch bei
@@ -578,6 +603,14 @@ Dashboard gespiegelt.
   übernehmen" gruppiert die Waren je Kategorie (Figuren 0 % / Kleidung 12 % / Sonstiges ≈4 %)
   und verzollt **pro Warenart**; die Freimenge wird zugunsten des Reisenden zuerst auf die
   höchstverzollten Waren angerechnet. Rein rechnerisch (keine DB).
+  ⚠️ **`GOODS_DUTY` entscheidet, was überhaupt zollrelevant ist** — wer dort fehlt, ist für
+  den Zoll unsichtbar, wer zu Unrecht drinsteht, wird verzollt. Beides sieht man im Ergebnis
+  nicht, weil nur die Summe dasteht. Drin: Figuren 0 % · **Elektronik 0 %** ·
+  **Kosmetik/Drogerie 0 %** (Kapitel 30/33 sind zollfrei, EUSt fällt trotzdem an) ·
+  Kleidung 12 % · Sonstiges ≈4 %. Draußen: Essen, Sightseeing, Transport und
+  **Unterkunft**. Genau dafür gibt es `UNTERKUNFT`: Hotelrechnungen landeten vorher in
+  „Sonstiges" und wurden als Ware zu ≈4 % verzollt — bei zwei Wochen Japan der größte
+  Einzelposten. Test: `e2e/expense-categories-zoll.mjs`.
 - **Wunschliste** (`Wunschliste.tsx`): Einkaufs-/Souvenirliste (¥, gekauft-Haken); Summe → Zoll.
 
 ### Tagesplaner → Reiseplaner
@@ -689,6 +722,15 @@ ganze Zeile und konnte nicht nachgeben, der Textblock wurde auf wenige Pixel
 gequetscht und brach nach jedem Wort um (nur auf schmalen Bildschirmen sichtbar).
 Prüfskript für solche Fälle: `e2e/mobile-check.mjs` (Überlauf + gequetschte Spalten
 über alle Hauptansichten in 390 px Breite).
+⚠️ **`1fr` in einem Grid heißt `minmax(auto, 1fr)`, und dieses `auto` ist die
+min-content-Breite des Inhalts** — die Spur schrumpft nie unter ihren breitesten Inhalt,
+egal wie viel `truncate`/`min-w-0` *innerhalb* steht. Im Ausgabenrechner zog die längste
+Bezeichnung einer Zeile die einspaltige Handy-Ansicht auf 426 px und schob die Seite 54 px
+über den Rand. Fix: **`min-w-0` an den Rasterfeldern selbst** (bzw. `minmax(0,1fr)`).
+⚠️ Dazu die Lücke im Prüfskript: `e2e/mobile-check.mjs` meldet das **nicht**, weil es mit
+einem frischen Konto und damit **leeren Listen** misst. Überlauf entsteht aber gerade an
+echten Daten. Wer eine Liste ändert, prüft sie **gefüllt** — so wie
+`e2e/expense-categories-zoll.mjs` es tut.
 ⚠️ Die sticky TopNav braucht ein hohes `z-index` (`z-[1100]`): Leaflet setzt im Reiseplaner
 interne Panes bis `z-index` 800 — bei `z-40` scrollte die Karte über die Leiste. Wer eine
 eigene sticky Seitenleiste baut, rechnet die Leistenhöhe ein (`top-[4.75rem]`).

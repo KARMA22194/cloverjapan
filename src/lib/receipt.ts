@@ -224,6 +224,14 @@ interface Hint {
  *    auf jedem an einem Mittwoch gedruckten Beleg.
  * Beide sind deshalb durch eindeutige Varianten ersetzt. Bei neuen Begriffen
  * unter drei Zeichen erst prüfen, in welchen Wörtern sie noch vorkommen.
+ *
+ * ⚠️ Dieselbe Falle gibt es **zwischen** Kategorien, und dort ist sie tückischer,
+ * weil sie keinen falschen Treffer erzeugt, sondern einen Gleichstand — also gar
+ * keine Kategorie. Beim Einbau von KOSMETIK trat sie sofort auf: `入浴` (Baden →
+ * SIGHTSEEING) steckt in `入浴剤` (Badezusatz aus der Drogerie). Ein Badezusatz
+ * hätte beide Muster getroffen, 2:2 gestanden und wäre in „Sonstiges" gelandet.
+ * Deshalb heißt der Sightseeing-Begriff jetzt `入浴料` (Badegebühr). Beim
+ * Ergänzen also nicht nur gegen die eigene Liste prüfen, sondern gegen alle.
  */
 const HINTS: readonly Hint[] = [
   // ── Fachgeschäfte (japanisch) ────────────────────────────────────────────
@@ -235,10 +243,11 @@ const HINTS: readonly Hint[] = [
   { re: /すき家|吉野家|松屋|スターバックス|マクドナルド|居酒屋|食堂/gi, category: "ESSEN", weight: 3 },
   { re: /ポケモンセンター|アニメイト|ジャンプショップ|駿河屋|まんだらけ|ガシャポン|一番くじ/gi, category: "FIGUREN", weight: 3 },
   { re: /ユニクロ|しまむら/gi, category: "KLEIDUNG", weight: 3 },
+  { re: /薬局|ドラッグ|マツモトキヨシ|マツキヨ|ツルハ|サンドラッグ|ココカラファイン|ウエルシア|コスメ|化粧品/gi, category: "KOSMETIK", weight: 3 },
+  { re: /ヨドバシ|ビックカメラ|ヤマダ電機|エディオン|ケーズデンキ|ジョーシン|ソフマップ|家電/gi, category: "ELEKTRONIK", weight: 3 },
   { re: /新幹線|地下鉄|メトロ|ジャパンレールパス|レールパス/gi, category: "TRANSPORT", weight: 3 },
   { re: /美術館|博物館|水族館|動物園|展望台|スカイツリー|神社|寺/gi, category: "SIGHTSEEING", weight: 3 },
-  { re: /薬局|ドラッグ|マツモトキヨシ|ツルハ/gi, category: "SONSTIGES", weight: 3 },
-  { re: /ホテル|旅館|宿泊/gi, category: "SONSTIGES", weight: 3 },
+  { re: /ホテル|旅館|宿泊|民宿|ゲストハウス|素泊/gi, category: "UNTERKUNFT", weight: 3 },
 
   // ── Fachgeschäfte (lateinisch, mit Wortgrenzen) ──────────────────────────
   { re: /\b7[- ]?ELEVEN\b/gi, category: "ESSEN", weight: 3, label: "7-Eleven" },
@@ -246,29 +255,40 @@ const HINTS: readonly Hint[] = [
   { re: /\bFAMILY ?MART\b/gi, category: "ESSEN", weight: 3, label: "FamilyMart" },
   { re: /\b(AEON|MINISTOP)\b/gi, category: "ESSEN", weight: 3 },
   { re: /\b(UNIQLO|ZARA|H&M|GAP)\b/gi, category: "KLEIDUNG", weight: 3 },
+  { re: /\b(MATSUMOTO ?KIYOSHI|MATSUKIYO|WELCIA|TSURUHA|SUN ?DRUG|COCOKARA|PHARMACY|DRUG ?STORE|COSMETICS?)\b/gi, category: "KOSMETIK", weight: 3, on: "text" },
+  { re: /\b(YODOBASHI|BIC ?CAMERA|YAMADA ?DENKI|EDION|SOFMAP|JOSHIN)\b/gi, category: "ELEKTRONIK", weight: 3, on: "text" },
   { re: /\b(JR|RAIL ?PASS|SHINKANSEN|SUBWAY|METRO|SUICA|PASMO|ICOCA|LIMITED EXPRESS)\b/gi, category: "TRANSPORT", weight: 3, on: "text" },
   { re: /\b(MUSEUM|AQUARIUM|ZOO|TEMPLE|SHRINE|OBSERVATORY|EXHIBITION|ADMISSION)\b/gi, category: "SIGHTSEEING", weight: 3, on: "text" },
-  { re: /\b(HOTEL|RYOKAN|HOSTEL|ACCOMMODATION|ROOM CHARGE)\b/gi, category: "SONSTIGES", weight: 3, on: "text" },
+  { re: /\b(HOTEL|RYOKAN|HOSTEL|GUEST ?HOUSE|INN|ACCOMMODATION|ROOM CHARGE)\b/gi, category: "UNTERKUNFT", weight: 3, on: "text" },
   { re: /\b(ANIMATE|POKEMON CENTER)\b/gi, category: "FIGUREN", weight: 3, on: "text" },
 
   // ── Gemischtwarenläden: sollen von Artikeln überstimmbar sein ────────────
-  { re: /ドン[・･]?キホーテ|ドンキ|ダイソー|セリア|ロフト|ヨドバシ|ビックカメラ|東急ハンズ/gi, category: "SONSTIGES", weight: 1 },
-  { re: /\b(DON ?QUIJOTE|DAISO|LOFT|YODOBASHI)\b/gi, category: "SONSTIGES", weight: 1, on: "text" },
+  // ⚠️ ヨドバシ/ビックカメラ standen früher hier. Das sind aber **Elektronik**-
+  // Fachmärkte, keine Gemischtwarenläden — mit Gewicht 1 verlor der Laden gegen
+  // jeden beliebigen Artikelbegriff. Jetzt oben mit Gewicht 3.
+  { re: /ドン[・･]?キホーテ|ドンキ|ダイソー|セリア|ロフト|東急ハンズ/gi, category: "SONSTIGES", weight: 1 },
+  { re: /\b(DON ?QUIJOTE|DAISO|LOFT|TOKYU ?HANDS)\b/gi, category: "SONSTIGES", weight: 1, on: "text" },
 
   // ── Artikelbegriffe (japanisch) ─────────────────────────────────────────
   { re: /おにぎり|弁当|食パン|菓子パン|サンドイッチ|お茶|コーヒー|ビール|ラーメン|うどん|そば|寿司|定食|カレー|アイス|牛丼|唐揚|サラダ|牛乳|ジュース|チョコ|菓子|飲料水|ミネラルウォーター/gi, category: "ESSEN", weight: 2 },
   { re: /フィギュア|ぬいぐるみ|ガチャ|プライズ|アクリル|キーホルダー|バッジ|トレカ|プラモ|くじ|ミニカー/gi, category: "FIGUREN", weight: 2 },
   { re: /Tシャツ|シャツ|パンツ|ズボン|靴下|スカート|ジャケット|パーカー|帽子|キャップ|下着|手袋|マフラー/gi, category: "KLEIDUNG", weight: 2 },
+  { re: /化粧水|乳液|美容液|シャンプー|コンディショナー|トリートメント|日焼け止め|ファンデーション|口紅|リップ|マスカラ|アイシャドウ|洗顔|クレンジング|ハンドクリーム|香水|石鹸|ボディソープ|歯磨|入浴剤|目薬|絆創膏|風邪薬|胃腸薬|サプリメント|マスク/gi, category: "KOSMETIK", weight: 2 },
+  { re: /充電器|モバイルバッテリー|イヤホン|ヘッドホン|カメラ|メモリーカード|SDカード|変換プラグ|ケーブル|電池|炊飯器|ドライヤー|ゲーム機|スマホ/gi, category: "ELEKTRONIK", weight: 2 },
   { re: /乗車券|特急券|指定席|自由席|運賃|きっぷ|切符|タクシー|チャージ|バス(?!タオル|ケット|ソルト|ローブ)/gi, category: "TRANSPORT", weight: 2 },
-  { re: /入場料|入館料|拝観料|入園|温泉|入浴|ガイド/gi, category: "SIGHTSEEING", weight: 2 },
-  { re: /電池|洗剤|マスク|シャンプー|化粧|文房具|ノート|傘|充電/gi, category: "SONSTIGES", weight: 2 },
+  { re: /入場料|入館料|拝観料|入園|温泉|入浴料|ガイド/gi, category: "SIGHTSEEING", weight: 2 },
+  { re: /宿泊料|泊分|チェックアウト/gi, category: "UNTERKUNFT", weight: 2 },
+  { re: /洗剤|文房具|ノート(?!パソコン|PC)|傘|タオル|雑貨/gi, category: "SONSTIGES", weight: 2 },
 
   // ── Artikelbegriffe (lateinisch) ────────────────────────────────────────
   { re: /\b(RESTAURANT|CAFE|COFFEE|RAMEN|SUSHI|BAKERY|BEER|LUNCH|DINNER|BENTO)\b/gi, category: "ESSEN", weight: 2, on: "text" },
   { re: /\b(T-?SHIRT|SHIRT|JACKET|TROUSERS|SOCKS|HOODIE)\b/gi, category: "KLEIDUNG", weight: 2, on: "text" },
+  { re: /\b(SHAMPOO|LOTION|SUNSCREEN|SKIN ?CARE|SERUM|LIPSTICK|PERFUME|MASCARA|TOOTHPASTE|SOAP)\b/gi, category: "KOSMETIK", weight: 2, on: "text" },
+  { re: /\b(CHARGER|EARPHONES?|HEADPHONES?|CAMERA|ADAPTER|POWER ?BANK|SD ?CARD|CABLE|BATTER(Y|IES))\b/gi, category: "ELEKTRONIK", weight: 2, on: "text" },
   { re: /\b(FARE|ONE-?WAY|RESERVED SEAT|EXCHANGE ORDER)\b/gi, category: "TRANSPORT", weight: 2, on: "text" },
   { re: /\b(FIGURE|PLUSH|KEYCHAIN|TRADING CARD)\b/gi, category: "FIGUREN", weight: 2, on: "text" },
-  { re: /\b(BATTERY|SOUVENIR|PHARMACY|DRUG ?STORE|COSMETICS)\b/gi, category: "SONSTIGES", weight: 2, on: "text" },
+  { re: /\b(ROOM RATE|LODGING|PER NIGHT|NIGHTS? STAY)\b/gi, category: "UNTERKUNFT", weight: 2, on: "text" },
+  { re: /\b(SOUVENIR|STATIONERY|UMBRELLA|TOWEL)\b/gi, category: "SONSTIGES", weight: 2, on: "text" },
 ];
 
 /** Zeilen, die als Name nichts hergeben (Kopfzeilen, Kundenanrede, Nummern). */

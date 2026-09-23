@@ -165,7 +165,7 @@ const CASES: Case[] = [
     text: ["HOTEL SUNROUTE", "ROOM CHARGE 2 NIGHTS", "TOTAL ¥28,000"].join("\n"),
     yen: 28000,
     source: "total",
-    category: "SONSTIGES",
+    category: "UNTERKUNFT",
     label: "HOTEL SUNROUTE",
   },
   {
@@ -176,6 +176,45 @@ const CASES: Case[] = [
     yen: 500,
     source: "total",
     category: undefined,
+  },
+  {
+    name: "Drogerie \u2192 KOSMETIK",
+    text: ["\u30de\u30c4\u30e2\u30c8\u30ad\u30e8\u30b7 \u6e0b\u8c37\u5e97", "\u65e5\u713c\u3051\u6b62\u3081 1,280", "\u5316\u7ca7\u6c34 980", "\u5408\u8a08 \u00a52,260"].join("\n"),
+    yen: 2260,
+    source: "total",
+    category: "KOSMETIK",
+  },
+  {
+    // Regression: \u30e8\u30c9\u30d0\u30b7 stand fr\u00fcher als Gemischtwarenladen mit Gewicht 1
+    // und verlor damit gegen jeden Artikelbegriff.
+    name: "Elektronikmarkt \u2192 ELEKTRONIK",
+    text: ["\u30e8\u30c9\u30d0\u30b7\u30ab\u30e1\u30e9 \u65b0\u5bbf\u897f\u53e3\u5e97", "\u30a4\u30e4\u30db\u30f3 4,980", "\u5408\u8a08 \u00a54,980"].join("\n"),
+    yen: 4980,
+    source: "total",
+    category: "ELEKTRONIK",
+  },
+  {
+    // Regression: \u5165\u6d74 (Sightseeing) steckt in \u5165\u6d74\u5264 (Drogerie) \u2014 das gab 2:2
+    // und damit gar keine Kategorie. Sightseeing hei\u00dft deshalb \u5165\u6d74\u6599.
+    name: "Badezusatz ist Drogerie, nicht Sightseeing",
+    text: ["\u30c9\u30f3\u30fb\u30ad\u30db\u30fc\u30c6 \u65b0\u5bbf\u5e97", "\u5165\u6d74\u5264 \u00a5880", "\u5408\u8a08 \u00a5880"].join("\n"),
+    yen: 880,
+    source: "total",
+    category: "KOSMETIK",
+  },
+  {
+    name: "Onsen-Eintritt bleibt Sightseeing",
+    text: ["\u5927\u6c5f\u6238\u6e29\u6cc9\u7269\u8a9e", "\u5165\u6d74\u6599 \u5927\u4eba1\u540d", "\u5408\u8a08 \u00a52,800"].join("\n"),
+    yen: 2800,
+    source: "total",
+    category: "SIGHTSEEING",
+  },
+  {
+    name: "Ryokan \u2192 UNTERKUNFT (nicht Sonstiges)",
+    text: ["\u5bbf\u576a\u65c5\u9928", "\u5bbf\u6cca\u6599 2\u540d\u69d8", "\u5408\u8a08 \u00a532,000"].join("\n"),
+    yen: 32000,
+    source: "total",
+    category: "UNTERKUNFT",
   },
   {
     name: "Betrag erst in der Folgezeile",

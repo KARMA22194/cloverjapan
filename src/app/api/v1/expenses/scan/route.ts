@@ -142,7 +142,9 @@ const PROMPT =
   `Du bist ein Beleg-Parser für eine Japan-Reise-Budget-App. Lies von diesem ` +
   `Kassenzettel (meist japanisch):\n` +
   `1. den tatsächlich bezahlten GESAMTBETRAG in Yen (Ganzzahl, ohne Symbol/Tausenderpunkte),\n` +
-  `2. die passendste Kategorie aus [ESSEN, FIGUREN, KLEIDUNG, SIGHTSEEING, TRANSPORT, SONSTIGES],\n` +
+  // ⚠️ Aus dem Enum abgeleitet, nicht abgetippt: eine neue Kategorie im Schema
+  // muss auch hier ankommen, sonst schlägt Claude sie nie vor.
+  `2. die passendste Kategorie aus [${CATEGORIES.join(", ")}],\n` +
   `3. ein kurzes deutsches Label (max. 40 Zeichen, z. B. Laden oder Art des Einkaufs).\n` +
   `Achtung: „お預り" ist das hingelegte Geld und „お釣り" das Wechselgeld — gemeint ist „合計".\n` +
   `Antworte AUSSCHLIESSLICH mit kompaktem JSON: {"yen": <number>, "category": "<KATEGORIE>", "label": "<text>"}. ` +

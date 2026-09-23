@@ -377,9 +377,19 @@ export function ExpenseCalculator() {
 
   return (
     <div className="space-y-6">
+      {/* ⚠️ `min-w-0` an BEIDEN Rasterfeldern ist Pflicht, nicht Kosmetik.
+          Eine Grid-Spur `1fr` bedeutet `minmax(auto, 1fr)`, und dieses `auto`
+          ist die **min-content-Breite des Inhalts** — die Spur schrumpft also
+          nie unter ihren breitesten Inhalt. In der Rechnungsliste ist das die
+          längste Bezeichnung: bei „Matsumoto Kiyoshi" wuchs die einspaltige
+          Handy-Ansicht auf 426 px und schob die ganze Seite 54 px über den
+          Rand — trotz `truncate` und `min-w-0` an der Zeile selbst, denn die
+          greifen erst innerhalb der Spur. Gemessen in
+          `e2e/expense-categories-zoll.mjs`; `e2e/mobile-check.mjs` sah es nicht,
+          weil es mit leerer Liste prüft. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(300px,1fr)_1.2fr]">
       {/* Eingabe */}
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         {/* Kurs-Banner */}
         <div className="rounded-card border border-hairline bg-surface shadow-card px-3 py-2 text-sm text-ink-muted">
           {rate === null ? (
@@ -532,7 +542,7 @@ export function ExpenseCalculator() {
       </div>
 
       {/* Rechnung */}
-      <div className="rounded-card border border-hairline bg-surface shadow-card">
+      <div className="min-w-0 rounded-card border border-hairline bg-surface shadow-card">
         <div className="flex items-center justify-between border-b border-hairline px-3 py-2">
           <span className="text-sm font-medium text-ink-muted">
             Rechnung ({items.length})
