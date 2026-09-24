@@ -124,12 +124,23 @@ Abhängigkeiten steht **exakt** (ohne `^`) in der `package.json` — u. a. `reac
 `typescript`, `@types/*`. `npm install name@version` schreibt daraus stillschweigend
 `^version`. Nach einem Update also prüfen und zurücksetzen; beim Tailwind-Paar würde
 ein `^` sonst genau den Versatz erlauben, vor dem der Absatz oben warnt.
-⚠️ **`nodemailer` bleibt auf 6.x.** `next-auth@5.0.0-beta.25` hat `nodemailer@^6.6.5`
-als (optionale) Peer-Abhängigkeit. Mit nodemailer 10 **scheitert `npm ci`** — also genau
-der Befehl, den Vercel beim Deploy ausführt; `npm install` warnt dagegen nur und macht
-weiter, der Fehler fiele erst beim Deploy auf. Das Projekt nutzt den Mail-Provider von
-next-auth ohnehin nicht (eigener `src/lib/mailer.ts`), aber der Baum muss auflösbar
-bleiben. Nachgeprüft mit `npm ci` im Container.
+⚠️ **Nach JEDEM Abhängigkeits-Update `npm ci` im Container laufen lassen — nicht nur
+`npm install`.** Das ist der Befehl, den Vercel beim Deploy ausführt, und er ist der
+strengere: `npm install` **warnt** bei einem unauflösbaren Peer nur und macht weiter,
+`npm ci` **bricht ab**. Zweimal in Folge wäre so ein kaputter Deploy entstanden, ohne
+dass lokal etwas aufgefallen wäre (nodemailer 10, dann SimpleWebAuthn 14).
+⚠️ **`next-auth` ist die Klammer, an der die halbe Abhängigkeitskette hängt.**
+`5.0.0-beta.25` ließ nur `next@^14||^15` und `nodemailer@^6` zu — Next 16 und neuere
+Mail-Versionen waren damit gesperrt. Seit **`5.0.0-beta.32`**: `next@^14||^15||^16`,
+`nodemailer@^7||^8`. Wer Next oder nodemailer anheben will, hebt zuerst next-auth an.
+⚠️ **`overrides` in der `package.json` für `@simplewebauthn/*`.** next-auth deklariert
+die Pakete als **optionale** Peers für seinen **eigenen** WebAuthn-Provider und hängt
+dort bei `^9` fest. Diese App benutzt nur `next-auth/providers/credentials`; die
+Passkey-Logik ist selbst geschrieben (`src/auth.ts`, `src/app/api/v1/passkey/*`). Der
+Peer geht sie also nichts an — ohne die `overrides` scheitert aber `npm ci`.
+⚠️ Der Build meldet seit next-auth beta.32 eine **Warnung** aus `jose`
+(`CompressionStream` „not supported in the Edge Runtime"). Das ist eine statische
+Analyse von Next, kein Fehler: der Build läuft durch, Login und Middleware ebenso.
 ⚠️ **`bcryptjs` 3 liest Hashes von 2** (`$2a`) und schreibt `$2b` — bestehende Konten
 bleiben also gültig. Nachgewiesen, indem Version 2 danebeninstalliert und beide
 Richtungen geprüft wurden. Ein im Netz kursierender „$2a-Testvektor" taugt dafür
