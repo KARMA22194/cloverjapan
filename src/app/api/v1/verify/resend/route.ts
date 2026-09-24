@@ -9,7 +9,7 @@ import { createToken } from "@/lib/services/tokens";
 
 const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24 Stunden
 
-const body = z.object({ email: z.string().email("Ungültige E-Mail.") });
+const body = z.object({ email: z.email("Ungültige E-Mail.") });
 
 /**
  * POST /api/v1/verify/resend — Bestätigungsmail erneut anfordern (öffentlich).

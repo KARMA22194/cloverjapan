@@ -64,7 +64,13 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   `allowCredentials: []` arbeitet.
 - **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
   `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
-- **Tailwind CSS v4**, **Zod**, **date-fns / date-fns-tz**
+- **Tailwind CSS v4**, **Zod 4**, **date-fns / date-fns-tz**
+  ⚠️ **Zod 4: `z.record()` mit Enum-Schlüssel ist vollständig.** Es verlangt seither
+  **alle** Schlüssel. Für eine Teilmenge gibt es **`z.partialRecord()`** — das Budget
+  („nur die gesetzten Kategorien") wäre sonst zur Laufzeit ungültig geworden. Der
+  Typfehler hat es aufgedeckt; ohne TypeScript wären es stille 400er gewesen.
+  ⚠️ `z.nativeEnum(X)` → **`z.enum(X)`** (nimmt TS-Enums jetzt direkt),
+  `z.string().email()` → **`z.email()`**. Beide alten Formen sind veraltet.
 - **Karten (Reiseplaner):** `leaflet` + OSM/CARTO-Tiles; Geocoding **Nominatim**,
   Routing **OSRM** (server-seitig, keyfrei)
 - **Konbini-Radar:** **Overpass API / OpenStreetMap** (`shop=convenience`, keyfrei,

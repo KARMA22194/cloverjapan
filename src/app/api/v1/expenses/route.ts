@@ -11,7 +11,7 @@ import { logActivity } from "@/lib/services/activityService";
 const createBody = z.object({
   // Direkt aus dem Prisma-Enum: ein unbekannter Wert wird jetzt als 400 abgewiesen,
   // statt erst in der DB als Serverfehler aufzuschlagen.
-  category: z.nativeEnum(ExpenseCategory),
+  category: z.enum(ExpenseCategory),
   label: z.string().max(200).optional().default(""),
   yen: z.number().int().positive().max(100_000_000),
   paidById: z.string().max(40).nullish(),

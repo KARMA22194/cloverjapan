@@ -12,7 +12,7 @@ export const BOOKING_KINDS = Object.values(BookingKind);
 
 export const bookingBody = z.object({
   title: z.string().trim().min(1, "Titel fehlt.").max(200),
-  kind: z.nativeEnum(BookingKind).optional().default(BookingKind.TICKET),
+  kind: z.enum(BookingKind).optional().default(BookingKind.TICKET),
   date: dateStr,
   time: z.string().max(5).optional().default(""),
   ref: z.string().max(120).optional().default(""),

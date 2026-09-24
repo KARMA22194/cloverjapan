@@ -15,7 +15,7 @@ import {
 } from "@/lib/services/trip";
 import { sendRegistrationInviteEmail, sendTripInviteEmail } from "@/lib/mailer";
 
-const inviteBody = z.object({ email: z.string().email("Ungültige E-Mail.") });
+const inviteBody = z.object({ email: z.email("Ungültige E-Mail.") });
 
 function inviteUrl(token: string, req: NextRequest): string {
   return new URL(`/register?token=${token}`, process.env.APP_URL || req.nextUrl.origin).toString();

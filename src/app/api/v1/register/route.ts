@@ -12,7 +12,7 @@ const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24 Stunden
 // Bewusst OHNE requireUser: offene Selbst-Registrierung (Middleware schützt /api nicht).
 const registerBody = z.object({
   name: z.string().trim().min(2, "Name muss mindestens 2 Zeichen haben.").max(80),
-  email: z.string().email("Ungültige E-Mail."),
+  email: z.email("Ungültige E-Mail."),
   password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben.").max(200),
 });
 

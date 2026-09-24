@@ -25,9 +25,14 @@ const MAX_YEN = 100_000_000; // 100 Mio. ¥ — großzügig, aber nicht unbegren
 
 const yen = z.number().int().min(0).max(MAX_YEN);
 
+// ⚠️ **`partialRecord`, nicht `record`.** Seit Zod 4 verlangt `z.record()` mit
+// einem Enum-Schlüssel, dass **alle** Schlüssel vorhanden sind — ein Budget mit
+// nur zwei gesetzten Kategorien wäre damit zur Laufzeit ungültig geworden. Der
+// Typfehler hat es hier aufgedeckt; ohne TypeScript wäre es ein stiller
+// 400er-Regen gewesen.
 const putBody = z.object({
   totalYen: yen,
-  categories: z.record(z.nativeEnum(ExpenseCategory), yen).default({}),
+  categories: z.partialRecord(z.enum(ExpenseCategory), yen).default({}),
 });
 
 /** GET /api/v1/budget — eigenes Budget. */

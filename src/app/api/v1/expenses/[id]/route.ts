@@ -32,7 +32,7 @@ const patchBody = z
       .refine((s) => !/^data:image\/svg\+xml/i.test(s), "SVG-Bilder sind nicht erlaubt.")
       .nullable()
       .optional(),
-    category: z.nativeEnum(ExpenseCategory).optional(),
+    category: z.enum(ExpenseCategory).optional(),
   })
   .refine((b) => b.receipt !== undefined || b.category !== undefined, {
     message: "Nichts zu ändern (receipt oder category erwartet).",

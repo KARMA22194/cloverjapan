@@ -26,7 +26,7 @@ export const dateParamSchema = z
 
 export const userCreateBody = z.object({
   name: z.string().min(2, "Name zu kurz.").max(100),
-  email: z.string().email("Ungültige E-Mail."),
+  email: z.email("Ungültige E-Mail."),
   password: z.string().min(8, "Passwort mind. 8 Zeichen.").max(200),
   role: roleSchema,
 });

@@ -9,7 +9,7 @@ import { clientIp, enforceRateLimit } from "@/lib/rate";
 
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 Stunde
 
-const forgotBody = z.object({ email: z.string().email("Ungültige E-Mail.") });
+const forgotBody = z.object({ email: z.email("Ungültige E-Mail.") });
 
 /**
  * POST /api/v1/password/forgot — Passwort-Reset anfordern.
