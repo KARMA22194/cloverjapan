@@ -188,11 +188,12 @@ Latenz **multipliziert** sich also mit dieser Zahl.
   `next dev` zeigt deshalb rund die doppelte Zahl an Aufrufen; in Produktion ist das
   nicht so. Wer Aufrufe zählt, muss das wissen, sonst jagt er ein Gespenst.
 - ⚠️ **Zwei Dinge liegen außerhalb des Codes** und sind die größeren Hebel:
-  **(a)** `vercel.json` setzt **keine** `regions` → die Functions laufen in Vercels
-  Standardregion (`iad1`, Washington). Liegt die Neon-Datenbank in Europa, kreuzt
-  **jede einzelne Abfrage** den Atlantik. Passend gesetzt (`"regions": ["fra1"]` bei
-  Neon in `eu-central-1`) fällt das weg — auf dem Hobby-Tarif ist genau eine Region
-  erlaubt, das reicht.
+  **(a)** ⚠️ **`vercel.json` setzt `"regions": ["fra1"]`** (Frankfurt) — und das muss
+  zur **Neon-Region** passen (hier `eu-central-1`). Ohne die Angabe laufen die
+  Functions in Vercels Standardregion `iad1` (Washington), und **jede einzelne
+  Abfrage** kreuzt den Atlantik: bei 6–8 API-Aufrufen pro Seite mit je mehreren
+  Roundtrips summiert sich das auf Sekunden. Wer die Datenbank umzieht, muss diese
+  Zeile mitziehen. Auf dem Hobby-Tarif ist genau **eine** Region erlaubt, das genügt.
   **(b)** **Neon-Autosuspend**: die Compute schläft nach wenigen Minuten ohne Last ein,
   der erste Zugriff danach dauert Sekunden. Das erklärt „meistens schnell, manchmal
   zäh" besser als alles im Code. Der Presence-Heartbeat (alle 2 min) hält sie wach,
