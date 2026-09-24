@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
 import { eurFmt, yenFmt } from "@/lib/format";
@@ -129,6 +129,16 @@ function BarList({
  * zusätzlich serverseitig geprüft — das Ausblenden hier ist Bequemlichkeit,
  * keine Sperre (siehe `requirePermission`).
  */
+interface ServerBudget {
+  totalYen: number;
+  categories: Record<string, number>;
+}
+
+/** Eingabefeld → ganze Yen. Akzeptiert Komma, ignoriert Unsinn. */
+function toYen(v: string): number {
+  return Math.max(0, Math.round(Number(String(v).replace(",", ".")) || 0));
+}
+
 export function ExpenseCalculator({
   canAiScan,
   canReceiptPhoto,
@@ -147,6 +157,9 @@ export function ExpenseCalculator({
   const [category, setCategory] = useState<ExpenseCategoryValue>("ESSEN");
   const [budget, setBudget] = useState("");
   const [catBudgets, setCatBudgets] = useState<Record<string, string>>({});
+  // Erst wahr, wenn das Budget vom Server da ist — verhindert, dass der
+  // Speicher-Effekt den leeren Anfangszustand über den echten Stand schreibt.
+  const budgetLoaded = useRef(false);
   const [receiptView, setReceiptView] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   // Hinweis nach dem Scan: sagt, ob der Betrag nachgeprüft werden sollte.
@@ -202,26 +215,89 @@ export function ExpenseCalculator({
     }
   }, [members, paidById]);
 
-  // Budget bleibt lokal (einzelner Wert). Laden beim Start; Speichern im onChange.
+  /**
+   * Budget: **persönlich, pro Reise, in der DB** (`GET/PUT /api/v1/budget`).
+   *
+   * Vorher lag es im `localStorage` — also pro Gerät und pro Browser: das am
+   * Rechner gesetzte Budget war auf dem Handy unsichtbar und beim Leeren der
+   * Browserdaten weg. Ein dort vorhandener Stand wird deshalb **einmalig
+   * übernommen**, solange in der DB noch nichts steht, und danach lokal gelöscht.
+   */
   useEffect(() => {
-    try {
-      const b = localStorage.getItem("japan-budget");
-      if (b) setBudget(b);
-      const cb = localStorage.getItem("japan-cat-budgets");
-      if (cb) setCatBudgets(JSON.parse(cb));
-    } catch {
-      /* ignore */
-    }
+    let alive = true;
+    const readLocal = () => {
+      try {
+        const total = toYen(localStorage.getItem("japan-budget") ?? "");
+        const raw = localStorage.getItem("japan-cat-budgets");
+        const cats: Record<string, number> = {};
+        if (raw) {
+          for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, string>)) {
+            const y = toYen(v);
+            if (y > 0) cats[k] = y;
+          }
+        }
+        return { total, cats };
+      } catch {
+        return { total: 0, cats: {} as Record<string, number> };
+      }
+    };
+
+    api
+      .get<ServerBudget>("/api/v1/budget")
+      .then(async (server) => {
+        if (!alive) return;
+        const empty = server.totalYen === 0 && Object.keys(server.categories).length === 0;
+        const local = empty ? readLocal() : { total: 0, cats: {} };
+        const use =
+          empty && (local.total > 0 || Object.keys(local.cats).length > 0)
+            ? { totalYen: local.total, categories: local.cats }
+            : server;
+
+        setBudget(use.totalYen > 0 ? String(use.totalYen) : "");
+        setCatBudgets(
+          Object.fromEntries(Object.entries(use.categories).map(([k, v]) => [k, String(v)])),
+        );
+        // Erst **nach** dem Setzen freigeben, sonst schriebe der Speicher-Effekt
+        // unten den leeren Anfangszustand über das, was gerade geladen wurde.
+        budgetLoaded.current = true;
+
+        if (use !== server) {
+          await api.put("/api/v1/budget", use).catch(() => {});
+          try {
+            localStorage.removeItem("japan-budget");
+            localStorage.removeItem("japan-cat-budgets");
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {
+        // Ohne Server-Antwort bleibt das Feld leer — aber Tippen soll trotzdem
+        // gespeichert werden, sobald es wieder geht.
+        budgetLoaded.current = true;
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
+
+  // Speichern gebündelt: beim Tippen einer Zahl sonst ein PUT je Tastendruck.
+  useEffect(() => {
+    if (!budgetLoaded.current) return;
+    const t = setTimeout(() => {
+      const categories: Record<string, number> = {};
+      for (const [k, v] of Object.entries(catBudgets)) {
+        const y = toYen(v);
+        if (y > 0) categories[k] = y;
+      }
+      api.put("/api/v1/budget", { totalYen: toYen(budget), categories }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [budget, catBudgets]);
 
   function setCatBudget(cat: string, val: string) {
     setCatBudgets((prev) => {
       const next = { ...prev, [cat]: val };
-      try {
-        localStorage.setItem("japan-cat-budgets", JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
       return next;
     });
   }
@@ -240,7 +316,7 @@ export function ExpenseCalculator({
     return { perCat, yen };
   }, [items]);
 
-  const budgetYen = Math.max(0, Math.round(Number(budget.replace(",", ".")) || 0));
+  const budgetYen = toYen(budget);
   const pct = budgetYen > 0 ? Math.round((totals.yen / budgetYen) * 100) : 0;
   const over = budgetYen > 0 && totals.yen > budgetYen;
   const catBreakdown = EXPENSE_CATEGORIES.filter((c) => totals.perCat.has(c.value)).map((c) => {
@@ -762,14 +838,7 @@ export function ExpenseCalculator({
               <input
                 id="budget"
                 value={budget}
-                onChange={(e) => {
-                  setBudget(e.target.value);
-                  try {
-                    localStorage.setItem("japan-budget", e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
+                onChange={(e) => setBudget(e.target.value)}
                 inputMode="decimal"
                 placeholder="z. B. 200000"
                 className={cn(fieldClasses, "w-32 px-2 py-1")}
@@ -811,10 +880,7 @@ export function ExpenseCalculator({
             </div>
             <ul className="min-w-[240px] flex-1 space-y-2">
               {catBreakdown.map((c) => {
-                const cBudget = Math.max(
-                  0,
-                  Math.round(Number((catBudgets[c.value] ?? "").replace(",", ".")) || 0),
-                );
+                const cBudget = toYen(catBudgets[c.value] ?? "");
                 const cPct = cBudget > 0 ? Math.round((c.yen / cBudget) * 100) : 0;
                 const cOver = cBudget > 0 && c.yen > cBudget;
                 return (

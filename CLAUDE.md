@@ -252,7 +252,7 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
 `User` · `UserSectionIcon` · `Credential` · `Token` · `RateLimit` · `WebauthnChallenge` · `PushSubscription` · `Trip` · `TripMember` · `TripInvitation`
 · `TripStop` · `TripHotel` · `Expense` · `Flight` · `PlannerTask` · `ChecklistItem` ·
-`Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag` · `ExpenseReceipt`. Kern:
+`Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag` · `ExpenseReceipt` · `MemberCategoryBudget`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
 - **`User.canAiScan` / `User.canReceiptPhoto`** (Bool) — die zwei **getrennten**
@@ -307,6 +307,27 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   bleibt das Seitenverhältnis, und `SectionIcon` rendert mit fester Höhe und freier Breite
   bis **1,6×**. Diese Grenze ist die Breite der 44-px-Kachelfläche: darüber weitet sich die
   Fläche und drückt den Beschreibungstext in zusätzliche Zeilen.
+- **`TripMember.budgetYen`** + **`MemberCategoryBudget`** — das **persönliche**
+  Reise-Budget (gesamt und je Kategorie), über `GET/PUT /api/v1/budget`.
+  Am `TripMember`, weil der genau das Paar (Nutzer, Reise) ist — eine eigene
+  Budget-Tabelle hätte dieselbe Beziehung ein zweites Mal modelliert; die
+  Teilbudgets hängen daran und verschwinden per Cascade mit der Mitgliedschaft.
+  Persönlich, nicht geteilt: niemand sieht die Zahlen der anderen. Eine neue Reise
+  fängt mit leerem Budget an.
+  ⚠️ **`requireTripUser()`, nicht `requireUser()`.** Die Mitgliedschaft entsteht
+  **lazy** beim ersten Trip-Zugriff (`getActiveTripId`). Mit `requireUser()` fand
+  der Service bei einem frischen Konto keine Zeile, verwarf das Budget still und
+  meldete trotzdem 200 — der Client konnte den Unterschied nicht sehen. Genau so
+  passiert; aufgefallen erst, weil die Zahl nach dem Neuladen wieder weg war.
+  ⚠️ PUT **ersetzt**, es führt nicht zusammen: die Oberfläche schickt immer den
+  vollen Stand, und ein gelöschtes Teilbudget muss auch verschwinden.
+  ⚠️ Vorher lag beides im `localStorage` — pro Gerät, pro Browser, beim Leeren weg.
+  Ein dort vorhandener Stand wird beim ersten Laden **einmalig übernommen** und
+  danach lokal gelöscht. Das Speichern ist um 800 ms gebündelt (sonst ein PUT je
+  Tastendruck), und ein `budgetLoaded`-Ref verhindert, dass der leere
+  Anfangszustand den geladenen überschreibt. Test: `e2e/budget.mjs`.
+  ⚠️ Die Budget-Karte rendert nur bei `items.length > 0` — Tests, die das Feld
+  anfassen, brauchen vorher eine Ausgabe.
 - **Geteilte Reise:** alle Japan-Tools gehören einem **`Trip`**; Nutzer über **`TripMember`**
   (`userId @unique` → genau eine aktive Reise). `getActiveTripId(userId)` legt beim ersten
   Zugriff eine Solo-Reise an (P2002-Race abgefangen). Routen lösen die Reise serverseitig
@@ -392,7 +413,7 @@ konsolidiert (6 Einträge): **Reiseplaner · Flüge · Programm · Geld · Info 
 `register`, `password/forgot`,
 `password/reset`, `invite/[token]`, `trip/members` (+`[userId]`),
 `trip/invitations/[id]` (+`/accept`), `trip-stops` (PUT, +`from-text`), `trip-hotels`,
-`expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
+`budget` (GET/PUT), `expenses` (+`[id]`, +**`scan`**), `flights` (+`[id]`, +`lookup`, +**`live`**),
 `bookings` (+`[id]`), `wishlist` (+`[id]`), `settlements` (+`[id]`), `planner-tasks` (+`[id]`),
 `checklist`, `activity`, `stamps` (+`collect`), `luggage` (+`[id]`, +`found/[token]` — **public**),
 `presence` (POST — Heartbeat), `geo/*` (search, route, resolve, transit, **konbini**,

@@ -241,10 +241,30 @@ model TripMember {
   // hat das Recht implizit über Trip.ownerId.
   canManage Boolean  @default(false)
   joinedAt  DateTime @default(now())
+  // Persönliches Gesamtbudget für diese Reise in Yen; 0 = keins gesetzt.
+  // Am `TripMember`, weil der **genau** das Paar (Nutzer, Reise) ist — eine
+  // eigene Budget-Tabelle hätte dieselbe Beziehung ein zweites Mal modelliert.
+  // Persönlich, nicht geteilt: jedes Mitglied plant sein eigenes Geld.
+  budgetYen Int      @default(0)
   trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryBudgets MemberCategoryBudget[]
 
   @@index([tripId])
+}
+
+// Teilbudget je Ausgaben-Kategorie — dieselbe Person, dieselbe Reise.
+// Eigene Tabelle statt Spalten/JSON: die Kategorien sind eine offene Liste
+// (drei kamen zuletzt dazu), und eine Zeile je Kategorie kostet nichts.
+// Hängt am `TripMember` und verschwindet mit ihm (Cascade) — wer die Reise
+// verlässt, lässt keine verwaisten Budgets zurück.
+model MemberCategoryBudget {
+  tripMemberId String
+  category     ExpenseCategory
+  yen          Int
+  member       TripMember      @relation(fields: [tripMemberId], references: [id], onDelete: Cascade)
+
+  @@id([tripMemberId, category])
 }
 
 // Reiseplaner-Stopp. id ist client-generiert (stabil über PUT-Replace).
