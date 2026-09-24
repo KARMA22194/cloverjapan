@@ -10,7 +10,7 @@ import { isRealDate } from "@/lib/api/dates";
  *  Gemeinsame Bausteine
  * ------------------------------------------------------------------ */
 
-export const roleSchema = z.enum(["EMPLOYEE", "MANAGER", "ADMIN"]);
+export const roleSchema = z.enum(["USER", "ADMIN"]);
 
 // Datums-Parameter (YYYY-MM-DD) — u. a. vom Tagesplaner genutzt.
 // `isRealDate` zusätzlich zur Regex: sonst käme „2026-13-45" bis in `parseDateParam`
@@ -31,10 +31,22 @@ export const userCreateBody = z.object({
   role: roleSchema,
 });
 
-export const userUpdateBody = z.object({
-  /** true = aktivieren, false = deaktivieren. */
-  active: z.boolean(),
-});
+// Alle Felder optional, aber mindestens eines verlangt: derselbe Endpunkt
+// schaltet das Konto scharf **und** vergibt die Rechte. Wäre `active` weiter
+// Pflicht, müsste jede Rechte-Änderung den Aktiv-Zustand mitschicken — und ein
+// Fehler dabei hätte jemanden ausgesperrt.
+export const userUpdateBody = z
+  .object({
+    /** true = aktivieren, false = deaktivieren. */
+    active: z.boolean().optional(),
+    /** Recht: KI-Beleg-Scan auslösen. */
+    canAiScan: z.boolean().optional(),
+    /** Recht: Belegfotos anhängen. */
+    canReceiptPhoto: z.boolean().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "Nichts zu ändern (active, canAiScan oder canReceiptPhoto erwartet).",
+  });
 
 /* ------------------------------------------------------------------ *
  *  Response-DTOs (Reads)

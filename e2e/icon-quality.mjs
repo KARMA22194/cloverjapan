@@ -93,7 +93,7 @@ const u = await db.user.create({
     email: `iconq-${Date.now()}@example.test`,
     name: "Icon Q",
     passwordHash: await bcrypt.hash(PASS, 10),
-    role: "EMPLOYEE",
+    role: "USER",
     active: true,
     emailVerified: new Date(),
   },

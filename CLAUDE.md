@@ -23,8 +23,13 @@ an und planen gemeinsam:
 - **Mitglieder** (einladen, gemeinsam bearbeiten) · **Start-Dashboard** (Countdown, „Als
   Nächstes", Live-Flug am Reisetag, Aktivitäts-Feed, Japan-Uhr)
 
-Rollen: `EMPLOYEE` / `MANAGER` / `ADMIN`. `ADMIN` hat zusätzlich eine **Nutzerverwaltung**
-(`/admin`). (Die ursprüngliche Zeiterfassung wurde vollständig entfernt.)
+Rollen: **`USER` / `ADMIN`**. `ADMIN` hat zusätzlich eine **Nutzerverwaltung**
+(`/admin`), in der Rechte vergeben werden.
+⚠️ `EMPLOYEE`/`MANAGER` gab es früher — `MANAGER` wurde jedoch **nirgends** abgefragt.
+Eine Rolle, die nichts bewirkt, ist schlimmer als keine: sie sieht nach Berechtigung aus.
+Feingranulares steckt deshalb in den **`can*`-Rechten am `User`**, nicht in der Rolle —
+die stehen quer zur Rangfolge (ein `USER` darf vielleicht scannen, ein `ADMIN` gerade nicht;
+als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngliche Zeiterfassung wurde vollständig entfernt.)
 
 > **Hinweis zur Navigation:** Zusammengehörige Tools sind in Tab-Bereiche gebündelt
 > (`/geld`, `/programm`, `/info`). Die alten Einzelrouten (`/ausgaben`, `/zoll`,
@@ -246,6 +251,26 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 `Settlement` · `Booking` · `WishlistItem` · `Activity` · `CollectedStamp` · `LuggageTag` · `ExpenseReceipt`. Kern:
 - `User.emailVerified` (`DateTime?`) — null = unbestätigt → **Login gesperrt**. Nur offene
   Selbst-Registrierung startet unbestätigt; Einladung/Admin/Seed gelten als bestätigt.
+- **`User.canAiScan` / `User.canReceiptPhoto`** (Bool) — die zwei **getrennten**
+  Beleg-Rechte, vom ADMIN in `/admin` vergeben (`PATCH /api/v1/users/{id}`).
+  Getrennt, weil sie Verschiedenes kosten: der Scan ruft Cloud Vision auf und
+  verbraucht Monatskontingent (Default **aus**), das Anhängen eines Fotos kostet
+  nichts (Default **an**, damit sich für bestehende Konten nichts ändert).
+  ⚠️ Hier ausnahmsweise **Spalten am `User`** — im Gegensatz zu `UserSectionIcon`.
+  Der Grund ist derselbe, nur andersherum: `requireUser()` liest diese Zeile bei
+  **jedem** Request, und genau dort wird das Recht gebraucht. Ein Bool kostet dabei
+  nichts, ein Bild hätte jede Antwort aufgebläht.
+  ⚠️ **Das Ausblenden der Knöpfe ist keine Sperre.** Die Prüfung, die zählt, ist
+  `requirePermission()` (`api/session.ts`) in den Handlern `expenses/scan` (`canAiScan`)
+  und `expenses/[id]` PATCH (`canReceiptPhoto`, **nur** im `receipt`-Zweig — ein
+  Kategorie-Wechsel bleibt erlaubt). Ohne die Handler-Prüfung genügte ein direkter
+  Aufruf der same-origin-API.
+  ⚠️ Die Rechteprüfung steht im Scan **vor** dem Rate-Limit: sonst könnte ein
+  Unberechtigter mit abgewiesenen Aufrufen das Tagesbudget der Berechtigten leeren.
+  ⚠️ Die Seite `/geld` holt die Rechte über `requireSessionUser()` **frisch aus der DB**
+  und reicht sie als Props durch (`GeldTabs` → `ExpenseCalculator`). Aus dem JWT gelesen
+  hinge der Scan-Knopf noch bis zu 12 h im Bild, nachdem das Recht entzogen wurde; per
+  Client-Fetch erschiene er kurz und verschwände wieder. Test: `e2e/permissions.mjs`.
 - `User.lastSeenAt` (`DateTime?`) — Presence: Heartbeat der offenen App (`POST /api/v1/presence`,
   `PresenceHeartbeat` im `(app)`-Layout, alle **2 min** bei sichtbarem/online Tab; **eine** Query
   pro Ping, die Prüfungen stecken im `where` statt in einem zusätzlichen `requireUser`-SELECT).
@@ -776,11 +801,11 @@ Seed (`prisma/seed.ts`) legt nur die 6 Demo-Nutzer an (bestätigt). Passwort: `p
 | Rolle    | E-Mail                |
 |----------|-----------------------|
 | Admin    | admin@clover.japan    |
-| Manager  | manager@clover.japan  |
-| Employee | employee@clover.japan |
-| Employee | anna@clover.japan     |
-| Employee | ben@clover.japan      |
-| Employee | clara@clover.japan    |
+| User     | manager@clover.japan  |
+| User     | employee@clover.japan |
+| User     | anna@clover.japan     |
+| User     | ben@clover.japan      |
+| User     | clara@clover.japan    |
 
 ## Arbeitsweise (projektspezifisch)
 

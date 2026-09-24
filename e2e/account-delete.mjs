@@ -13,7 +13,7 @@ const stamp = Date.now();
 const results = [];
 const ok = (n, c, x = "") => results.push(`${c ? "OK  " : "FEHL"} ${n}${x ? ` — ${x}` : ""}`);
 
-const mk = async (tag, role = "EMPLOYEE") =>
+const mk = async (tag, role = "USER") =>
   db.user.create({
     data: {
       email: `del-${tag}-${stamp}@example.test`,

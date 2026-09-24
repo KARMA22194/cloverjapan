@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
+import { requireSessionUser } from "@/lib/auth-session";
 import { GeldTabs } from "@/components/GeldTabs";
 
 export const metadata: Metadata = { title: "Geld – Clover Japan" };
@@ -11,8 +10,10 @@ export default async function GeldPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // `requireSessionUser` statt `auth()`: die Rechte müssen **frisch aus der DB**
+  // kommen. Aus dem JWT gelesen hinge der Scan-Knopf noch bis zu 12 Stunden im
+  // Bild, nachdem ein Admin das Recht entzogen hat.
+  const me = await requireSessionUser();
   const { tab } = await searchParams;
 
   return (
@@ -21,7 +22,11 @@ export default async function GeldPage({
       <p className="mb-4 text-sm text-ink-muted">
         Ausgaben, Abrechnung, Zollrechner und Einkaufs-Wunschliste an einem Ort.
       </p>
-      <GeldTabs initial={tab} />
+      <GeldTabs
+        initial={tab}
+        canAiScan={me.canAiScan}
+        canReceiptPhoto={me.canReceiptPhoto}
+      />
     </div>
   );
 }

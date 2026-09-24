@@ -11,9 +11,36 @@ export function listUsers() {
       email: true,
       role: true,
       active: true,
+      canAiScan: true,
+      canReceiptPhoto: true,
       createdAt: true,
     },
   });
+}
+
+/**
+ * Rechte eines Kontos setzen (nur ADMIN, über `PATCH /api/v1/users/{id}`).
+ *
+ * Nur die übergebenen Felder werden geschrieben — `undefined` lässt Prisma
+ * unangetastet. Das ist hier wichtig, weil derselbe Endpunkt auch `active`
+ * bedient: ein Aufruf, der nur ein Recht umlegt, darf nichts anderes berühren.
+ */
+/**
+ * Ein Konto für die Admin-Antwort lesen.
+ *
+ * `findUniqueOrThrow`, damit eine unbekannte Id denselben Weg nimmt wie bei den
+ * Schreib-Operationen: Prisma wirft P2025, `handle()` macht daraus 404. Mit
+ * `findUnique` käme dagegen ein `null` bis in `toUserDto` und dort als 500 an.
+ */
+export function getUserById(id: string) {
+  return db.user.findUniqueOrThrow({ where: { id } });
+}
+
+export function setUserPermissions(
+  userId: string,
+  perms: { canAiScan?: boolean; canReceiptPhoto?: boolean },
+) {
+  return db.user.update({ where: { id: userId }, data: perms });
 }
 
 export async function createUser(input: {

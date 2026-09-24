@@ -26,7 +26,7 @@ export function UserCreateForm() {
         name: String(fd.get("name") ?? ""),
         email: String(fd.get("email") ?? ""),
         password: String(fd.get("password") ?? ""),
-        role: String(fd.get("role") ?? "EMPLOYEE"),
+        role: String(fd.get("role") ?? "USER"),
       });
       form.reset();
       router.refresh();
@@ -56,9 +56,8 @@ export function UserCreateForm() {
       </div>
       <div className="w-32">
         <label className="mb-1 block text-xs font-medium text-ink-muted">Rolle</label>
-        <select name="role" defaultValue="EMPLOYEE" className={inputClass}>
-          <option value="EMPLOYEE">Employee</option>
-          <option value="MANAGER">Manager</option>
+        <select name="role" defaultValue="USER" className={inputClass}>
+          <option value="USER">Nutzer</option>
           <option value="ADMIN">Admin</option>
         </select>
       </div>

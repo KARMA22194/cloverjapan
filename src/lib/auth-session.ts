@@ -12,6 +12,10 @@ export interface SessionUser {
   role: Role;
   /** Spiegel-Flag: hat dieses Konto eigene Bereichs-Symbole hinterlegt? */
   customIcons: boolean;
+  /** Darf den KI-Beleg-Scan auslösen. Steuert, ob der Knopf überhaupt erscheint. */
+  canAiScan: boolean;
+  /** Darf Belegfotos anhängen. */
+  canReceiptPhoto: boolean;
 }
 
 /**
@@ -42,6 +46,8 @@ export async function requireSessionUser(): Promise<SessionUser> {
       emailVerified: true,
       sessionVersion: true,
       customIcons: true,
+      canAiScan: true,
+      canReceiptPhoto: true,
     },
   });
   // Passwort-Reset (sessionVersion++) invalidiert alte SSR-Sessions ebenso (M2).
@@ -56,5 +62,7 @@ export async function requireSessionUser(): Promise<SessionUser> {
     image: fresh.image,
     role: fresh.role,
     customIcons: fresh.customIcons,
+    canAiScan: fresh.canAiScan,
+    canReceiptPhoto: fresh.canReceiptPhoto,
   };
 }

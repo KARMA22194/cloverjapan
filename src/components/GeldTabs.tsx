@@ -18,7 +18,15 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-export function GeldTabs({ initial }: { initial?: string }) {
+export function GeldTabs({
+  initial,
+  canAiScan,
+  canReceiptPhoto,
+}: {
+  initial?: string;
+  canAiScan: boolean;
+  canReceiptPhoto: boolean;
+}) {
   const start = TABS.some((t) => t.key === initial) ? (initial as TabKey) : "ausgaben";
   const [active, setActive] = useState<TabKey>(start);
 
@@ -45,7 +53,7 @@ export function GeldTabs({ initial }: { initial?: string }) {
       {/* Einmal geöffnete Tabs bleiben gemountet: sonst gehen Eingaben beim
           Umschalten verloren und alle Daten werden erneut geladen. */}
       <TabPanel id="geld-ausgaben" active={active === "ausgaben"}>
-        <ExpenseCalculator />
+        <ExpenseCalculator canAiScan={canAiScan} canReceiptPhoto={canReceiptPhoto} />
       </TabPanel>
       <TabPanel id="geld-abrechnung" active={active === "abrechnung"}>
         <Abrechnung />

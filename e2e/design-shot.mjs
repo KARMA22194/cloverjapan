@@ -16,7 +16,7 @@ const user = await db.user.create({
     email: EMAIL,
     name: "Design Check",
     passwordHash: await bcrypt.hash(PASS, 10),
-    role: "EMPLOYEE",
+    role: "USER",
     active: true,
     emailVerified: new Date(),
   },

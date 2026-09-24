@@ -122,7 +122,20 @@ function BarList({
   );
 }
 
-export function ExpenseCalculator() {
+/**
+ * `canAiScan` / `canReceiptPhoto` kommen als Props vom Server (`/geld/page.tsx`),
+ * nicht aus einem eigenen Fetch: sonst erschiene der Scan-Knopf beim ersten
+ * Rendern und verschwände einen Moment später wieder. Beide Rechte werden
+ * zusätzlich serverseitig geprüft — das Ausblenden hier ist Bequemlichkeit,
+ * keine Sperre (siehe `requirePermission`).
+ */
+export function ExpenseCalculator({
+  canAiScan,
+  canReceiptPhoto,
+}: {
+  canAiScan: boolean;
+  canReceiptPhoto: boolean;
+}) {
   const [rate, setRate] = useState<number | null>(null);
   const [rateDate, setRateDate] = useState<string | null>(null);
   const [rateEstimated, setRateEstimated] = useState(false);
@@ -409,21 +422,23 @@ export function ExpenseCalculator() {
           className="rounded-card border border-hairline bg-surface shadow-card p-3"
         >
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20">
-              📸 {scanning ? "Beleg wird gelesen…" : "Beleg scannen"}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                disabled={scanning}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) scanReceipt(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            {canAiScan && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-brand/50 bg-brand/10 px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand/20">
+                📸 {scanning ? "Beleg wird gelesen…" : "Beleg scannen"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={scanning}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) scanReceipt(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
             {pendingReceipt && (
               <span className="text-xs text-emerald-600 dark:text-emerald-400">
                 Foto wird angehängt ✓
@@ -620,6 +635,10 @@ export function ExpenseCalculator() {
                   <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-ink">
                     {eurFmt.format(eur(it.yen))}
                   </span>
+                  {/* Ansehen darf jeder, der die Ausgabe sieht — anhängen nur mit
+                      Recht. Ohne diese Bedingung wäre `canReceiptPhoto` mit zwei
+                      Klicks umgangen: der Weg über die Liste führt auf denselben
+                      Endpunkt wie der Knopf im Formular. */}
                   {it.hasReceipt ? (
                     <button
                       type="button"
@@ -630,7 +649,7 @@ export function ExpenseCalculator() {
                     >
                       📎
                     </button>
-                  ) : (
+                  ) : canReceiptPhoto ? (
                     <label
                       title="Beleg anhängen"
                       className="shrink-0 cursor-pointer rounded px-1.5 py-1 text-xs text-ink-subtle transition hover:text-brand"
@@ -647,7 +666,7 @@ export function ExpenseCalculator() {
                         }}
                       />
                     </label>
-                  )}
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => removeItem(it.id)}

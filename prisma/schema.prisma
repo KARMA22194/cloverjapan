@@ -14,9 +14,13 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Nur zwei Stufen. `MANAGER` gab es früher, wurde aber **nirgends** abgefragt —
+// ein Admin konnte die Rolle vergeben, und es passierte nichts. Eine Rolle, die
+// nichts bewirkt, ist schlimmer als keine: sie sieht nach Berechtigung aus.
+// Feingranulares regeln stattdessen die `can*`-Rechte am User (s. u.), weil die
+// quer zur Rangfolge stehen — ein USER darf womöglich scannen, ein ADMIN nicht.
 enum Role {
-  EMPLOYEE
-  MANAGER
+  USER
   ADMIN
 }
 
@@ -54,7 +58,7 @@ model User {
   email         String    @unique
   name          String
   passwordHash  String
-  role          Role      @default(EMPLOYEE)
+  role          Role      @default(USER)
   active        Boolean   @default(true)
   // Zeitpunkt der E-Mail-Bestätigung; null = noch nicht bestätigt (Login gesperrt).
   // Eingeladene/Admin-angelegte/geseedete Konten gelten als bestätigt.
@@ -66,6 +70,24 @@ model User {
   // Wird bei sicherheitsrelevanten Änderungen (Passwort-Reset) erhöht. Das JWT trägt
   // den Wert vom Login → weicht er vom DB-Wert ab, ist die Session ungültig (M2).
   sessionVersion Int      @default(0)
+  // ── Rechte ───────────────────────────────────────────────────────────────
+  // Zwei **getrennte** Schalter, kein gemeinsamer: der Scan ruft eine externe API
+  // auf und verbraucht Kontingent, das Anhängen eines Fotos kostet nichts. Daher
+  // auch die unterschiedlichen Voreinstellungen — neu angelegte Konten dürfen
+  // fotografieren, aber nicht scannen.
+  //
+  // Als Spalten am `User` bewusst richtig (anders als z. B. die Bereichs-Symbole):
+  // `requireUser()` liest diese Zeile ohnehin bei **jeder** Anfrage, und genau
+  // dort wird das Recht gebraucht — ein Bool kostet dabei nichts.
+  //
+  // ⚠️ Das Ausblenden der Knöpfe in der Oberfläche ist nur Bequemlichkeit. Die
+  // Prüfung, die zählt, sitzt in den Route-Handlern (`expenses/scan`,
+  // `expenses/[id]`); sonst genügte ein direkter Aufruf der API.
+  /// Darf den KI-Beleg-Scan auslösen (Cloud Vision).
+  canAiScan       Boolean  @default(false)
+  /// Darf Belegfotos anhängen (ohne Scan).
+  canReceiptPhoto Boolean  @default(true)
+
   // Spiegelt „hat dieses Konto eigene Bereichs-Symbole?" — wie `Expense.hasReceipt`.
   // Damit muss das (app)-Layout die Icon-Tabelle nur abfragen, wenn wirklich etwas
   // hinterlegt ist; im Normalfall (Standard-Emoji) kostet das Feature keine Query.

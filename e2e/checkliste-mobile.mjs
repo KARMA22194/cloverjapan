@@ -8,7 +8,7 @@ const db = new PrismaClient();
 const PASS = "Test-1234!";
 const s = Date.now();
 const mk = async (t) => db.user.create({ data: { email: `cl-${t}-${s}@example.test`, name: t === "a" ? "Steve Brunner" : "Anna Beispiel",
-  passwordHash: await bcrypt.hash(PASS, 10), role: "EMPLOYEE", active: true, emailVerified: new Date() } });
+  passwordHash: await bcrypt.hash(PASS, 10), role: "USER", active: true, emailVerified: new Date() } });
 const a = await mk("a"); const b = await mk("b");
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 try {

@@ -48,9 +48,11 @@ const user = await db.user.create({
     email: `scan-${Date.now()}@example.test`,
     name: "Scan Test",
     passwordHash: await bcrypt.hash(PASS, 10),
-    role: "EMPLOYEE",
+    role: "USER",
     active: true,
     emailVerified: new Date(),
+    // Ohne dieses Recht antwortet /scan mit 403 — das ist der Sinn der Übung.
+    canAiScan: true,
   },
 });
 

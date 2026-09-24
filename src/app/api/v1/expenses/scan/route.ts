@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ExpenseCategory } from "@prisma/client";
 
 import { ApiError, badRequest, handle, ok, readJson } from "@/lib/api/http";
-import { requireTripUser } from "@/lib/api/session";
+import { requirePermission, requireTripUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 import { extractTotal, guessMeta, rowsFromWords, type AmountSource, type OcrWord } from "@/lib/receipt";
 import { categoryForLabel } from "@/lib/services/expensesService";
@@ -259,6 +259,10 @@ async function withCategory(reading: Reading, engine: Engine, tripId: string) {
 export function POST(req: NextRequest) {
   return handle(async () => {
     const { user, tripId } = await requireTripUser();
+    // Recht **vor** dem Rate-Limit: ein abgewiesener Aufruf soll kein Budget
+    // verbrauchen, sonst könnte ein Unberechtigter das Kontingent der
+    // Berechtigten leerlaufen lassen.
+    requirePermission(user, "canAiScan");
     // Zwei Grenzen: die persönliche gegen versehentliche Schleifen, die
     // reiseweite gegen sechs Mitglieder, die gemeinsam das Monatskontingent
     // von Vision aufbrauchen (40/Tag hält eine zweiwöchige Reise unter ~560

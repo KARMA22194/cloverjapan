@@ -10,6 +10,8 @@ interface UserInput {
   email: string;
   role: Role;
   active: boolean;
+  canAiScan: boolean;
+  canReceiptPhoto: boolean;
   createdAt: Date;
 }
 
@@ -20,6 +22,8 @@ export function toUserDto(u: UserInput) {
     email: u.email,
     role: u.role,
     active: u.active,
+    canAiScan: u.canAiScan,
+    canReceiptPhoto: u.canReceiptPhoto,
     createdAt: u.createdAt.toISOString(),
   };
 }

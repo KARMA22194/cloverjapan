@@ -20,7 +20,7 @@ async function mkUser(tag) {
       email: `icons-${tag}-${stamp}@example.test`,
       name: `Icon ${tag}`,
       passwordHash: await bcrypt.hash(PASS, 10),
-      role: "EMPLOYEE",
+      role: "USER",
       active: true,
       emailVerified: new Date(),
     },

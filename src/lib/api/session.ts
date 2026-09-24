@@ -10,6 +10,10 @@ export interface ApiUser {
   name: string;
   email: string;
   role: Role;
+  /** Darf den KI-Beleg-Scan auslösen (Cloud Vision). */
+  canAiScan: boolean;
+  /** Darf Belegfotos anhängen (ohne Scan). */
+  canReceiptPhoto: boolean;
 }
 
 /**
@@ -27,14 +31,28 @@ export async function requireUser(): Promise<ApiUser> {
   // Anfrage frisch aus der DB lesen (statt aus dem Token).
   const fresh = await db.user.findUnique({
     where: { id },
-    select: { active: true, role: true, emailVerified: true, sessionVersion: true },
+    select: {
+      active: true,
+      role: true,
+      emailVerified: true,
+      sessionVersion: true,
+      canAiScan: true,
+      canReceiptPhoto: true,
+    },
   });
   if (!fresh || !fresh.active) throw unauthorized("Konto deaktiviert oder nicht vorhanden.");
   if (!fresh.emailVerified) throw unauthorized("E-Mail-Adresse nicht bestätigt.");
   // Passwort-Reset entwertet alte Sessions (M2).
   if (fresh.sessionVersion !== sessionVersion) throw unauthorized("Sitzung abgelaufen.");
 
-  return { id, name: name ?? "", email: email ?? "", role: fresh.role };
+  return {
+    id,
+    name: name ?? "",
+    email: email ?? "",
+    role: fresh.role,
+    canAiScan: fresh.canAiScan,
+    canReceiptPhoto: fresh.canReceiptPhoto,
+  };
 }
 
 /** Wie {@link requireUser}, zusätzlich ADMIN-Pflicht (sonst 403). */
@@ -63,7 +81,14 @@ export async function requireTripUser(): Promise<{ user: ApiUser; tripId: string
   const [fresh, member] = await Promise.all([
     db.user.findUnique({
       where: { id },
-      select: { active: true, role: true, emailVerified: true, sessionVersion: true },
+      select: {
+      active: true,
+      role: true,
+      emailVerified: true,
+      sessionVersion: true,
+      canAiScan: true,
+      canReceiptPhoto: true,
+    },
     }),
     db.tripMember.findUnique({ where: { userId: id }, select: { tripId: true } }),
   ]);
@@ -72,8 +97,34 @@ export async function requireTripUser(): Promise<{ user: ApiUser; tripId: string
   if (!fresh.emailVerified) throw unauthorized("E-Mail-Adresse nicht bestätigt.");
   if (fresh.sessionVersion !== sessionVersion) throw unauthorized("Sitzung abgelaufen.");
 
-  const user: ApiUser = { id, name: name ?? "", email: email ?? "", role: fresh.role };
+  const user: ApiUser = {
+    id,
+    name: name ?? "",
+    email: email ?? "",
+    role: fresh.role,
+    canAiScan: fresh.canAiScan,
+    canReceiptPhoto: fresh.canReceiptPhoto,
+  };
   // Erster Zugriff eines neuen Kontos: Solo-Reise anlegen (inkl. P2002-Race-Schutz).
   const tripId = member?.tripId ?? (await getActiveTripId(id));
   return { user, tripId };
+}
+
+/**
+ * Wirft 403, wenn dem Konto das Recht fehlt.
+ *
+ * ⚠️ Das ist die Prüfung, die zählt. Die Knöpfe in der Oberfläche werden
+ * zusätzlich ausgeblendet, aber das ist nur Bequemlichkeit — die REST-API ist
+ * same-origin erreichbar, ein direkter Aufruf umginge sie mühelos.
+ */
+export function requirePermission(
+  user: ApiUser,
+  permission: "canAiScan" | "canReceiptPhoto",
+): void {
+  if (user[permission]) return;
+  throw forbidden(
+    permission === "canAiScan"
+      ? "Für den Beleg-Scan nicht freigeschaltet. Bitte Betrag von Hand eintragen."
+      : "Für Belegfotos nicht freigeschaltet.",
+  );
 }

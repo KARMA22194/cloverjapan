@@ -2,14 +2,17 @@ import { redirect } from "next/navigation";
 
 import { requireSessionUser } from "@/lib/auth-session";
 import { UserCreateForm } from "@/components/AdminForms";
-import { UserActiveButton, UserDeleteButton } from "@/components/AdminToggles";
+import {
+  UserActiveButton,
+  UserDeleteButton,
+  UserPermissionToggles,
+} from "@/components/AdminToggles";
 import { SectionIconSettings } from "@/components/SectionIconSettings";
 import { Chip } from "@/components/ui/Chip";
 import { listUsers } from "@/lib/services/users";
 
 const roleLabel: Record<string, string> = {
-  EMPLOYEE: "Employee",
-  MANAGER: "Manager",
+  USER: "Nutzer",
   ADMIN: "Admin",
 };
 
@@ -53,6 +56,18 @@ export default async function AdminPage() {
                     <UserDeleteButton id={u.id} email={u.email} />
                   </div>
                 )}
+              </div>
+
+              {/* Rechte stehen auch in der **eigenen** Zeile: das Scan-Recht
+                  abzugeben (um Kontingent zu sparen) ist ungefährlich und
+                  jederzeit umkehrbar — anders als das eigene Konto zu
+                  deaktivieren, was oben deshalb gesperrt bleibt. */}
+              <div className="mt-2">
+                <UserPermissionToggles
+                  id={u.id}
+                  canAiScan={u.canAiScan}
+                  canReceiptPhoto={u.canReceiptPhoto}
+                />
               </div>
 
               {/* Symbole erst beim Aufklappen laden — 24 Zeilen × N Nutzer wären

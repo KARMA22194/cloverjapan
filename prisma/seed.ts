@@ -17,19 +17,28 @@ async function main() {
 
   // Demo-Konten (gelten als bestätigt → Login nicht durch E-Mail-Gate gesperrt).
   const usersData = [
-    { email: "admin@clover.japan", name: "Admin", role: Role.ADMIN },
-    { email: "manager@clover.japan", name: "Maria Manager", role: Role.MANAGER },
-    { email: "employee@clover.japan", name: "Erik Employee", role: Role.EMPLOYEE },
-    { email: "anna@clover.japan", name: "Anna Weber", role: Role.EMPLOYEE },
-    { email: "ben@clover.japan", name: "Ben Fischer", role: Role.EMPLOYEE },
-    { email: "clara@clover.japan", name: "Clara Schmidt", role: Role.EMPLOYEE },
+    // Nur der Admin darf scannen — dieselbe Voreinstellung wie in Produktion,
+    // damit das Demo-Konto nicht versehentlich ein anderes Verhalten zeigt.
+    { email: "admin@clover.japan", name: "Admin", role: Role.ADMIN, canAiScan: true },
+    { email: "manager@clover.japan", name: "Maria Manager", role: Role.USER, canAiScan: false },
+    { email: "employee@clover.japan", name: "Erik Employee", role: Role.USER, canAiScan: false },
+    { email: "anna@clover.japan", name: "Anna Weber", role: Role.USER, canAiScan: false },
+    { email: "ben@clover.japan", name: "Ben Fischer", role: Role.USER, canAiScan: false },
+    { email: "clara@clover.japan", name: "Clara Schmidt", role: Role.USER, canAiScan: false },
   ];
 
   for (const u of usersData) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: { name: u.name, role: u.role, emailVerified: new Date() },
-      create: { email: u.email, name: u.name, passwordHash, role: u.role, emailVerified: new Date() },
+      update: { name: u.name, role: u.role, canAiScan: u.canAiScan, emailVerified: new Date() },
+      create: {
+        email: u.email,
+        name: u.name,
+        passwordHash,
+        role: u.role,
+        canAiScan: u.canAiScan,
+        emailVerified: new Date(),
+      },
     });
   }
 

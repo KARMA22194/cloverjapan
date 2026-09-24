@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ExpenseCategory } from "@prisma/client";
 
 import { handle, notFound, ok, readJson } from "@/lib/api/http";
-import { requireTripUser } from "@/lib/api/session";
+import { requirePermission, requireTripUser } from "@/lib/api/session";
 import { enforceRateLimit } from "@/lib/rate";
 import { logActivity } from "@/lib/services/activityService";
 import {
@@ -66,6 +66,10 @@ export function PATCH(req: NextRequest, ctx: Ctx) {
     const result: { id: string; hasReceipt?: boolean; category?: ExpenseCategory } = { id };
 
     if (body.receipt !== undefined) {
+      // Nur der Beleg-Teil braucht das Recht. Ein Kategorie-Wechsel ist davon
+      // unberührt — sonst könnte jemand ohne Foto-Recht seine eigene Ausgabe
+      // nicht mehr umsortieren.
+      requirePermission(user, "canReceiptPhoto");
       await enforceRateLimit(`expense-receipt:${user.id}`, 120, 60 * 60 * 1000);
       const count = await setExpenseReceipt(id, tripId, body.receipt);
       if (count === 0) throw notFound("Ausgabe nicht gefunden.");

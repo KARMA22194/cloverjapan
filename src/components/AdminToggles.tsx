@@ -33,6 +33,71 @@ export function UserActiveButton({ id, active }: { id: string; active: boolean }
 }
 
 /**
+ * Die beiden Beleg-Rechte eines Kontos (PATCH /api/v1/users/{id}).
+ *
+ * Getrennte Schalter statt eines gemeinsamen, weil sie Verschiedenes kosten:
+ * der Scan ruft Cloud Vision auf und verbraucht Monatskontingent, das Anhängen
+ * eines Fotos kostet nichts. Deshalb ist „scannen" neu auch standardmäßig aus
+ * und „fotografieren" an.
+ *
+ * Optimistisch mit **Rücknahme**: das Häkchen springt sofort um, aber bei einem
+ * Fehler zurück — ein Recht, das gesetzt aussieht und keines ist, wäre schlimmer
+ * als ein träger Klick.
+ */
+export function UserPermissionToggles({
+  id,
+  canAiScan,
+  canReceiptPhoto,
+}: {
+  id: string;
+  canAiScan: boolean;
+  canReceiptPhoto: boolean;
+}) {
+  const router = useRouter();
+  const [perms, setPerms] = useState({ canAiScan, canReceiptPhoto });
+  const [pending, setPending] = useState(false);
+
+  async function toggle(key: "canAiScan" | "canReceiptPhoto") {
+    const next = !perms[key];
+    const before = perms;
+    setPerms({ ...perms, [key]: next });
+    setPending(true);
+    try {
+      await api.patch(`/api/v1/users/${id}`, { [key]: next });
+      router.refresh();
+    } catch (err) {
+      setPerms(before);
+      alert(err instanceof Error ? err.message : "Änderung fehlgeschlagen.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const box = (key: "canAiScan" | "canReceiptPhoto", label: string, title: string) => (
+    <label
+      title={title}
+      className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-muted"
+    >
+      <input
+        type="checkbox"
+        checked={perms[key]}
+        disabled={pending}
+        onChange={() => toggle(key)}
+        className="h-3.5 w-3.5 accent-brand"
+      />
+      {label}
+    </label>
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {box("canAiScan", "📸 Beleg scannen", "Darf den KI-Beleg-Scan auslösen (verbraucht Kontingent)")}
+      {box("canReceiptPhoto", "📷 Belegfoto", "Darf Belegfotos anhängen (kostet nichts)")}
+    </div>
+  );
+}
+
+/**
  * Konto endgültig löschen (DELETE /api/v1/users/{id}, nur ADMIN).
  *
  * Bewusst **keine** `confirm()`-Abfrage: ein Klick auf „OK" ist bei einem
