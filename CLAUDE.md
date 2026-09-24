@@ -178,7 +178,7 @@ just installed or updated".
    (Buttons/Menüs tot). Neustart regeneriert den Dev-Build.
 2. **CSP erlaubt `eval` nur in der Entwicklung.** `next dev` braucht `'unsafe-eval'`
    (React Fast Refresh/HMR) + `ws:`. In **`src/lib/csp.ts`** env-abhängig gelöst
-   (erzeugt von `src/middleware.ts`); Prod bleibt streng (Nonce + `strict-dynamic`).
+   (erzeugt von `src/proxy.ts`); Prod bleibt streng (Nonce + `strict-dynamic`).
    Fehlt es im Dev → EvalError, kein Client-JS.
 3. **Nach `prisma migrate`/`generate` den Dev-Server neu starten** (sonst alter
    Prisma-Client im Speicher → neue Modelle `undefined`).
@@ -298,7 +298,11 @@ Latenz **multipliziert** sich also mit dieser Zahl.
     `/register`, `/verify`, `/forgot`, `/reset`, **`/k/`** (öffentliche Kofferfinder-Seite).
   - `src/auth.ts` — volle Instanz (Credentials + Passkey; Prisma + bcrypt; Node-Runtime).
     Login prüft `active` **und** `emailVerified`; Brute-Force-Rate-Limit pro E-Mail.
-  - `src/middleware.ts` — eigene NextAuth-Instanz aus `authConfig` für Route-Schutz.
+  - **`src/proxy.ts`** — eigene NextAuth-Instanz aus `authConfig` für Route-Schutz.
+    ⚠️ Hieß bis Next 15 `src/middleware.ts`. Ab **Next 16** ist die Middleware-Konvention
+    abgekündigt und heißt `proxy.ts` (der Dev-Server sagt es bei jedem Start). Inhaltlich
+    identisch: gleicher Default-Export, gleiches `config.matcher`. In den Zeitangaben des
+    Dev-Servers taucht sie jetzt als `proxy.ts` auf.
 - **Login/Logout** bleiben NextAuth-Server-Actions (`src/app/actions/auth.ts`).
   `/api/auth/*` ist der NextAuth-Flow.
 - **Rollen-Gating doppelt:** Middleware (Seiten) **und** in jeder Page/jedem Handler.
@@ -331,14 +335,14 @@ Latenz **multipliziert** sich also mit dieser Zahl.
   Nähe", Eki-Stamps, Koffer-Fund). ⚠️ War früher `geolocation=()` → hätte alle Standort-
   Features geblockt.
 - **CSP: nonce-basiert** — Regeln in `src/lib/csp.ts`, erzeugt pro Request in
-  `src/middleware.ts` (**nicht** in `next.config.ts`; ein statischer Header dort würde den
+  `src/proxy.ts` (**nicht** in `next.config.ts`; ein statischer Header dort würde den
   dynamischen überschreiben). Der Nonce geht in den *Request*-Header (dann hängt Next ihn
   automatisch an seine RSC-Inline-Scripts) **und** in `x-nonce` fürs Theme-Script im
   Root-Layout. `script-src 'self' 'nonce-…' 'strict-dynamic'`; `'unsafe-inline'`/`'unsafe-eval'`
   und `ws:` **nur im Dev** (HMR). `img-src`/`connect-src` nennen nur die real vom Browser
   kontaktierten Hosts (cartocdn, rainviewer) — nicht mehr pauschal `https:`.
   `style-src 'unsafe-inline'` bleibt (Leaflet/Swagger setzen Styles per Attribut).
-  ⚠️ Der Middleware-Matcher schließt `api/` **mit Schrägstrich** aus — ohne ihn griffe der
+  ⚠️ Der Matcher in `proxy.ts` schließt `api/` **mit Schrägstrich** aus — ohne ihn griffe der
   Ausschluss auf jeden Pfad, der mit „api" beginnt, und eine solche Seite bekäme keine CSP.
   ⚠️ Das Theme-Script im Root-Layout braucht **`suppressHydrationWarning`**: der Browser
   leert das `nonce`-Attribut im DOM, sobald die CSP angewendet ist (HTML-Spec — der Wert

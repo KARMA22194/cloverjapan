@@ -4,11 +4,16 @@ import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
 import { NONCE_HEADER, buildCsp } from "@/lib/csp";
 
-// Eigene NextAuth-Instanz nur für die Edge-Middleware (ohne Prisma/bcrypt).
+// Eigene NextAuth-Instanz nur für diese Datei (ohne Prisma/bcrypt — Edge-Runtime).
 const { auth } = NextAuth(authConfig);
 
 /**
  * Route-Schutz (NextAuth `authorized`-Callback) **plus** die Content-Security-Policy.
+ *
+ * ⚠️ Diese Datei hieß bis Next 15 `src/middleware.ts`. Ab **Next 16** ist die
+ * Middleware-Konvention abgekündigt und heißt **`proxy.ts`** — der Dev-Server
+ * sagt es bei jedem Start. Inhaltlich ändert sich nichts: gleicher Default-Export,
+ * gleiches `config.matcher`.
  *
  * Die CSP entsteht hier statt in `next.config.ts`, weil sie einen Nonce pro Request
  * enthält (siehe `src/lib/csp.ts`). Der Nonce geht auf zwei Wegen weiter:
@@ -20,7 +25,7 @@ const { auth } = NextAuth(authConfig);
  * oder ein `false`, kommt dessen Response zurück und unser Callback läuft nicht —
  * der Schutz bleibt also unverändert.
  */
-export default auth(function middleware(req) {
+export default auth(function proxy(req) {
   const nonce = btoa(crypto.randomUUID());
   const csp = buildCsp(nonce, process.env.NODE_ENV !== "production");
 
