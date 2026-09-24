@@ -304,48 +304,83 @@ export function ExpenseCalculator({
 
   const parsedYen = Number(yenInput.replace(",", "."));
   const validYen = Number.isFinite(parsedYen) && parsedYen > 0;
+  /** Für die Live-Vorschau im Eingabefeld: dort gilt der **heutige** Kurs. */
   const eur = (yen: number) => (rate ? yen * rate : 0);
 
+  /**
+   * Euro-Wert einer **erfassten** Ausgabe.
+   *
+   * ⚠️ Mit dem Kurs von damals (`rateEur`), nicht mit dem von heute. Vorher wurde
+   * jede Zeile beim Anzeigen frisch umgerechnet — der Euro-Betrag einer zwei
+   * Wochen alten Konbini-Rechnung änderte sich also täglich, ebenso Summen,
+   * Kategorie-Anteile und die Verlaufsbalken. (Die **Abrechnung** war davon nicht
+   * betroffen: sie rechnet durchgehend in Yen und zeigt Euro nur als Beiwerk.)
+   * `rateEur` fehlt nur bei Altbestand; dann bleibt es beim Tageskurs, weil der
+   * damalige schlicht nicht bekannt ist.
+   */
+  const eurOf = (it: Item) => it.yen * (it.rateEur ?? rate ?? 0);
+
+  /**
+   * ⚠️ Summen werden **in Euro aufaddiert**, nicht aus der Yen-Summe umgerechnet.
+   * Sobald zwei Ausgaben verschiedene Kurse tragen, gibt es keinen einen Kurs
+   * mehr, mit dem sich die Gesamtsumme richtig umrechnen ließe.
+   */
   const totals = useMemo(() => {
     const perCat = new Map<string, number>();
+    const perCatEur = new Map<string, number>();
     let yen = 0;
+    let eurSum = 0;
     for (const it of items) {
+      const e = it.yen * (it.rateEur ?? rate ?? 0);
       perCat.set(it.category, (perCat.get(it.category) ?? 0) + it.yen);
+      perCatEur.set(it.category, (perCatEur.get(it.category) ?? 0) + e);
       yen += it.yen;
+      eurSum += e;
     }
-    return { perCat, yen };
-  }, [items]);
+    return { perCat, perCatEur, yen, eur: eurSum };
+  }, [items, rate]);
 
   const budgetYen = toYen(budget);
   const pct = budgetYen > 0 ? Math.round((totals.yen / budgetYen) * 100) : 0;
   const over = budgetYen > 0 && totals.yen > budgetYen;
   const catBreakdown = EXPENSE_CATEGORIES.filter((c) => totals.perCat.has(c.value)).map((c) => {
     const yen = totals.perCat.get(c.value) ?? 0;
-    return { ...c, yen, eur: eur(yen), frac: totals.yen > 0 ? yen / totals.yen : 0 };
+    return {
+      ...c,
+      yen,
+      eur: totals.perCatEur.get(c.value) ?? 0,
+      frac: totals.yen > 0 ? yen / totals.yen : 0,
+    };
   });
 
   // Wer hat wie viel bezahlt (nach paidById; Name über die Mitgliederliste).
   const perPerson = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const it of items) m.set(it.paidById ?? "?", (m.get(it.paidById ?? "?") ?? 0) + it.yen);
-    const rows = [...m.entries()].map(([id, yen]) => ({
+    const m = new Map<string, { yen: number; eur: number }>();
+    for (const it of items) {
+      const key = it.paidById ?? "?";
+      const cur = m.get(key) ?? { yen: 0, eur: 0 };
+      m.set(key, { yen: cur.yen + it.yen, eur: cur.eur + it.yen * (it.rateEur ?? rate ?? 0) });
+    }
+    const rows = [...m.entries()].map(([id, v]) => ({
       name: members.find((x) => x.id === id)?.name ?? "Unbekannt",
-      yen,
+      ...v,
     }));
     return rows.sort((a, b) => b.yen - a.yen);
-  }, [items, members]);
+  }, [items, members, rate]);
 
   // Ausgaben je Tag (aus createdAt), chronologisch — Verlauf über die Reise.
   const perDay = useMemo(() => {
-    const m = new Map<string, number>();
+    const m = new Map<string, { yen: number; eur: number }>();
     for (const it of items) {
       const day = it.createdAt?.slice(0, 10);
-      if (day) m.set(day, (m.get(day) ?? 0) + it.yen);
+      if (!day) continue;
+      const cur = m.get(day) ?? { yen: 0, eur: 0 };
+      m.set(day, { yen: cur.yen + it.yen, eur: cur.eur + it.yen * (it.rateEur ?? rate ?? 0) });
     }
     return [...m.entries()]
-      .map(([day, yen]) => ({ day, yen }))
+      .map(([day, v]) => ({ day, ...v }))
       .sort((a, b) => a.day.localeCompare(b.day));
-  }, [items]);
+  }, [items, rate]);
   const maxPerson = Math.max(1, ...perPerson.map((p) => p.yen));
   const maxDay = Math.max(1, ...perDay.map((d) => d.yen));
 
@@ -752,7 +787,7 @@ export function ExpenseCalculator({
                     {yenFmt.format(it.yen)}
                   </span>
                   <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-ink">
-                    {eurFmt.format(eur(it.yen))}
+                    {eurFmt.format(eurOf(it))}
                   </span>
                   {/* Ansehen darf jeder, der die Ausgabe sieht — anhängen nur mit
                       Recht. Ohne diese Bedingung wäre `canReceiptPhoto` mit zwei
@@ -805,11 +840,11 @@ export function ExpenseCalculator({
           <div className="border-t border-hairline px-3 py-2">
             <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1">
               {EXPENSE_CATEGORIES.filter((c) => totals.perCat.has(c.value)).map((c) => {
-                const y = totals.perCat.get(c.value) ?? 0;
+                const e = totals.perCatEur.get(c.value) ?? 0;
                 return (
                   <span key={c.value} className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
                     <span className="h-2.5 w-2.5 rounded-sm border border-black/10" style={{ backgroundColor: c.color }} />
-                    {c.label}: {eurFmt.format(eur(y))}
+                    {c.label}: {eurFmt.format(e)}
                   </span>
                 );
               })}
@@ -817,7 +852,7 @@ export function ExpenseCalculator({
             <div className="flex items-center justify-between border-t border-hairline pt-2 text-sm font-semibold text-ink">
               <span>Gesamt</span>
               <span className="tabular-nums">
-                {yenFmt.format(totals.yen)} · {eurFmt.format(eur(totals.yen))}
+                {yenFmt.format(totals.yen)} · {eurFmt.format(totals.eur)}
               </span>
             </div>
           </div>
@@ -874,7 +909,7 @@ export function ExpenseCalculator({
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-[11px] text-ink-subtle">Gesamt</span>
                 <span className="text-sm font-semibold text-ink">
-                  {eurFmt.format(eur(totals.yen))}
+                  {eurFmt.format(totals.eur)}
                 </span>
               </div>
             </div>
@@ -939,7 +974,7 @@ export function ExpenseCalculator({
               <BarList
                 rows={perPerson.map((p) => ({
                   label: p.name,
-                  value: `${yenFmt.format(p.yen)} · ${eurFmt.format(eur(p.yen))}`,
+                  value: `${yenFmt.format(p.yen)} · ${eurFmt.format(p.eur)}`,
                   frac: p.yen / maxPerson,
                   title: `${p.name}: ${yenFmt.format(p.yen)}`,
                 }))}
@@ -961,7 +996,7 @@ export function ExpenseCalculator({
                     month: "2-digit",
                     timeZone: "UTC",
                   }),
-                  value: `${yenFmt.format(d.yen)} · ${eurFmt.format(eur(d.yen))}`,
+                  value: `${yenFmt.format(d.yen)} · ${eurFmt.format(d.eur)}`,
                   frac: d.yen / maxDay,
                   title: `${d.day}: ${yenFmt.format(d.yen)}`,
                 }))}

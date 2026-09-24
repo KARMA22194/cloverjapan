@@ -1,6 +1,7 @@
 import { Prisma, type BookingKind, type ExpenseCategory } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { runWithRate } from "@/lib/services/fxService";
 import { parseDateParam } from "@/lib/time";
 
 export interface BookingInput {
@@ -40,6 +41,9 @@ function expenseCategory(kind: BookingKind): ExpenseCategory {
 /** Hält die verknüpfte Ausgabe synchron: Preis gesetzt → Ausgabe; sonst entfernt. */
 async function syncExpense(
   tx: Prisma.TransactionClient,
+  // Kurs kommt von außen: ein HTTP-Aufruf innerhalb der Transaktion hielte
+  // sie unnötig lange offen.
+  rateEur: number | null,
   booking: {
     id: string;
     tripId: string;
@@ -60,8 +64,9 @@ async function syncExpense(
         yen: booking.priceYen,
         createdByName: booking.createdByName,
         bookingId: booking.id,
+        rateEur,
       },
-      update: { yen: booking.priceYen, label, category: expenseCategory(booking.kind) },
+      update: { yen: booking.priceYen, label, category: expenseCategory(booking.kind), rateEur },
     });
   } else {
     await tx.expense.deleteMany({ where: { bookingId: booking.id } });
@@ -82,19 +87,19 @@ function fields(input: BookingInput) {
 }
 
 export function createBooking(tripId: string, input: BookingInput, createdByName: string) {
-  return db.$transaction(async (tx) => {
+  return runWithRate(async (rateEur, tx) => {
     const booking = await tx.booking.create({ data: { tripId, createdByName, ...fields(input) } });
-    await syncExpense(tx, booking);
+    await syncExpense(tx, rateEur, booking);
     return booking;
   });
 }
 
 export function updateBookingOwned(id: string, tripId: string, input: BookingInput) {
-  return db.$transaction(async (tx) => {
+  return runWithRate(async (rateEur, tx) => {
     const existing = await tx.booking.findFirst({ where: { id, tripId }, select: { id: true } });
     if (!existing) return null;
     const booking = await tx.booking.update({ where: { id }, data: fields(input) });
-    await syncExpense(tx, booking);
+    await syncExpense(tx, rateEur, booking);
     return booking;
   });
 }

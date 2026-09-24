@@ -1,6 +1,7 @@
 import type { ExpenseCategory } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { getFxRate } from "@/lib/services/fxService";
 
 export function listExpenses(tripId: string) {
   // Explizites select OHNE `receipt`: der (bis 1,5 MB große) Beleg-Blob gehört nicht
@@ -18,11 +19,20 @@ export function listExpenses(tripId: string) {
       paidById: true,
       shared: true,
       hasReceipt: true,
+      rateEur: true,
     },
   });
 }
 
-export function createExpense(
+/**
+ * Ausgabe anlegen — mit **eingefrorenem** Wechselkurs.
+ *
+ * Der Kurs wird hier geholt und mitgeschrieben, statt beim Anzeigen gerechnet
+ * zu werden: sonst änderte sich der Euro-Betrag einer alten Ausgabe täglich.
+ * Fällt der Kursdienst aus, bleibt das Feld `null` und die Anzeige nimmt den
+ * Tageskurs — kein Grund, das Anlegen scheitern zu lassen.
+ */
+export async function createExpense(
   tripId: string,
   input: {
     category: ExpenseCategory;
@@ -33,6 +43,7 @@ export function createExpense(
   },
   createdByName: string,
 ) {
+  const fx = await getFxRate();
   return db.expense.create({
     data: {
       tripId,
@@ -42,6 +53,7 @@ export function createExpense(
       createdByName,
       paidById: input.paidById ?? null,
       shared: input.shared ?? true,
+      rateEur: fx?.rate ?? null,
     },
   });
 }

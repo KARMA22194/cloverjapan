@@ -1,0 +1,12 @@
+-- Wechselkurs je Ausgabe einfrieren.
+--
+-- Bisher wurde jede Ausgabe mit dem HEUTIGEN Kurs in Euro umgerechnet. Der
+-- Euro-Betrag einer zwei Wochen alten Rechnung änderte sich damit täglich,
+-- ebenso Summen, Kategorie-Anteile und Verlauf. (Die Abrechnung selbst rechnet
+-- in Yen und war nicht betroffen.)
+--
+-- Bewusst NULLABLE und ohne Backfill: für Altbestand ist der damalige Kurs nicht
+-- bekannt. Ihn mit dem heutigen zu füllen hieße, eine Schätzung als Tatsache zu
+-- speichern; null heißt ehrlich „unbekannt", und die Anzeige fällt dafür auf den
+-- Tageskurs zurück — also genau auf das bisherige Verhalten.
+ALTER TABLE "Expense" ADD COLUMN "rateEur" DOUBLE PRECISION;

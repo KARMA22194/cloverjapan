@@ -316,6 +316,12 @@ model Expense {
   yen           Int
   createdByName String   @default("")
   createdAt     DateTime @default(now())
+  // JPY→EUR-Kurs im Moment der Erfassung. Ohne ihn rechnete die Liste **jede**
+  // Ausgabe mit dem HEUTIGEN Kurs um — der Euro-Betrag einer zwei Wochen alten
+  // Konbini-Rechnung änderte sich also täglich, ebenso Summen und Diagramme.
+  // null = unbekannt (Altbestand oder Kursdienst war beim Anlegen nicht
+  // erreichbar); dann fällt die Anzeige auf den Tageskurs zurück.
+  rateEur       Float?
   trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   // Wer die Ausgabe bezahlt hat (für die Abrechnung). null = nicht zugeordnet
   // (z. B. Altbestand oder Zahler aus der Reise entfernt → SetNull).

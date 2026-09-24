@@ -28,6 +28,7 @@ const toDto = (e: {
   paidById: string | null;
   shared: boolean;
   hasReceipt: boolean;
+  rateEur: number | null;
 }) => ({
   id: e.id,
   category: e.category,
@@ -38,6 +39,7 @@ const toDto = (e: {
   paidById: e.paidById,
   shared: e.shared,
   hasReceipt: e.hasReceipt, // Blob (receipt) wird in der Liste nie geladen/ausgeliefert
+  rateEur: e.rateEur, // Kurs von damals — die Liste rechnet NICHT mit dem Tageskurs
 });
 
 /** GET /api/v1/expenses — Ausgaben des aktuellen Nutzers. */

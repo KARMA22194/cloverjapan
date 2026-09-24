@@ -537,8 +537,25 @@ Dashboard gespiegelt.
 
 ### Geld-Bereich (`/geld`, Tabs)
 
-- **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro live via `GET /api/v1/fx/rate`
-  (open.er-api.com, keyfrei). Kategorien (`src/lib/expenses.ts`) + Budget + Donut + Zahler +
+- **Ausgabenrechner** (`ExpenseCalculator.tsx`): Yen→Euro via `GET /api/v1/fx/rate`
+  (open.er-api.com, keyfrei; Kursabruf zentral in `services/fxService.ts`).
+  ⚠️ **`Expense.rateEur` friert den Kurs beim Erfassen ein.** Vorher rechnete die
+  Anzeige *jede* Ausgabe mit dem **heutigen** Kurs um — der Euro-Betrag einer zwei
+  Wochen alten Konbini-Rechnung änderte sich damit täglich, ebenso Summen,
+  Kategorie-Anteile und die Verlaufsbalken. (Die **Abrechnung** war nie betroffen:
+  sie rechnet durchgehend in Yen, Euro steht dort nur als Beiwerk.)
+  ⚠️ **Summen werden in Euro aufaddiert**, nicht aus der Yen-Summe umgerechnet:
+  sobald zwei Ausgaben verschiedene Kurse tragen, gibt es keinen einen Kurs mehr,
+  mit dem die Yen-Summe richtig umrechenbar wäre.
+  ⚠️ `rateEur` ist **nullable ohne Backfill** — für Altbestand ist der damalige Kurs
+  nicht bekannt, und ihn mit dem heutigen zu füllen hieße, eine Schätzung als
+  Tatsache zu speichern. `null` fällt auf den Tageskurs zurück, also aufs bisherige
+  Verhalten. Fällt der Kursdienst beim Anlegen aus, bleibt das Feld ebenfalls leer —
+  kein Grund, die Ausgabe scheitern zu lassen.
+  ⚠️ Die gekoppelten Ausgaben aus **Flügen und Buchungen** bekommen ihn auch
+  (`runWithRate` in `fxService.ts`). Der HTTP-Aufruf gehört **vor** `$transaction`,
+  nicht hinein — sonst hielte ein langsamer Kursdienst eine offene Postgres-
+  Transaktion auf. Test: `e2e/expense-rate.mjs`. Kategorien (`src/lib/expenses.ts`) + Budget + Donut + Zahler +
   „auf alle aufteilen" + Beleg-Foto.
   ⚠️ **„Auf alle aufteilen" ist standardmäßig AUS** und wird nach jedem Eintrag
   zurückgesetzt (`setShared(false)` in `addItem`) — der Haken muss aktiv gesetzt

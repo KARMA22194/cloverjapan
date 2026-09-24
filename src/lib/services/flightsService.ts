@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { runWithRate } from "@/lib/services/fxService";
 
 export interface FlightInput {
   flightNumber: string;
@@ -38,6 +39,9 @@ function expenseLabel(f: { flightNumber: string; fromCode: string; toCode: strin
 /** Hält die verknüpfte Ausgabe synchron: Preis gesetzt → Ausgabe (TRANSPORT); sonst weg. */
 async function syncExpense(
   tx: Prisma.TransactionClient,
+  // Kurs kommt von außen: ein HTTP-Aufruf innerhalb der Transaktion hielte
+  // sie unnötig lange offen.
+  rateEur: number | null,
   flight: {
     id: string;
     tripId: string;
@@ -58,8 +62,9 @@ async function syncExpense(
         yen: flight.priceYen,
         createdByName: flight.createdByName,
         flightId: flight.id,
+        rateEur,
       },
-      update: { yen: flight.priceYen, label: expenseLabel(flight) },
+      update: { yen: flight.priceYen, label: expenseLabel(flight), rateEur },
     });
   } else {
     await tx.expense.deleteMany({ where: { flightId: flight.id } });
@@ -84,19 +89,19 @@ function fields(input: FlightInput) {
 }
 
 export function createFlight(tripId: string, input: FlightInput, createdByName: string) {
-  return db.$transaction(async (tx) => {
+  return runWithRate(async (rateEur, tx) => {
     const flight = await tx.flight.create({ data: { tripId, createdByName, ...fields(input) } });
-    await syncExpense(tx, flight);
+    await syncExpense(tx, rateEur, flight);
     return flight;
   });
 }
 
 export function updateFlightOwned(id: string, tripId: string, input: FlightInput) {
-  return db.$transaction(async (tx) => {
+  return runWithRate(async (rateEur, tx) => {
     const existing = await tx.flight.findFirst({ where: { id, tripId }, select: { id: true } });
     if (!existing) return null;
     const flight = await tx.flight.update({ where: { id }, data: fields(input) });
-    await syncExpense(tx, flight);
+    await syncExpense(tx, rateEur, flight);
     return flight;
   });
 }

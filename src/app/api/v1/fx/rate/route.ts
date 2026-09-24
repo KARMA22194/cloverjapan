@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { ApiError, handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
+import { getFxRate } from "@/lib/services/fxService";
 
 // ISO-4217-Code: genau 3 Großbuchstaben. Verhindert Pfad-Manipulation im externen
 // URL-Pfad (…/v6/latest/${from}), z. B. from="JPY/..".
@@ -19,27 +20,13 @@ export function GET(req: NextRequest) {
     const from = currencySchema.parse((req.nextUrl.searchParams.get("from") ?? "JPY").toUpperCase());
     const to = currencySchema.parse((req.nextUrl.searchParams.get("to") ?? "EUR").toUpperCase());
 
-    const res = await fetch(`https://open.er-api.com/v6/latest/${from}`, {
-      headers: { "User-Agent": "TimeTracker/1.0" },
-      // Kurs ändert sich täglich → 1 h serverseitig cachen (weniger externe Calls).
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) throw new ApiError(502, "Wechselkurs-Dienst nicht erreichbar.");
-
-    const data = (await res.json()) as {
-      result: string;
-      rates?: Record<string, number>;
-      time_last_update_utc?: string;
-    };
-    const rate = data.rates?.[to];
-    if (data.result !== "success" || typeof rate !== "number") {
-      throw new ApiError(502, "Wechselkurs nicht verfügbar.");
-    }
+    const fx = await getFxRate(from, to);
+    if (!fx) throw new ApiError(502, "Wechselkurs nicht verfügbar.");
 
     // Auch dem **Browser** eine Cachedauer mitgeben: der externe Call ist zwar
     // serverseitig gecacht, die Function lief bisher aber trotzdem bei jedem
     // Seitenaufruf (Kurs-Pill in der TopNav + Ausgaben-/Zoll-Ansicht).
-    const res2 = ok({ from, to, rate, date: data.time_last_update_utc ?? null });
+    const res2 = ok({ from, to, rate: fx.rate, date: fx.date });
     res2.headers.set("Cache-Control", "private, max-age=3600");
     return res2;
   });

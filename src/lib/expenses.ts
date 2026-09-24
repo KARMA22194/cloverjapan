@@ -46,6 +46,8 @@ export interface ExpenseItem {
   paidById?: string | null;
   shared?: boolean;
   hasReceipt?: boolean;
+  /** JPY→EUR-Kurs beim Erfassen; null/fehlend = unbekannt → Tageskurs. */
+  rateEur?: number | null;
   createdAt?: string; // ISO; von der API geliefert, u. a. für den Zeitverlauf-Chart
 }
 
