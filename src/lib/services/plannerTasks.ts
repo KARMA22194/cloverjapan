@@ -18,11 +18,12 @@ export function getAllPlannerTasks(tripId: string) {
 
 export function createPlannerTask(
   tripId: string,
-  input: { dateParam: string; time: string; text: string; assigneeName?: string },
+  input: { id?: string; dateParam: string; time: string; text: string; assigneeName?: string },
   createdByName: string,
 ) {
   return db.plannerTask.create({
     data: {
+      ...(input.id ? { id: input.id } : {}),
       tripId,
       date: parseDateParam(input.dateParam),
       time: input.time,

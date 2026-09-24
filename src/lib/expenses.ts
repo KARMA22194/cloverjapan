@@ -49,6 +49,12 @@ export interface ExpenseItem {
   /** JPY→EUR-Kurs beim Erfassen; null/fehlend = unbekannt → Tageskurs. */
   rateEur?: number | null;
   createdAt?: string; // ISO; von der API geliefert, u. a. für den Zeitverlauf-Chart
+  /**
+   * Offline erfasst und noch nicht beim Server angekommen (Outbox).
+   * ⚠️ Kommt **nie** von der API, sondern nur aus dem Platzhalter in
+   * `queueMutation` — nach dem Nachholen ersetzt die echte Antwort den Eintrag.
+   */
+  pendingSync?: boolean;
 }
 
 /**

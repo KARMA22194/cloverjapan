@@ -10,7 +10,7 @@ export function listWishlist(tripId: string) {
 
 export async function createWishlistItem(
   tripId: string,
-  input: { label: string; priceYen?: number | null },
+  input: { id?: string; label: string; priceYen?: number | null },
   createdByName: string,
 ) {
   // Position aus dem aktuellen Maximum ableiten — in einer **serialisierbaren**
@@ -25,6 +25,7 @@ export async function createWishlistItem(
     });
     return tx.wishlistItem.create({
       data: {
+        ...(input.id ? { id: input.id } : {}),
         tripId,
         label: input.label.trim(),
         priceYen: input.priceYen ?? null,

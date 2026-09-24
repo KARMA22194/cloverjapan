@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+import { clientIdSchema } from "@/lib/api/schemas";
+
 // Geteilte Validierung/DTO für die Wunschlisten-Endpunkte (nicht in route.ts).
 
 export const createBody = z.object({
+  id: clientIdSchema,
   label: z.string().trim().min(1, "Bezeichnung fehlt.").max(200),
   priceYen: z.number().int().positive().max(100_000_000).nullish(),
 });

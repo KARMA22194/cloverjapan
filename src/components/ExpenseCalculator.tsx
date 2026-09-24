@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { SYNCED_EVENT } from "@/lib/offline/outbox";
 import { eurFmt, yenFmt } from "@/lib/format";
 import { resizeImage } from "@/lib/image";
 import { useMembers } from "@/lib/useMembers";
@@ -200,11 +201,21 @@ export function ExpenseCalculator({
   }, []);
 
   // Ausgaben aus der (geteilten) Reise laden.
+  //
+  // ⚠️ Auch nach dem Nachholen der Outbox: bis dahin stehen in der Liste
+  // Platzhalter ohne die Felder, die erst der Server setzt (eingefrorener
+  // Wechselkurs, Ersteller, Beleg-Flag). Ohne dieses zweite Laden bliebe die
+  // Anzeige bis zum nächsten Seitenaufbau unvollständig.
   useEffect(() => {
-    api
-      .get<Item[]>("/api/v1/expenses")
-      .then(setItems)
-      .catch(() => {});
+    const load = () => {
+      api
+        .get<Item[]>("/api/v1/expenses")
+        .then(setItems)
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener(SYNCED_EVENT, load);
+    return () => window.removeEventListener(SYNCED_EVENT, load);
   }, []);
 
   // Standard-Zahler = ich selbst, sobald die Mitglieder geladen sind.
@@ -775,6 +786,14 @@ export function ExpenseCalculator({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-ink-muted">
+                      {/* Offline erfasst: sichtbar machen, dass der Server diese
+                          Ausgabe noch nicht kennt — sonst hält man sie für
+                          gesichert. */}
+                      {it.pendingSync && (
+                        <span title="Wartet auf Verbindung" className="mr-1">
+                          ⏳
+                        </span>
+                      )}
                       {it.label || "—"}
                     </p>
                     {it.by && (

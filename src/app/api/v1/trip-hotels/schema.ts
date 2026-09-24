@@ -1,12 +1,14 @@
 import { z } from "zod";
 
 import { dateStr } from "@/lib/api/dates";
+import { clientIdSchema } from "@/lib/api/schemas";
 import { toDateParam } from "@/lib/time";
 
 // Geteilte Validierung/DTO für die Trip-Hotel-Endpunkte. Bewusst NICHT in route.ts:
 // Next.js erlaubt in Route-Dateien ausschließlich Handler-Exporte.
 
 export const hotelBody = z.object({
+  id: clientIdSchema,
   // Nominatim-Labels können lang sein → nicht hart ablehnen, sondern auf 300 kürzen.
   label: z
     .string()

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { BookingKind } from "@prisma/client";
 
 import { dateStr } from "@/lib/api/dates";
+import { clientIdSchema } from "@/lib/api/schemas";
 import { toDateParam } from "@/lib/time";
 
 // Geteilte Validierung/DTO für die Buchungs-Endpunkte (nicht in route.ts — Next.js
@@ -28,6 +29,13 @@ export const bookingBody = z.object({
   note: z.string().max(1000).optional().default(""),
   priceYen: z.number().int().positive().max(100_000_000).nullish(),
 });
+
+/**
+ * Anlegen erlaubt zusätzlich eine vom Client vergebene Id (offline erfasst).
+ * ⚠️ Bewusst **nur** hier und nicht in `bookingBody`: das PATCH benutzt
+ * dasselbe Schema, und eine Buchung darf ihre Id nicht nachträglich wechseln.
+ */
+export const bookingCreateBody = bookingBody.extend({ id: clientIdSchema });
 
 export const toBookingDto = (b: {
   id: string;

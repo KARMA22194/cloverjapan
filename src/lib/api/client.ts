@@ -4,6 +4,7 @@
  * Aufrufe und keine Server Actions mehr für Daten-Mutationen.
  */
 
+import { pendingCreates, queueMutation } from "@/lib/offline/outbox";
 import { toast } from "@/lib/toast";
 
 export class ApiRequestError extends Error {
@@ -40,6 +41,21 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch {
+    // Kein Netz. Für die Endpunkte der Allowlist ist das kein Fehler, sondern
+    // Aufschub: die Mutation wandert in die Outbox und geht raus, sobald wieder
+    // Verbindung besteht (`src/lib/offline/outbox.ts`).
+    //
+    // ⚠️ Nur hier, im **Netzwerk**-Fehler. Ein 4xx/5xx weiter unten ist eine
+    // echte Antwort des Servers und wird nie nachgeholt — das stille
+    // Wiederholen einer abgelehnten Anfrage wäre kein Dienst, sondern ein
+    // Fehler, den niemand mehr sieht.
+    if (notify) {
+      const queued = await queueMutation(method, path, body);
+      if (queued) {
+        toast("Offline gespeichert – wird bei Verbindung nachgeholt.", "info");
+        return queued.response as T;
+      }
+    }
     if (notify) toast("Keine Verbindung – bitte später erneut versuchen.");
     throw new ApiRequestError(0, "Keine Verbindung");
   }
@@ -88,11 +104,35 @@ function dedupedGet<T>(path: string): Promise<T> {
   const running = inFlight.get(path);
   if (running) return running as Promise<T>;
 
-  const p = request<T>("GET", path).finally(() => {
-    inFlight.delete(path);
-  });
+  const p = request<T>("GET", path)
+    .then((data) => withPending(path, data))
+    .finally(() => {
+      inFlight.delete(path);
+    });
   inFlight.set(path, p);
   return p;
+}
+
+/**
+ * Noch nicht gesendete Neuanlagen in eine geladene Liste einblenden.
+ *
+ * ⚠️ Nur für Sammlungen **ohne** Query-Teil. Bei `planner-tasks?date=…` wüsste
+ * diese Ebene nicht, ob der wartende Eintrag zu genau diesem Tag gehört — sie
+ * würde ihn sonst am falschen Datum anzeigen. Lieber gar nicht einblenden als
+ * an der falschen Stelle.
+ */
+async function withPending<T>(path: string, data: T): Promise<T> {
+  if (!Array.isArray(data) || path.includes("?")) return data;
+  const waiting = await pendingCreates(path);
+  if (waiting.length === 0) return data;
+  const known = new Set(
+    data.map((row) => (row && typeof row === "object" ? (row as { id?: string }).id : undefined)),
+  );
+  const extra = waiting.filter((row) => {
+    const id = row && typeof row === "object" ? (row as { id?: string }).id : undefined;
+    return id !== undefined && !known.has(id);
+  });
+  return (extra.length === 0 ? data : [...data, ...extra]) as T;
 }
 
 export const api = {

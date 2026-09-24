@@ -7,11 +7,12 @@ export function listSettlements(tripId: string) {
 
 export function createSettlement(
   tripId: string,
-  input: { fromId: string; toId: string; fromName: string; toName: string; yen: number },
+  input: { id?: string; fromId: string; toId: string; fromName: string; toName: string; yen: number },
   createdByName: string,
 ) {
   return db.settlement.create({
     data: {
+      ...(input.id ? { id: input.id } : {}),
       tripId,
       fromId: input.fromId,
       toId: input.toId,

@@ -3,12 +3,13 @@ import { z } from "zod";
 
 import { handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
-import { dateParamSchema } from "@/lib/api/schemas";
+import { clientIdSchema, dateParamSchema } from "@/lib/api/schemas";
 import { createPlannerTask, getPlannerTasks } from "@/lib/services/plannerTasks";
 import { logActivity } from "@/lib/services/activityService";
 import { toDateParam } from "@/lib/time";
 
 const createBody = z.object({
+  id: clientIdSchema,
   date: dateParamSchema,
   time: z.string().max(5).optional().default(""),
   text: z.string().min(1).max(300),
@@ -49,7 +50,13 @@ export function POST(req: NextRequest) {
     const body = createBody.parse(await readJson(req));
     const created = await createPlannerTask(
       tripId,
-      { dateParam: body.date, time: body.time, text: body.text, assigneeName: body.assigneeName },
+      {
+        id: body.id,
+        dateParam: body.date,
+        time: body.time,
+        text: body.text,
+        assigneeName: body.assigneeName,
+      },
       user.name,
     );
     logActivity({

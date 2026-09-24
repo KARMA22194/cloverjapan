@@ -12,6 +12,27 @@ import { isRealDate } from "@/lib/api/dates";
 
 export const roleSchema = z.enum(["USER", "ADMIN"]);
 
+/**
+ * Optionale, vom **Client** vergebene Id beim Anlegen.
+ *
+ * Gebraucht wird sie für offline erfasste Einträge: die App legt sie in die
+ * Outbox (`src/lib/offline/outbox.ts`) und schickt sie nach, sobald wieder
+ * Netz da ist. Vergäbe der Server die Id, wüsste der Client nach einer
+ * **verlorenen Antwort** nicht, ob der Datensatz schon existiert — der zweite
+ * Versuch legte ihn ein zweites Mal an, und eine doppelte Ausgabe verfälscht
+ * still die Abrechnung. Mit eigener Id läuft der zweite Versuch in den
+ * Primärschlüssel und kommt als 409 zurück, was die Warteschlange als „war
+ * schon da" liest.
+ *
+ * Ein Missbrauch bringt nichts: eine bereits belegte Id (auch die einer
+ * fremden Reise) scheitert am Primärschlüssel — es wird nichts überschrieben
+ * und nichts sichtbar.
+ */
+export const clientIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{8,64}$/, "Ungültige Id.")
+  .optional();
+
 // Datums-Parameter (YYYY-MM-DD) — u. a. vom Tagesplaner genutzt.
 // `isRealDate` zusätzlich zur Regex: sonst käme „2026-13-45" bis in `parseDateParam`
 // durch und würde dort als 500 statt als 400 enden.

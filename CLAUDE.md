@@ -95,6 +95,14 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   beim Mounten nichts, es gibt also kein Netz-Signal. Er wartet darauf, dass React seine
   Props am Knopf hängen hat (`__reactProps$…`). Ohne das verpufft der erste Klick lautlos —
   dieselbe Falle wie in Dev-Server-Falle 4, nur ohne den üblichen Ausweg.
+- **Web-Push:** `web-push` + VAPID (`src/lib/services/push.ts`, `PushSubscription`-Modell,
+  Schalter `PushToggle.tsx` im Profil, Versand aus `activityService`). Der SW zeigt die
+  Meldung (`push`/`notificationclick` in `public/sw.js`).
+  ⚠️ **Ohne `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` passiert schlicht nichts** —
+  `pushConfigured()` gibt `false` zurück und der Versand wird stillschweigend
+  übersprungen. Der Schalter im Profil sieht dabei aus, als täte er etwas. Die Keys
+  gehören deshalb in **jede** Umgebung, auch in Vercel (Production), erzeugt mit
+  `npx web-push generate-vapid-keys`.
 - **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
   `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
 - **Tailwind CSS v4**, **Zod 4**, **date-fns / date-fns-tz**
@@ -192,7 +200,14 @@ just installed or updated".
    und der Test scheitert, obwohl das Feature funktioniert. Auf ein
    Client-Effekt-Signal warten (z. B. verschwundenes „Wechselkurs wird geladen…"),
    dann handeln. Kostete beim Beleg-Scan-Test eine ganze Fehlersuche.
-5. **Diagnose** am schnellsten per **headless Playwright** im Container
+5. **Das Login-Rate-Limit gilt auch für Testläufe.** `login-ip:::1` erlaubt
+   **30 Logins je 15 min** — aus dem Container kommen alle E2E-Skripte von
+   derselben IP. Wer die Suite zügig zweimal durchlaufen lässt, bekommt danach
+   Fehlschläge, die wie Code-Fehler aussehen, aber keine sind (zweimal
+   passiert). Erst nachsehen:
+   `docker compose exec -T db psql -U postgres -d timetracker -c "SELECT key, count FROM \"RateLimit\" WHERE key LIKE 'login%';"`
+   — und den Zähler notfalls löschen, statt Code zu ändern.
+6. **Diagnose** am schnellsten per **headless Playwright** im Container
    (`page.on('console'/'pageerror')`): zeigt CSP-EvalError bzw. 404/`text/plain`-Chunks.
 
 ## Setup & Befehle (alles über Docker)
@@ -228,6 +243,53 @@ Warnung/ein Datenverlust ansteht (z. B. Unique-Constraint, DROP). Dann die
   **Cross-User-Schutz:** `DATA_CACHE` ist per Marker `/__owner` an einen Nutzer gebunden;
   `PwaRegister` meldet die Session (`/api/v1/me`), TopNav den Logout → bei Nutzerwechsel/
   Logout wird der Daten-Cache geleert. `OfflineBanner` zeigt den Offline-Zustand.
+- **Offline-SCHREIBzugriff (Outbox):** `src/lib/offline/outbox.ts` + `queueable.ts`.
+  Der SW beantwortet nur GETs (`request.method !== "GET" → return`) — jede Mutation
+  lief vorher ohne Verbindung in den Fehler-Toast und war **weg**. Genau dort wird die
+  App aber benutzt (Konbini-Untergeschoss, Yamanote, Shinkansen-Tunnel). Jetzt wandert
+  sie in eine IndexedDB-Warteschlange und geht raus, sobald wieder Netz da ist.
+  ⚠️ **Client-seitig, nicht per Background Sync im SW:** die Background-Sync-API gibt es
+  in **Safari/iOS nicht** — auf dem iPhone, für das diese App auch als Capacitor-Hülle
+  gebaut wird, wäre sie wirkungslos. Der Haken sitzt stattdessen im `catch` von
+  `src/lib/api/client.ts`, also an der einen Stelle, durch die ohnehin jede Mutation läuft.
+  ⚠️ **Nur im Netzwerk-Fehler**, nie bei 4xx/5xx: eine vom Server abgelehnte Anfrage
+  still zu wiederholen wäre ein Fehler, den danach niemand mehr sieht.
+  ⚠️ **Die Reihenfolge ist Teil der Richtigkeit.** Abgearbeitet wird streng FIFO und beim
+  ersten Netzfehler abgebrochen: „Ausgabe anlegen" und „Beleg anhängen" sind zwei
+  Anfragen, und die zweite nennt die Id der ersten.
+  ⚠️ **Idempotenz über eine vom Client vergebene Id** (`clientIdSchema` in
+  `api/schemas.ts`, optionales `id` im POST-Body von expenses/planner-tasks/wishlist/
+  bookings/settlements/trip-hotels). Ohne sie gäbe es Doppelbuchungen: erreicht die
+  Anfrage den Server und geht die **Antwort** auf dem Rückweg verloren, weiß die
+  Warteschlange nicht, ob sie durchkam — der zweite Versuch legte ein zweites Mal an.
+  Mit eigener Id läuft er in den Primärschlüssel → 409 → „war schon da". Missbrauch
+  bringt nichts: eine belegte Id scheitert ebenso, es wird nichts überschrieben.
+  Endpunkte, die **von sich aus** idempotent sind (PUT-Replace bei `checklist`,
+  `trip-stops`, `budget`; Unique-Index bei `stamps/collect`), brauchen keine.
+  ⚠️ **Allowlist statt „alles außer …"** (`queueable.ts`): ein neuer Endpunkt landet
+  nicht versehentlich in der Warteschlange. Draußen sind u. a. `expenses/scan` (braucht
+  Cloud Vision), `luggage/found/*` (eine Fundmeldung von vor zwei Stunden ist wertlos),
+  Auth/Konto/Rechte und `presence`. Ebenfalls gesperrt: **DELETE auf die Sammlung
+  selbst** (`DELETE /api/v1/expenses` löscht die Ausgaben der ganzen Reise) — so etwas
+  Stunden später nachzuholen, wenn niemand mehr daran denkt, wäre kein Dienst.
+  ⚠️ **Wartende Neuanlagen werden in geladene Listen eingeblendet** (`withPending` in
+  `client.ts`). Sonst hätte die Warteschlange ein sichtbares Loch: offline liefert der
+  SW die zuletzt **gecachte** Liste, in der der gerade erfasste Eintrag naturgemäß
+  fehlt — nach einem Neuladen wäre er verschwunden, und wer ihn erneut eintippt, hat
+  ihn doppelt. Nur bei Sammlungen **ohne** Query-Teil: bei `planner-tasks?date=…` wüsste
+  diese Ebene nicht, ob der Eintrag zu diesem Tag gehört.
+  ⚠️ Die Oberfläche **muss** Wartendes kennzeichnen (⏳ in der Zeile, Zähler in der
+  Leiste): gezeigt wird der Wunsch des Nutzers, nicht der Stand des Servers. Ohne das
+  hielte er die Ausgabe für gesichert und schlösse die App.
+  ⚠️ **Bekannte Grenze:** die PUT-Replace-Endpunkte (`checklist`, `trip-stops`) sind
+  „last write wins". Eine offline geänderte Checkliste überschreibt beim Nachholen, was
+  ein Mitreisender inzwischen geändert hat. Online galt das schon immer; offline ist das
+  Fenster nur größer. Sauber wäre eine feldweise Zusammenführung — dafür müssten die
+  Endpunkte von Replace auf Delta umgestellt werden.
+  ⚠️ `navigator.onLine` sagt nur, ob ein Netzwerk **vorhanden** ist, nicht ob es trägt
+  (Hotel-WLAN mit Anmeldeseite, Funkzelle am Rand). Deshalb neben dem `online`-Ereignis
+  ein 30-s-Takt in `OfflineBanner`. Tests: `e2e/offline-outbox.mjs` (Browser, echter
+  Offline-Schalter) und `e2e/offline-queueable.ts` (Allowlist, ohne Netz).
 - **Playwright** (im Container): einmalig
   `docker compose exec app npx playwright install --with-deps chromium`, dann
   `docker compose exec app npx playwright test` bzw. eigene `node e2e/<script>.mjs`.
@@ -984,6 +1046,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
 | `GOOGLE_VISION_API_KEY` | **Beleg-Scan** (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat, darüber kostenpflichtig). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
 | `VISION_MONTHLY_LIMIT` | Scans pro **Kalendermonat** über alle Nutzer (Default 950) | optional |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | **Web-Push**. Ohne sie wird **still** nichts verschickt (s. o.) | für Push |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |
@@ -1013,9 +1076,15 @@ Seed (`prisma/seed.ts`) legt nur die 6 Demo-Nutzer an (bestätigt). Passwort: `p
 
 ## Offen / Ideen
 
-CSV/Export · Charts · Alkohol/Tabak-Mengengrenzen im Zollrechner · Ort-Vorschlag beim
-Tippen im Tagesplaner · getrennte Preview-/Prod-DB bei Vercel · Nonce-basierte CSP (statt
-`'unsafe-inline'`) · Beleg-Fotos in Object-Store (Vercel Blob) statt Data-URL.
+CSV/Export · Charts · Ort-Vorschlag beim Tippen im Tagesplaner · getrennte Preview-/Prod-DB
+bei Vercel · Beleg-Fotos in Object-Store (Vercel Blob) statt Data-URL · Backup der
+Neon-Datenbank (`pg_dump` als Cron) · ESLint überhaupt einrichten? · feldweises
+Zusammenführen statt PUT-Replace bei `checklist`/`trip-stops` (s. Outbox-Grenze).
+
+⚠️ **Hier stand Erledigtes.** „Alkohol/Tabak-Mengengrenzen im Zollrechner" und
+„Nonce-basierte CSP" waren längst umgesetzt, standen aber weiter als offen. Eine
+Ideenliste, die Fertiges führt, wird beim Lesen stillschweigend abgewertet — wer sie
+ändert, streicht also mit.
 
 **Verworfen:** Gepäck-Tracker via **Web Bluetooth** — im Web/iOS nicht umsetzbar (Safari
 unterstützt Web Bluetooth nicht; billige Tracker verschlüsseln ihre IDs). Stattdessen der

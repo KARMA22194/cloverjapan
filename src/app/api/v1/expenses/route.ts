@@ -4,11 +4,14 @@ import { ExpenseCategory } from "@prisma/client";
 
 import { badRequest, forbidden, handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
+import { clientIdSchema } from "@/lib/api/schemas";
 import { areTripMembers, canManageMembers } from "@/lib/services/trip";
 import { clearExpenses, createExpense, listExpenses } from "@/lib/services/expensesService";
 import { logActivity } from "@/lib/services/activityService";
 
 const createBody = z.object({
+  // Offline erfasst? Dann bringt der Client die Id mit (s. clientIdSchema).
+  id: clientIdSchema,
   // Direkt aus dem Prisma-Enum: ein unbekannter Wert wird jetzt als 400 abgewiesen,
   // statt erst in der DB als Serverfehler aufzuschlagen.
   category: z.enum(ExpenseCategory),

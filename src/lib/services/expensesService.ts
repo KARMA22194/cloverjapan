@@ -35,6 +35,7 @@ export function listExpenses(tripId: string) {
 export async function createExpense(
   tripId: string,
   input: {
+    id?: string;
     category: ExpenseCategory;
     label: string;
     yen: number;
@@ -46,6 +47,9 @@ export async function createExpense(
   const fx = await getFxRate();
   return db.expense.create({
     data: {
+      // Nur setzen, wenn der Client eine Id mitbringt (offline erfasst) —
+      // sonst vergibt Prisma wie bisher eine cuid.
+      ...(input.id ? { id: input.id } : {}),
       tripId,
       category: input.category,
       label: input.label.trim(),

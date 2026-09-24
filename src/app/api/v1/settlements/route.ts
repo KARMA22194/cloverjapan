@@ -3,10 +3,12 @@ import { z } from "zod";
 
 import { badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
+import { clientIdSchema } from "@/lib/api/schemas";
 import { areTripMembers } from "@/lib/services/trip";
 import { createSettlement, listSettlements } from "@/lib/services/settlements";
 
 const settlementBody = z.object({
+  id: clientIdSchema,
   fromId: z.string().min(1).max(40),
   toId: z.string().min(1).max(40),
   fromName: z.string().max(100).optional().default(""),

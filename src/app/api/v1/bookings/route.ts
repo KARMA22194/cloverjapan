@@ -4,7 +4,7 @@ import { handle, ok, readJson } from "@/lib/api/http";
 import { requireTripUser } from "@/lib/api/session";
 import { createBooking, listBookings } from "@/lib/services/bookingsService";
 import { logActivity } from "@/lib/services/activityService";
-import { bookingBody, toBookingDto } from "./schema";
+import { bookingCreateBody, toBookingDto } from "./schema";
 
 /** GET /api/v1/bookings — Buchungen/Tickets der aktuellen Reise. */
 export function GET() {
@@ -18,7 +18,7 @@ export function GET() {
 export function POST(req: NextRequest) {
   return handle(async () => {
     const { user, tripId } = await requireTripUser();
-    const body = bookingBody.parse(await readJson(req));
+    const body = bookingCreateBody.parse(await readJson(req));
     const created = await createBooking(tripId, body, user.name);
     logActivity({
       tripId,

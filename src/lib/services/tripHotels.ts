@@ -14,7 +14,7 @@ export function getTripHotels(tripId: string) {
 /** Hängt eine Unterkunft hinten an (id via @default(cuid()) aus Prisma). */
 export async function addTripHotel(
   tripId: string,
-  hotel: { label: string; lat: number; lng: number; checkIn?: string | null; checkOut?: string | null },
+  hotel: { id?: string; label: string; lat: number; lng: number; checkIn?: string | null; checkOut?: string | null },
   createdByName: string,
 ) {
   // Position aus dem aktuellen Maximum ableiten — in einer **serialisierbaren**
@@ -29,6 +29,7 @@ export async function addTripHotel(
     });
     return tx.tripHotel.create({
       data: {
+        ...(hotel.id ? { id: hotel.id } : {}),
         tripId,
         label: hotel.label,
         lat: hotel.lat,
