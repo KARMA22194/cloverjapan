@@ -38,8 +38,17 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
 
 ## Tech-Stack
 
-- **Next.js 15** (App Router; REST-API via Route Handlers, Reads via Server Components)
+- **Next.js 16** (App Router; REST-API via Route Handlers, Reads via Server Components)
   + **TypeScript** (strict)
+  ⚠️ **Turbopack ist ab Next 16 der Standard** — eine eigene `webpack`-Konfiguration
+  lässt den Build mit „Call retries were exceeded" abbrechen. Die eigentliche Ursache
+  steht weiter oben in der Ausgabe, der Fehler selbst nennt sie nicht. Hier stand ein
+  Datei-Polling fürs HMR im Docker-Bind-Mount; Turbopack beobachtet selbst, der leere
+  `turbopack: {}`-Block bestätigt Next die bewusste Wahl.
+  ⚠️ **`next lint` gibt es nicht mehr.** Das Skript lief ins Leere („Invalid project
+  directory: /app/lint"). Eine ESLint-Konfiguration hatte das Projekt ohnehin nie, das
+  Skript prüfte also nichts. Ersetzt durch **`npm run typecheck`** (`tsc --noEmit`) —
+  offen bleibt, ob ESLint überhaupt eingerichtet werden soll.
 - **Prisma 7** + **PostgreSQL 16**
   ⚠️ **Prisma 7 verlangt einen Treiber-Adapter.** `new PrismaClient()` ohne Argumente
   wirft sofort — die eingebaute Rust-Engine gibt es nicht mehr. `src/lib/db.ts` benutzt
@@ -114,7 +123,7 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   automatisch beim Deploy** (braucht `DIRECT_URL` = Neon-Direct-URL, sonst schlägt der
   Deploy fehl und nichts Neues geht live).
 
-Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-66478**),
+Wichtige Versionen: `next` ^16.x (nie auf 15.1.6 zurück — **CVE-2025-66478**),
 `tailwindcss` + `@tailwindcss/postcss` müssen **dieselbe** 4.x-Version haben
 (sonst Build-Fehler „Missing field `negated` on ScannerOptions.sources").
 

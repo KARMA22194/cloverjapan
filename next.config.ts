@@ -30,14 +30,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Innerhalb des Docker-Bind-Mounts zuverlässiges HMR
-  webpack: (config) => {
-    config.watchOptions = {
-      poll: 1000,
-      aggregateTimeout: 300,
-    };
-    return config;
-  },
+  // ⚠️ Hier stand eine `webpack`-Anpassung (Datei-Polling für zuverlässiges HMR
+  // im Docker-Bind-Mount). Ab Next 16 ist **Turbopack der Standard**, und eine
+  // eigene webpack-Konfiguration lässt den Build mit „Call retries were
+  // exceeded" abbrechen — die Meldung nennt die Ursache erst weiter oben.
+  // Turbopack beobachtet Dateien selbst; der leere Block bestätigt Next, dass
+  // die Wahl bewusst ist.
+  turbopack: {},
 };
 
 export default nextConfig;

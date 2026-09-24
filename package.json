@@ -6,12 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "db:seed": "tsx prisma/seed.ts",
     "e2e": "playwright test",
     "cap:add:ios": "cap add ios",
     "cap:add:android": "cap add android",
-    "cap:sync": "cap sync"
+    "cap:sync": "cap sync",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -34,7 +34,7 @@
     "date-fns": "4.4.0",
     "date-fns-tz": "3.2.0",
     "leaflet": "^1.9.4",
-    "next": "^15.5.26",
+    "next": "^16.3.6",
     "next-auth": "5.0.0-beta.32",
     "nodemailer": "^8.0.11",
     "pg": "^8.23.0",
