@@ -45,6 +45,9 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   steht weiter oben in der Ausgabe, der Fehler selbst nennt sie nicht. Hier stand ein
   Datei-Polling fürs HMR im Docker-Bind-Mount; Turbopack beobachtet selbst, der leere
   `turbopack: {}`-Block bestätigt Next die bewusste Wahl.
+  ⚠️ **TypeScript 7** ist der neu geschriebene (native) Compiler. Er hat hier ohne
+  Anpassung übersetzt — aber `npm run typecheck` ist damit die Stelle, an der ein
+  Verhaltensunterschied zuerst auffiele. Die Prüfung im Build läuft weiter über Next.
   ⚠️ **`next lint` gibt es nicht mehr.** Das Skript lief ins Leere („Invalid project
   directory: /app/lint"). Eine ESLint-Konfiguration hatte das Projekt ohnehin nie, das
   Skript prüfte also nichts. Ersetzt durch **`npm run typecheck`** (`tsc --noEmit`) —

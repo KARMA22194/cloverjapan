@@ -156,7 +156,16 @@ try {
     localStorage.setItem("japan-budget", "99000");
     localStorage.setItem("japan-cat-budgets", JSON.stringify({ FIGUREN: "7000" }));
   });
+  // ⚠️ Auf das PUT warten statt blind zu pollen. Die Übernahme passiert erst,
+  // wenn der Client-Effekt gelaufen ist — und wie lange das dauert, hängt daran,
+  // ob Turbopack die Route gerade frisch übersetzt. Eine feste Wartezeit war
+  // genau deshalb sporadisch zu kurz.
+  const migration = pageB.waitForResponse(
+    (r) => r.url().includes("/api/v1/budget") && r.request().method() === "PUT",
+    { timeout: 60000 },
+  );
   await pageB.reload({ waitUntil: "domcontentloaded" });
+  await migration;
   let migrated = null;
   for (let i = 0; i < 40 && !migrated; i++) {
     const cur = await budgetOf(b.id);
