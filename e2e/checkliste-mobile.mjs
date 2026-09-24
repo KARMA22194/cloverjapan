@@ -3,8 +3,8 @@
 // Ursache der zerquetschten Zeilen).
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-const db = new PrismaClient();
+import { testDb } from "./_db.mjs";
+const db = testDb();
 const PASS = "Test-1234!";
 const s = Date.now();
 const mk = async (t) => db.user.create({ data: { email: `cl-${t}-${s}@example.test`, name: t === "a" ? "Steve Brunner" : "Anna Beispiel",

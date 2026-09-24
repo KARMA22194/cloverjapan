@@ -5,13 +5,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ⚠️ Ab Prisma 7 stehen die Verbindungs-URLs **nicht mehr hier**, sondern in
+// `prisma.config.ts` (Migrationen) bzw. kommen zur Laufzeit aus `DATABASE_URL`.
 datasource db {
   provider = "postgresql"
-  // Laufzeit-Verbindung der App (bei Neon: die „Pooled"-URL).
-  url      = env("DATABASE_URL")
-  // Direkte Verbindung nur für `prisma migrate` (bei Neon: die „Direct"-URL).
-  // Lokal (Docker) identisch mit DATABASE_URL setzen.
-  directUrl = env("DIRECT_URL")
 }
 
 // Nur zwei Stufen. `MANAGER` gab es früher, wurde aber **nirgends** abgefragt —

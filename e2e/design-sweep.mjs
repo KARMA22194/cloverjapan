@@ -2,9 +2,9 @@
 // den noch nicht umgestellten Bereichen je einen Screenshot ablegen.
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./_db.mjs";
 
-const db = new PrismaClient();
+const db = testDb();
 const EMAIL = `design-sweep-${Date.now()}@example.test`;
 const PASS = "Test-1234!";
 const BASE = "http://localhost:3000";

@@ -40,7 +40,21 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
 
 - **Next.js 15** (App Router; REST-API via Route Handlers, Reads via Server Components)
   + **TypeScript** (strict)
-- **Prisma** + **PostgreSQL 16**
+- **Prisma 7** + **PostgreSQL 16**
+  ⚠️ **Prisma 7 verlangt einen Treiber-Adapter.** `new PrismaClient()` ohne Argumente
+  wirft sofort — die eingebaute Rust-Engine gibt es nicht mehr. `src/lib/db.ts` benutzt
+  **`@prisma/adapter-pg`** (nicht `adapter-neon`: der spricht WebSockets und liefe nicht
+  gegen das lokale Docker-Postgres — zwei verschiedene Datenpfade für Entwicklung und
+  Produktion wären genau die Sorte Unterschied, die erst im Deploy auffällt).
+  Der Pool ist bewusst klein (`max: 1` auf Vercel): jede Serverless-Instanz baut einen
+  **eigenen** Pool auf und bearbeitet ohnehin eine Anfrage zur Zeit; mit dem pg-Default
+  von 10 wären Neons Verbindungen schnell aufgebraucht.
+  ⚠️ **Die Verbindungs-URLs stehen nicht mehr im Schema.** Der `datasource`-Block trägt
+  nur noch `provider`; die URL für `migrate`/`db`-Befehle steht in **`prisma.config.ts`**
+  (dort `DIRECT_URL`), die Laufzeit liest `DATABASE_URL` selbst. Wer `directUrl` ins
+  Schema zurückschreibt, bekommt einen Validierungsfehler.
+  ⚠️ Auch **Seed und alle E2E-Skripte** brauchen den Adapter — die Skripte holen sich
+  den Client deshalb aus **`e2e/_db.mjs`** statt ihn je Datei selbst zu bauen.
 - **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted);
   zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`, `Credential`-Tabelle;
   Config in `src/lib/webauthn.ts`, ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS).

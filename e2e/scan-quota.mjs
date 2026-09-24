@@ -12,9 +12,9 @@
 //  4. abgewiesene Aufrufe erhöhen den Zähler nicht weiter.
 import bcrypt from "bcryptjs";
 import { chromium } from "playwright";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./_db.mjs";
 
-const db = new PrismaClient();
+const db = testDb();
 const BASE = "http://localhost:3000";
 const PASS = "Test-1234!";
 const stamp = Date.now();

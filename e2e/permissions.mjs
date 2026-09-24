@@ -10,9 +10,9 @@
 //  6. ein Admin darf seine eigenen Rechte ändern, sich aber nicht deaktivieren.
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./_db.mjs";
 
-const db = new PrismaClient();
+const db = testDb();
 const BASE = "http://localhost:3000";
 const PASS = "Test-1234!";
 const stamp = Date.now();

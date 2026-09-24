@@ -7,9 +7,9 @@
 //  4. unbekannte Kategorie wird abgewiesen (400).
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./_db.mjs";
 
-const db = new PrismaClient();
+const db = testDb();
 const BASE = "http://localhost:3000";
 const PASS = "Test-1234!";
 const stamp = Date.now();
@@ -93,7 +93,12 @@ try {
     null,
     { timeout: 30000 },
   );
+  // ⚠️ `count()` wartet NICHT (anders als `click`/`inputValue`). Nach der
+  // Hydration ist die Ausgabenliste noch nicht zwingend geladen — erst auf die
+  // Zeile warten, dann zählen. Sonst hängt das Ergebnis daran, ob der
+  // Listen-Request zufällig vor dem Kurs-Request zurückkommt.
   const sel = pageA.locator("ul select").first();
+  await sel.waitFor({ state: "attached", timeout: 30000 });
   ok("Auswahl in der Liste vorhanden", (await sel.count()) === 1);
   ok("zeigt aktuelle Kategorie", (await sel.inputValue()) === "ESSEN");
   await sel.selectOption("TRANSPORT");

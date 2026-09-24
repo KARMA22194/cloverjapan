@@ -14,9 +14,9 @@
 //  5. Wein und Bier haben eigene Grenzen, unabhängig von den Spirituosen.
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./_db.mjs";
 
-const db = new PrismaClient();
+const db = testDb();
 const BASE = "http://localhost:3000";
 const PASS = "Test-1234!";
 const stamp = Date.now();

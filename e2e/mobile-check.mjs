@@ -2,8 +2,8 @@
 // nach gequetschten Textspalten (< 60 px breit = Text bricht nach jedem Wort).
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-const db = new PrismaClient();
+import { testDb } from "./_db.mjs";
+const db = testDb();
 const PASS = "Test-1234!";
 const u = await db.user.create({ data: { email: `mob-${Date.now()}@example.test`, name: "Mobil Test",
   passwordHash: await bcrypt.hash(PASS, 10), role: "ADMIN", active: true, emailVerified: new Date() } });

@@ -1,7 +1,11 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// ⚠️ Prisma 7 verlangt einen Treiber-Adapter — ohne ihn wirft der Konstruktor.
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 async function main() {
   // Schutz: Der Seed legt Demo-Konten mit öffentlich dokumentiertem Passwort an.
