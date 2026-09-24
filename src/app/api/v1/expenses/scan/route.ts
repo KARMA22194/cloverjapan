@@ -4,13 +4,48 @@ import { ExpenseCategory } from "@prisma/client";
 
 import { ApiError, badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requirePermission, requireTripUser } from "@/lib/api/session";
-import { enforceRateLimit } from "@/lib/rate";
+import { consumeRateLimit, enforceRateLimit } from "@/lib/rate";
 import { extractTotal, guessMeta, rowsFromWords, type AmountSource, type OcrWord } from "@/lib/receipt";
 import { categoryForLabel } from "@/lib/services/expensesService";
 
 // Der Erkenner ist ein externer Aufruf mit einem mehrere MB großen Bild im
 // Rumpf. Ohne eigene Obergrenze bricht Vercel die Funktion vorher ab.
 export const maxDuration = 30;
+
+/* ─────────────────────── Monatskontingent (Kosten) ──────────────────────── */
+
+/**
+ * Obergrenze für Vision-Aufrufe **pro Kalendermonat, über alle Nutzer und Reisen**.
+ *
+ * Die bestehenden Grenzen (30/h pro Nutzer, 40/Tag pro Reise) sind lokal: sie
+ * bremsen Einzelne, nicht die Summe. Das Gratis-Kontingent von Google hängt aber
+ * am **Projekt** — alle Reisen zahlen auf denselben Zähler ein, und schon eine
+ * einzige Reise dürfte damit rechnerisch 1.200 Bilder im Monat verbrauchen.
+ *
+ * ⚠️ Über dem Freikontingent hört Google nicht auf, sondern **rechnet ab** (Cloud
+ * Vision setzt ein aktives Rechnungskonto voraus). Die Quota-Einstellung in der
+ * Google Cloud hilft dagegen nicht: sie begrenzt Aufrufe pro **Minute**, nicht pro
+ * Monat. Diese Schranke hier ist deshalb die einzige Stelle in der App, an der die
+ * Kosten wirklich enden — entsprechend konservativ (950 von 1.000).
+ */
+const VISION_MONTHLY_LIMIT = Number(process.env.VISION_MONTHLY_LIMIT ?? 950);
+
+/**
+ * Schlüssel **pro Kalendermonat** (UTC), weil Google genau so abrechnet.
+ *
+ * Ein rollierendes 30-Tage-Fenster wäre hier falsch: läuft es Mitte des Monats
+ * ab, ließe es im selben Kalendermonat fast das Doppelte durch. Mit dem Monat im
+ * Schlüssel beginnt am Monatsersten automatisch ein frischer Zähler.
+ */
+function visionQuotaKey(now: Date): string {
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `vision-quota:${now.getUTCFullYear()}-${month}`;
+}
+
+/** Millisekunden bis zum Monatswechsel — so verfällt die Zeile von selbst. */
+function msUntilNextMonth(now: Date): number {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime();
+}
 
 // Erlaubte Kategorien aus dem Prisma-Enum ableiten — eine Quelle statt einer
 // zweiten Liste, die beim Erweitern vergessen werden kann.
@@ -211,6 +246,24 @@ export function POST(req: NextRequest) {
     const visionKey = process.env.GOOGLE_VISION_API_KEY;
     if (!visionKey) {
       throw new ApiError(422, "Beleg-Scan ist nicht konfiguriert (kein API-Key). Bitte manuell eintragen.");
+    }
+
+    // Erst unmittelbar vor dem externen Aufruf zählen — alles davor (falsches
+    // Format, zu großes Bild) kostet nichts und darf das Kontingent nicht
+    // schmälern.
+    const now = new Date();
+    const withinQuota = await consumeRateLimit(
+      visionQuotaKey(now),
+      VISION_MONTHLY_LIMIT,
+      msUntilNextMonth(now),
+    );
+    if (!withinQuota) {
+      throw new ApiError(
+        429,
+        `Das Kontingent für den Beleg-Scan ist für diesen Monat aufgebraucht ` +
+          `(${VISION_MONTHLY_LIMIT} Belege). Bitte den Betrag von Hand eintragen — ` +
+          `am Monatsersten geht es wieder.`,
+      );
     }
 
     const reading = await readWithVision(base64, visionKey);

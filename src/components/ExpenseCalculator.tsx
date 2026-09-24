@@ -308,8 +308,10 @@ export function ExpenseCalculator({
   async function scanReceipt(file: File) {
     setScanning(true);
     setScanNote(null);
+    // Außerhalb des try, damit das Foto im Fehlerfall erhalten bleibt.
+    let dataUrl: string | null = null;
     try {
-      const dataUrl = await resizeReceipt(file);
+      dataUrl = await resizeReceipt(file);
       const r = await api.post<{
         yen: number;
         category?: ExpenseCategoryValue;
@@ -328,7 +330,14 @@ export function ExpenseCalculator({
       setPendingReceipt(dataUrl); // wird beim Speichern automatisch angehängt
       setScanNote(scanNoteFor(r.yen, r.source, r.categoryFrom));
     } catch {
-      /* Fehlermeldung (z. B. kein API-Key) erscheint als Toast */
+      // Die Fehlermeldung selbst (kein Key, Kontingent aufgebraucht, Beleg
+      // unlesbar) erscheint als Toast. Das **Foto** aber behalten: es ist schon
+      // aufgenommen und verkleinert, und es nach der Meldung ein zweites Mal
+      // verlangen zu müssen wäre die eigentliche Zumutung.
+      if (dataUrl && canReceiptPhoto) {
+        setPendingReceipt(dataUrl);
+        setScanNote("Nicht gelesen \u2013 Foto wird angeh\u00e4ngt, Betrag bitte eintippen.");
+      }
     } finally {
       setScanning(false);
     }

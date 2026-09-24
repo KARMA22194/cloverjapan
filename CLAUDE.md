@@ -209,7 +209,8 @@ Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
   **Zugverbindung/Google Directions (60/h — einziger wirklich abgerechneter Call)**,
   Konbini (20/h), Beleg-Scan (30/h pro Nutzer **und** 40/Tag pro Reise — Letzteres
   schützt das Monatskontingent von Vision vor sechs gleichzeitig scannenden
-  Mitgliedern), Koffer-Fund (5/10 min pro Token & IP **plus** 20/h pro Token
+  Mitgliedern), **Vision-Monatskontingent** (950 Scans/Kalendermonat, **global** —
+  s. u.), Koffer-Fund (5/10 min pro Token & IP **plus** 20/h pro Token
   ohne IP-Anteil). Der Zähler ist **atomar** (ein `INSERT … ON CONFLICT … RETURNING`), sonst
   rutschten gleichzeitige Requests alle mit `count = 0` durch. `clientIp()` nimmt die IP nur aus
   vertrauenswürdiger Quelle (Vercel-Header / `cf-connecting-ip` / `TRUSTED_PROXY_HOPS` von rechts) —
@@ -528,6 +529,26 @@ Dashboard gespiegelt.
   `members.length > 1`. Tests, die ihn anfassen, brauchen ein zweites `TripMember`. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
   (Cloud Vision) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
   Foto beim Speichern automatisch angehängt. Ohne Key → 422 → manuell.
+  ⚠️ **Das Monatskontingent ist die einzige Kostenbremse in der App.** Die Grenzen
+  30/h pro Nutzer und 40/Tag pro Reise sind *lokal* — sie bremsen Einzelne, nicht die
+  Summe. Das Gratis-Kontingent hängt aber am **Google-Projekt**: alle Reisen zahlen auf
+  denselben Zähler ein, und schon eine einzige Reise dürfte rechnerisch 1.200
+  Bilder/Monat verbrauchen. Über 1.000 hört Google nicht auf, sondern **rechnet ab**
+  (Cloud Vision setzt ein aktives Rechnungskonto voraus); die Quota-Einstellung in der
+  Cloud begrenzt nur Aufrufe pro **Minute**. Deshalb `VISION_MONTHLY_LIMIT`
+  (Default 950), gezählt unter dem Schlüssel `vision-quota:YYYY-MM`.
+  ⚠️ Der Schlüssel trägt den **Kalendermonat**, kein rollierendes 30-Tage-Fenster:
+  liefe das Fenster Mitte des Monats ab, ließe es im selben Kalendermonat fast das
+  Doppelte durch — und Google rechnet pro Kalendermonat ab.
+  ⚠️ Gezählt wird **unmittelbar vor** dem Vision-Aufruf, nicht am Anfang des Handlers:
+  falsches Format oder zu großes Bild kostet nichts und darf das Kontingent nicht
+  schmälern. Umgekehrt steht die **Rechteprüfung ganz vorn**, damit ein Unberechtigter
+  nicht mit abgewiesenen Aufrufen fremdes Budget leert.
+  ⚠️ Zweite, von der App unabhängige Bremse: ein **Budget-Alarm in der Google Cloud**.
+  Der greift auch, wenn hier etwas schiefgeht. Test: `e2e/scan-quota.mjs`.
+  ⚠️ Schlägt der Scan fehl (Kontingent, kein Key, unlesbar), behält das Formular das
+  **Foto** und hängt es beim Speichern an. Es nach der Fehlermeldung ein zweites Mal
+  zu verlangen wäre die eigentliche Zumutung.
   ⚠️ **Die Antwort ist ein Vorschlag, keine Wahrheit.** `source` (`total` |
   `taxIncluded` | `subtotal` | `guess`) sagt, wie belastbar der Betrag ist; bei
   `subtotal`/`guess` bzw. `yen = 0` zeigt das Formular einen Prüfhinweis
@@ -788,6 +809,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `SMTP_*` | E-Mail (Einladung/Verify/Reset, **Koffer-Fund**) | für Mailversand |
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
 | `GOOGLE_VISION_API_KEY` | **Beleg-Scan** (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat, darüber kostenpflichtig). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
+| `VISION_MONTHLY_LIMIT` | Scans pro **Kalendermonat** über alle Nutzer (Default 950) | optional |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |
