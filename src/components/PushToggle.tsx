@@ -7,11 +7,21 @@ import { Card } from "@/components/ui/Card";
 import { buttonClasses } from "@/components/ui/Button";
 
 /** VAPID-Public-Key (base64url) → Uint8Array für pushManager.subscribe. */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+/**
+ * ⚠️ Rückgabetyp **`Uint8Array<ArrayBuffer>`**, nicht bloß `Uint8Array`.
+ *
+ * Seit TypeScript 5.7 ist `Uint8Array` generisch über seinen Puffer und heißt
+ * ohne Angabe `Uint8Array<ArrayBufferLike>` — das schließt `SharedArrayBuffer`
+ * mit ein und passt damit nicht mehr auf `BufferSource`, das
+ * `PushManager.subscribe` für `applicationServerKey` verlangt. Der Puffer wird
+ * deshalb explizit als `ArrayBuffer` angelegt; ein Cast wäre hier die schlechtere
+ * Lösung, weil er die Aussage nur verdeckt, statt sie wahr zu machen.
+ */
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
+  const arr = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }

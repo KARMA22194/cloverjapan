@@ -77,6 +77,16 @@ Wichtige Versionen: `next` ^15.5.x (nicht auf 15.1.6 zurück — **CVE-2025-6647
 `tailwindcss` + `@tailwindcss/postcss` müssen **dieselbe** 4.x-Version haben
 (sonst Build-Fehler „Missing field `negated` on ScannerOptions.sources").
 
+⚠️ **Die Pinning-Art ist Absicht und `npm install <pkg>` zerstört sie.** Ein Teil der
+Abhängigkeiten steht **exakt** (ohne `^`) in der `package.json` — u. a. `react`,
+`react-dom`, `prisma`/`@prisma/client`, `tailwindcss`, `@tailwindcss/postcss`,
+`typescript`, `@types/*`. `npm install name@version` schreibt daraus stillschweigend
+`^version`. Nach einem Update also prüfen und zurücksetzen; beim Tailwind-Paar würde
+ein `^` sonst genau den Versatz erlauben, vor dem der Absatz oben warnt.
+⚠️ Nach einem Update von `@playwright/test` **`npx playwright install chromium`** im
+Container nachziehen — sonst scheitern alle E2E-Skripte mit „Looks like Playwright was
+just installed or updated".
+
 ## Umgebung — wichtige Besonderheiten
 
 - **Docker-only:** Auf dem Host ist **kein Node/npm** installiert. Alle
