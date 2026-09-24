@@ -18,9 +18,15 @@ export function FxPill() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // ⚠️ Bewusst **JPY→EUR**, obwohl hier „¥ pro €" angezeigt wird: derselbe
+    // Aufruf, den alle anderen Ansichten machen (Ausgaben, Abrechnung, Zoll,
+    // Wunschliste, Flüge). Vorher fragte diese Pille die Gegenrichtung ab — zwei
+    // verschiedene URLs für denselben Kurs, also zwei Antworten im Browser-Cache
+    // und auf jeder Geld-Seite zwei Function-Aufrufe statt einem. Der Kehrwert
+    // kostet eine Division.
     api
-      .get<{ rate: number }>("/api/v1/fx/rate?from=EUR&to=JPY")
-      .then((d) => setRate(d.rate))
+      .get<{ rate: number }>("/api/v1/fx/rate?from=JPY&to=EUR")
+      .then((d) => setRate(d.rate > 0 ? 1 / d.rate : null))
       .catch(() => {});
   }, []);
 

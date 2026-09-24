@@ -170,6 +170,34 @@ ausschließlich** über die REST-API (`/api/v1/*`), nie über Server Actions fü
 Reads bleiben **SSR** — aber über *dieselbe* Service-Schicht. Genau **ein** kanonischer
 Ort für Datenlogik: `src/lib/services/*` (→ Prisma).
 
+### Tempo (Vercel + Neon)
+
+Gemessen mit einem Playwright-Lauf, der die API-Aufrufe je Seitenaufruf zählt:
+`/start` 8 · `/geld` 6 · `/info` 8 · `/programm` 3 · `/reiseplaner` 5. Jeder Aufruf
+ist auf Vercel eine eigene Function-Invocation mit eigenen DB-Roundtrips — die
+Latenz **multipliziert** sich also mit dieser Zahl.
+
+- ⚠️ **Der Kurs wird überall in **derselben** Richtung geholt** (`fx/rate?from=JPY&to=EUR`).
+  Die `FxPill` in der TopNav fragte früher `EUR→JPY` ab: zwei URLs für denselben Kurs,
+  also zwei Einträge im Browser-Cache und auf jeder Geld-Seite ein Aufruf zu viel. Wer
+  die Gegenrichtung braucht, bildet den Kehrwert.
+- **Browser-Cache statt Invocation:** `fx/rate` (`private, max-age=3600`) und
+  `geo/weather` (`900`) setzen eigene `Cache-Control`-Header. Ohne die liefe für Werte,
+  die stundenlang stabil sind, bei **jedem** Seitenaufruf eine Function.
+- ⚠️ **Im Dev-Modus feuert jeder Effekt doppelt** (React StrictMode). Eine Messung im
+  `next dev` zeigt deshalb rund die doppelte Zahl an Aufrufen; in Produktion ist das
+  nicht so. Wer Aufrufe zählt, muss das wissen, sonst jagt er ein Gespenst.
+- ⚠️ **Zwei Dinge liegen außerhalb des Codes** und sind die größeren Hebel:
+  **(a)** `vercel.json` setzt **keine** `regions` → die Functions laufen in Vercels
+  Standardregion (`iad1`, Washington). Liegt die Neon-Datenbank in Europa, kreuzt
+  **jede einzelne Abfrage** den Atlantik. Passend gesetzt (`"regions": ["fra1"]` bei
+  Neon in `eu-central-1`) fällt das weg — auf dem Hobby-Tarif ist genau eine Region
+  erlaubt, das reicht.
+  **(b)** **Neon-Autosuspend**: die Compute schläft nach wenigen Minuten ohne Last ein,
+  der erste Zugriff danach dauert Sekunden. Das erklärt „meistens schnell, manchmal
+  zäh" besser als alles im Code. Der Presence-Heartbeat (alle 2 min) hält sie wach,
+  **solange jemand die App offen hat** — nicht darüber hinaus.
+
 - **API-Kern** (`src/lib/api/`):
   - `http.ts` — `ApiError` + `handle()`-Wrapper (fängt ApiError/Zod/Prisma-Fehler,
     einheitliche Hülle `{ error: { message, details? } }`; P2002→409, P2025→404).
