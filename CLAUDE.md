@@ -58,11 +58,14 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
 - **Regenradar:** **RainViewer** (keyfrei, Kachel-Overlay)
 - **Flüge:** **AeroDataBox** über RapidAPI (optional, `AERODATABOX_API_KEY`) — Auto-Abruf
   **und** Live-Status
-- **Beleg-Scan (zweistufig):** **Google Cloud Vision** (OCR, `GOOGLE_VISION_API_KEY`,
-  gratis bis 1.000 Bilder/Monat) mit eigener Betragszuordnung in `src/lib/receipt.ts`;
-  findet die keinen Betrag, übernimmt **Claude Vision** (Anthropic Messages API,
-  `ANTHROPIC_API_KEY`, Modell via `RECEIPT_MODEL`, Default Haiku 4.5).
-  Reihenfolge über `RECEIPT_ENGINE` (`vision`|`claude`|`auto`, Default `auto`)
+- **Beleg-Scan:** **Google Cloud Vision** (OCR, `GOOGLE_VISION_API_KEY`, gratis bis
+  1.000 Bilder/Monat) mit eigener Betragszuordnung in `src/lib/receipt.ts`. Ohne Key
+  oder ohne lesbaren Betrag: 422, Betrag wird manuell eingetragen.
+  ⚠️ Es gab eine **zweite Stufe** über Claude Vision (Anthropic Messages API), die
+  einsprang, wenn Vision keinen Betrag fand. Sie ist entfernt: ohne Key lief sie nie,
+  und der Rückfall war **still** — `readWithVision` gibt bei jedem Fehler `null`
+  zurück, auch bei aufgebrauchtem Kontingent, und die Schleife wechselte dann
+  unbemerkt auf die kostenpflichtige API. Ein Erkenner, ein Kostenpfad.
 - **QR-Codes** (Kofferanhänger): `qrcode` (clientseitig als Data-URL)
 - Läuft **vollständig in Docker** (kein Node auf dem Host)
 - **Deployment:** Vercel + Neon (Postgres). `vercel.json` `buildCommand`:
@@ -523,8 +526,8 @@ Dashboard gespiegelt.
   Zeilen **ohne** das Feld, also die gekoppelten Flug- und Buchungsausgaben.
   ⚠️ Der Block „Bezahlt von" + „Auf alle aufteilen" rendert nur bei
   `members.length > 1`. Tests, die ihn anfassen, brauchen ein zweites `TripMember`. **Beleg-Scan** „📸 Beleg scannen" → `POST /api/v1/expenses/scan`
-  (Cloud Vision → Claude) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
-  Foto beim Speichern automatisch angehängt. Ohne beide Keys → 422 → manuell.
+  (Cloud Vision) liest ¥-Betrag/Kategorie/Label (auch japanische Belege) → Formular-Prefill,
+  Foto beim Speichern automatisch angehängt. Ohne Key → 422 → manuell.
   ⚠️ **Die Antwort ist ein Vorschlag, keine Wahrheit.** `source` (`total` |
   `taxIncluded` | `subtotal` | `guess`) sagt, wie belastbar der Betrag ist; bei
   `subtotal`/`guess` bzw. `yen = 0` zeigt das Formular einen Prüfhinweis
@@ -784,8 +787,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS) | für Passkeys |
 | `SMTP_*` | E-Mail (Einladung/Verify/Reset, **Koffer-Fund**) | für Mailversand |
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |
-| `GOOGLE_VISION_API_KEY` | **Beleg-Scan** Stufe 1 (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
-| `ANTHROPIC_API_KEY` (+ opt. `RECEIPT_MODEL`, `RECEIPT_ENGINE`) | **Beleg-Scan** Stufe 2 (Claude Vision), greift nur ohne Vision-Treffer | optional |
+| `GOOGLE_VISION_API_KEY` | **Beleg-Scan** (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat, darüber kostenpflichtig). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |

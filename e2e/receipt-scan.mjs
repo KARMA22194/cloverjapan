@@ -105,7 +105,6 @@ try {
     `yen=${res.body?.yen}`,
   );
   ok("als Summe erkannt", res.body?.source === "total", `source=${res.body?.source}`);
-  ok("Erkenner war Vision", res.body?.engine === "vision", `engine=${res.body?.engine}`);
   ok("Kategorie aus Stichwörtern", res.body?.categoryFrom === "keywords", `from=${res.body?.categoryFrom}`);
   ok("Kategorie ESSEN", res.body?.category === "ESSEN", `category=${res.body?.category}`);
   ok("Label 7-Eleven", res.body?.label === "7-Eleven", `label=${res.body?.label}`);

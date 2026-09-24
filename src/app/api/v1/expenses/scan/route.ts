@@ -8,8 +8,8 @@ import { enforceRateLimit } from "@/lib/rate";
 import { extractTotal, guessMeta, rowsFromWords, type AmountSource, type OcrWord } from "@/lib/receipt";
 import { categoryForLabel } from "@/lib/services/expensesService";
 
-// Beide Erkenner sind externe Aufrufe, im Rückfall auch zwei hintereinander.
-// Ohne eigene Obergrenze bricht Vercel die Funktion vorher ab.
+// Der Erkenner ist ein externer Aufruf mit einem mehrere MB großen Bild im
+// Rumpf. Ohne eigene Obergrenze bricht Vercel die Funktion vorher ab.
 export const maxDuration = 30;
 
 // Erlaubte Kategorien aus dem Prisma-Enum ableiten — eine Quelle statt einer
@@ -17,9 +17,11 @@ export const maxDuration = 30;
 const CATEGORIES = Object.values(ExpenseCategory);
 type Category = ExpenseCategory;
 
-// Anthropic lehnt Bilder über 5 MB ab. Die Data-URL ist Base64, also ~4/3 der
-// Rohgröße — mit 8 MB String liefen ~6 MB Bilddaten durch und endeten verlässlich
-// in einem 502 statt in einer verständlichen Meldung.
+// 5 MB Rohbild. Die Grenze stammt ursprünglich von Anthropic (zweite Stufe,
+// inzwischen entfernt), bleibt aber richtig: die Data-URL ist Base64 und damit
+// ~4/3 der Rohgröße, und beides muss in den 30 s der Vercel-Funktion hoch- und
+// weitergeladen werden. Ohne die Grenze endete ein großes Handyfoto verlässlich
+// in einem Timeout oder 502 statt in einer verständlichen Meldung.
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_DATA_URL_LEN = Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 100; // + Präfix
 
@@ -136,90 +138,7 @@ async function readWithVision(base64: string, key: string): Promise<Reading | nu
   };
 }
 
-/* ──────────────────────────── Claude Vision ──────────────────────────────── */
-
-const PROMPT =
-  `Du bist ein Beleg-Parser für eine Japan-Reise-Budget-App. Lies von diesem ` +
-  `Kassenzettel (meist japanisch):\n` +
-  `1. den tatsächlich bezahlten GESAMTBETRAG in Yen (Ganzzahl, ohne Symbol/Tausenderpunkte),\n` +
-  // ⚠️ Aus dem Enum abgeleitet, nicht abgetippt: eine neue Kategorie im Schema
-  // muss auch hier ankommen, sonst schlägt Claude sie nie vor.
-  `2. die passendste Kategorie aus [${CATEGORIES.join(", ")}],\n` +
-  `3. ein kurzes deutsches Label (max. 40 Zeichen, z. B. Laden oder Art des Einkaufs).\n` +
-  `Achtung: „お預り" ist das hingelegte Geld und „お釣り" das Wechselgeld — gemeint ist „合計".\n` +
-  `Antworte AUSSCHLIESSLICH mit kompaktem JSON: {"yen": <number>, "category": "<KATEGORIE>", "label": "<text>"}. ` +
-  `Wenn kein Gesamtbetrag lesbar ist, setze yen auf 0.`;
-
-/** Extrahiert das erste JSON-Objekt aus einem (evtl. umschlossenen) Text. */
-function parseJsonBlock(text: string): unknown {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) throw new Error("kein JSON");
-  return JSON.parse(text.slice(start, end + 1));
-}
-
-async function readWithClaude(base64: string, mediaType: string, key: string): Promise<Reading | null> {
-  const model = process.env.RECEIPT_MODEL ?? "claude-haiku-4-5-20251001";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-            { type: "text", text: PROMPT },
-          ],
-        },
-      ],
-    }),
-  });
-  if (!res.ok) return null;
-
-  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-  const text = data.content?.find((c) => c.type === "text")?.text ?? "";
-
-  let parsed: { yen?: unknown; category?: unknown; label?: unknown };
-  try {
-    parsed = parseJsonBlock(text) as typeof parsed;
-  } catch {
-    return null;
-  }
-
-  const yen = Math.max(0, Math.round(Number(parsed.yen) || 0));
-  return {
-    yen,
-    category: CATEGORIES.includes(parsed.category as Category) ? (parsed.category as Category) : undefined,
-    label: String(parsed.label ?? "").slice(0, 40),
-    source: yen > 0 ? "total" : undefined,
-  };
-}
-
 /* ────────────────────────────── Route ────────────────────────────────────── */
-
-type Engine = "vision" | "claude";
-
-/**
- * Reihenfolge der Erkenner.
- *
- * Standard `auto`: erst Vision (im Gratis-Kontingent von Google, 1.000
- * Bilder/Monat), und nur wenn dabei **kein** Betrag herauskommt, Claude — das
- * kostet Bruchteile eines Cents und rettet die schwierigen Belege. Über
- * `RECEIPT_ENGINE=vision|claude` lässt sich das festnageln.
- */
-function engineOrder(): Engine[] {
-  const mode = process.env.RECEIPT_ENGINE?.toLowerCase();
-  if (mode === "vision") return ["vision"];
-  if (mode === "claude") return ["claude"];
-  return ["vision", "claude"];
-}
 
 /**
  * Kategorie festlegen — drei Quellen, `categoryFrom` sagt welche.
@@ -239,13 +158,12 @@ function engineOrder(): Engine[] {
  * „unbekannt = undefined" und damit prüfbar; welche Kategorie ein unbekannter
  * Beleg bekommt, ist eine Produktfrage und gehört an eine Stelle.
  */
-async function withCategory(reading: Reading, engine: Engine, tripId: string) {
-  if (reading.category) return { ...reading, engine, categoryFrom: "keywords" as const };
+async function withCategory(reading: Reading, tripId: string) {
+  if (reading.category) return { ...reading, categoryFrom: "keywords" as const };
   const learned = reading.label ? await categoryForLabel(tripId, reading.label) : null;
-  if (learned) return { ...reading, engine, category: learned, categoryFrom: "history" as const };
+  if (learned) return { ...reading, category: learned, categoryFrom: "history" as const };
   return {
     ...reading,
-    engine,
     category: "SONSTIGES" as Category,
     categoryFrom: "fallback" as const,
   };
@@ -291,33 +209,15 @@ export function POST(req: NextRequest) {
     }
 
     const visionKey = process.env.GOOGLE_VISION_API_KEY;
-    const claudeKey = process.env.ANTHROPIC_API_KEY;
-
-    let configured = false;
-    let fallback: (Reading & { engine: Engine }) | null = null;
-
-    for (const engine of engineOrder()) {
-      const key = engine === "vision" ? visionKey : claudeKey;
-      if (!key) continue;
-      configured = true;
-
-      const reading =
-        engine === "vision"
-          ? await readWithVision(base64, key)
-          : await readWithClaude(base64, mediaType, key);
-      if (!reading) continue;
-
-      // Ein Betrag ist das Abbruchkriterium. Ohne Betrag das Ergebnis merken:
-      // Kategorie und Name sind auch dann nützlich, und das Foto wird beim
-      // Speichern ohnehin angehängt.
-      if (reading.yen > 0) return ok(await withCategory(reading, engine, tripId));
-      fallback ??= { ...reading, engine };
-    }
-
-    if (fallback) return ok(await withCategory(fallback, fallback.engine, tripId));
-    if (!configured) {
+    if (!visionKey) {
       throw new ApiError(422, "Beleg-Scan ist nicht konfiguriert (kein API-Key). Bitte manuell eintragen.");
     }
+
+    const reading = await readWithVision(base64, visionKey);
+    // Auch ohne Betrag ist das Ergebnis brauchbar: Kategorie und Name stehen
+    // im Formular, und das Foto wird beim Speichern ohnehin angehängt.
+    if (reading) return ok(await withCategory(reading, tripId));
+
     throw new ApiError(422, "Beleg konnte nicht gelesen werden. Bitte manuell eintragen.");
   });
 }
