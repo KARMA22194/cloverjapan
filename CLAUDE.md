@@ -83,6 +83,16 @@ Abhängigkeiten steht **exakt** (ohne `^`) in der `package.json` — u. a. `reac
 `typescript`, `@types/*`. `npm install name@version` schreibt daraus stillschweigend
 `^version`. Nach einem Update also prüfen und zurücksetzen; beim Tailwind-Paar würde
 ein `^` sonst genau den Versatz erlauben, vor dem der Absatz oben warnt.
+⚠️ **`nodemailer` bleibt auf 6.x.** `next-auth@5.0.0-beta.25` hat `nodemailer@^6.6.5`
+als (optionale) Peer-Abhängigkeit. Mit nodemailer 10 **scheitert `npm ci`** — also genau
+der Befehl, den Vercel beim Deploy ausführt; `npm install` warnt dagegen nur und macht
+weiter, der Fehler fiele erst beim Deploy auf. Das Projekt nutzt den Mail-Provider von
+next-auth ohnehin nicht (eigener `src/lib/mailer.ts`), aber der Baum muss auflösbar
+bleiben. Nachgeprüft mit `npm ci` im Container.
+⚠️ **`bcryptjs` 3 liest Hashes von 2** (`$2a`) und schreibt `$2b` — bestehende Konten
+bleiben also gültig. Nachgewiesen, indem Version 2 danebeninstalliert und beide
+Richtungen geprüft wurden. Ein im Netz kursierender „$2a-Testvektor" taugt dafür
+**nicht**: ein Fehlschlag damit sagt nur, dass der Vektor nicht passt.
 ⚠️ Nach einem Update von `@playwright/test` **`npx playwright install chromium`** im
 Container nachziehen — sonst scheitern alle E2E-Skripte mit „Looks like Playwright was
 just installed or updated".
