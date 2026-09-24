@@ -56,12 +56,33 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   ⚠️ Auch **Seed und alle E2E-Skripte** brauchen den Adapter — die Skripte holen sich
   den Client deshalb aus **`e2e/_db.mjs`** statt ihn je Datei selbst zu bauen.
 - **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted);
-  zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn`, Provider-id `passkey`, `Credential`-Tabelle;
+  zusätzlich **Passkeys/WebAuthn** (`@simplewebauthn` **14**, Provider-id `passkey`, `Credential`-Tabelle;
   Config in `src/lib/webauthn.ts`, ENV `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` — Prod braucht HTTPS).
   Challenge liegt im httpOnly-Cookie (**getrennt** für Registrierung und Login) **und** in der
   Tabelle `WebauthnChallenge`, wo sie beim Einlösen atomar entwertet wird (Einmal-Verwendung).
   Registrierung verlangt `residentKey`/`userVerification: "required"` — passend zum Login, der mit
   `allowCredentials: []` arbeitet.
+  ⚠️ **Der Sprung von SimpleWebAuthn 9 auf 14 hat drei Formate gedreht**, und eines davon
+  sieht der Compiler **nicht**:
+  **(a)** `generateRegistrationOptions`: `userID` ist jetzt **Bytes**,
+  `excludeCredentials[].id` ein **base64url-String** — vorher genau andersherum.
+  **(b)** `verifyRegistrationResponse().registrationInfo` liefert die Werte gebündelt in
+  `.credential` (`id`/`publicKey`/`counter`) statt einzeln, und
+  `verifyAuthenticationResponse` erwartet **`credential`** statt `authenticator`.
+  **(c)** ⚠️ `startRegistration`/`startAuthentication` im Browser nehmen einen **Umschlag**
+  `{ optionsJSON }`. Weil der Aufrufer den Typ per `Parameters<typeof startRegistration>[0]`
+  von der Funktion selbst ableitete, **passte der falsche Aufruf weiter zu sich selbst** —
+  TypeScript schwieg, und der Passkey-Login wäre stillschweigend gebrochen in Produktion
+  gelandet. Deshalb dort jetzt der explizite Typ `PublicKeyCredentialCreationOptionsJSON`
+  bzw. `…RequestOptionsJSON`.
+  ⚠️ Geprüft wird das von **`e2e/passkey.mjs`** — virtueller Authenticator über das
+  DevTools-Protokoll (`WebAuthn.addVirtualAuthenticator`), Registrierung **und** Login
+  **und** der fortgeschriebene Signaturzähler. Vorher gab es für diesen Login-Weg gar
+  keinen Test.
+  ⚠️ Der Test braucht auf `/login` einen **eigenen** Hydrations-Nachweis: die Seite lädt
+  beim Mounten nichts, es gibt also kein Netz-Signal. Er wartet darauf, dass React seine
+  Props am Knopf hängen hat (`__reactProps$…`). Ohne das verpufft der erste Klick lautlos —
+  dieselbe Falle wie in Dev-Server-Falle 4, nur ohne den üblichen Ausweg.
 - **E-Mail:** `nodemailer` über SMTP (Einladungen, E-Mail-Verifikation, Passwort-Reset;
   `src/lib/mailer.ts`, ENV `SMTP_*`). Ohne `SMTP_HOST` kein Versand (Flows haben Fallbacks).
 - **Tailwind CSS v4**, **Zod 4**, **date-fns / date-fns-tz**

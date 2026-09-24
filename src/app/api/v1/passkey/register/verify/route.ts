@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
-import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { ApiError, badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
@@ -42,8 +41,10 @@ export function POST(req: NextRequest) {
       throw badRequest("Passkey-Registrierung fehlgeschlagen.");
     }
 
-    const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
-    const id = isoBase64URL.fromBuffer(credentialID);
+    // ⚠️ Ab SimpleWebAuthn 11 stecken die Werte in `registrationInfo.credential`
+    // statt einzeln daneben — und `credential.id` ist bereits ein
+    // base64url-String, muss also nicht mehr umgewandelt werden.
+    const { id, publicKey, counter } = verification.registrationInfo.credential;
     const transports = Array.isArray((body as { response?: { transports?: string[] } }).response?.transports)
       ? (body as { response: { transports: string[] } }).response.transports.join(",")
       : "";
@@ -65,11 +66,11 @@ export function POST(req: NextRequest) {
       create: {
         id,
         userId: user.id,
-        publicKey: Buffer.from(credentialPublicKey),
+        publicKey: Buffer.from(publicKey),
         counter,
         transports,
       },
-      update: { counter, publicKey: Buffer.from(credentialPublicKey), transports },
+      update: { counter, publicKey: Buffer.from(publicKey), transports },
     });
 
     const res = ok({ verified: true });

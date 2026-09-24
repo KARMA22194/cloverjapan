@@ -3,7 +3,6 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
@@ -124,9 +123,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             expectedRPID: rpID,
             // Alleiniger Login-Faktor → tatsächliche Nutzer-Verifikation erzwingen.
             requireUserVerification: true,
-            authenticator: {
-              credentialID: isoBase64URL.toBuffer(cred.id),
-              credentialPublicKey: new Uint8Array(cred.publicKey),
+            // ⚠️ Ab SimpleWebAuthn 11 heißt das Feld `credential` (vorher
+            // `authenticator`), und die Id ist ein base64url-**String** statt
+            // Bytes — genau so, wie sie in der DB liegt.
+            credential: {
+              id: cred.id,
+              publicKey: new Uint8Array(cred.publicKey),
               counter: cred.counter,
             },
           });

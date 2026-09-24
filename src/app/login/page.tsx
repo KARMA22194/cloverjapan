@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn } from "next-auth/react";
 import { startAuthentication } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { loginAction, type LoginState } from "@/app/actions/auth";
 import { api } from "@/lib/api/client";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -23,10 +24,13 @@ export default function LoginPage() {
     setPkPending(true);
     setPkError(null);
     try {
-      const options = await api.get<Parameters<typeof startAuthentication>[0]>(
+      // ⚠️ Siehe ProfileForm: ab SimpleWebAuthn 11 ist es ein Umschlag
+      // `{ optionsJSON }`, und der von der Funktion abgeleitete Typ hätte den
+      // Fehler verdeckt.
+      const options = await api.get<PublicKeyCredentialRequestOptionsJSON>(
         "/api/v1/passkey/auth/options",
       );
-      const authResp = await startAuthentication(options);
+      const authResp = await startAuthentication({ optionsJSON: options });
       const res = await signIn("passkey", {
         authResp: JSON.stringify(authResp),
         redirect: false,

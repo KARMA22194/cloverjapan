@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 
 import { api } from "@/lib/api/client";
 import { Avatar } from "@/components/Avatar";
@@ -27,12 +28,17 @@ export function ProfileForm() {
     setPkPending(true);
     setPkMsg(null);
     try {
-      const options = await api.get<Parameters<typeof startRegistration>[0]>(
+      // ⚠️ Der Typ MUSS `PublicKeyCredentialCreationOptionsJSON` sein, nicht
+      // `Parameters<typeof startRegistration>[0]`. Ab SimpleWebAuthn 11 nimmt
+      // die Funktion einen Umschlag `{ optionsJSON }` — mit dem abgeleiteten
+      // Typ passte der Aufruf weiter zu sich selbst und der Compiler schwieg,
+      // während zur Laufzeit die Optionen am falschen Platz standen.
+      const options = await api.get<PublicKeyCredentialCreationOptionsJSON>(
         "/api/v1/passkey/register/options",
       );
       let attResp;
       try {
-        attResp = await startRegistration(options);
+        attResp = await startRegistration({ optionsJSON: options });
       } catch {
         setPkMsg("Biometrie abgebrochen oder vom Gerät/Browser nicht unterstützt.");
         return;

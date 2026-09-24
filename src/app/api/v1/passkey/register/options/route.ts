@@ -1,5 +1,5 @@
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { isoBase64URL } from "@simplewebauthn/server/helpers";
+import { isoUint8Array } from "@simplewebauthn/server/helpers";
 
 import { handle, ok } from "@/lib/api/http";
 import { requireUser } from "@/lib/api/session";
@@ -26,14 +26,16 @@ export function GET() {
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
-      userID: user.id,
+      // ⚠️ Ab SimpleWebAuthn 10 sind `userID` **Bytes** und die
+      // `excludeCredentials`-Ids **base64url-Strings** — vorher war es genau
+      // andersherum. Beides gibt der Compiler vor; falsch herum übersetzt
+      // erzeugt es Passkeys, die sich später nicht zuordnen lassen.
+      userID: isoUint8Array.fromUTF8String(user.id),
       userName: user.email,
       userDisplayName: user.name,
       attestationType: "none",
-      excludeCredentials: existing.map((c) => ({
-        id: isoBase64URL.toBuffer(c.id),
-        type: "public-key" as const,
-      })),
+      // `c.id` liegt bereits als base64url in der DB.
+      excludeCredentials: existing.map((c) => ({ id: c.id })),
       // Beides **required**, passend zum Login: der prüft mit
       // `userVerification: "required"` und `allowCredentials: []`, braucht also
       // ein Discoverable Credential mit echter Nutzer-Verifikation. Mit
