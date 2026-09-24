@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api/client";
 import { eurFmt } from "@/lib/format";
 import { fieldClasses } from "@/components/ui/Field";
+import { cn } from "@/lib/cn";
 
 // Deutscher Reisezoll (Nicht-EU → Deutschland), Stand 2024:
 const ALLOWANCE_PER_PERSON = 430; // € Reisefreimenge für Flug-/Seereisende
@@ -53,6 +54,43 @@ const GOODS_LABELS = Object.values(GOODS_DUTY)
   .map((g) => g.label)
   .join(", ");
 
+/**
+ * Mengen-Freimengen für Tabak und Alkohol (Flug-/Seereisende, **je Reisendem ab
+ * 17 Jahren**).
+ *
+ * ⚠️ Das sind **eigene** Freimengen neben der 430-€-Wertgrenze, keine Teilmenge
+ * davon. Bisher rechnete dieser Rechner nur den Warenwert und meldete „voraus-
+ * sichtlich keine Abgaben", solange man unter 430 € blieb — auch bei drei
+ * Flaschen japanischem Whisky. Genau das ist die häufigste Falle, weil Whisky
+ * das typische Mitbringsel ist.
+ *
+ * Innerhalb einer Gruppe ist **anteilig kombinierbar**: jede Zeile zählt als
+ * 100 % ihrer Gruppe, und die Anteile dürfen zusammen 100 % nicht übersteigen
+ * (also z. B. 100 Zigaretten + 25 Zigarren). Wein und Bier haben eigene,
+ * zusätzliche Grenzen.
+ */
+const TOBACCO_LIMITS = [
+  { key: "cigarettes", label: "Zigaretten", unit: "Stück", limit: 200 },
+  { key: "cigarillos", label: "Zigarillos", unit: "Stück", limit: 100 },
+  { key: "cigars", label: "Zigarren", unit: "Stück", limit: 50 },
+  { key: "tobacco", label: "Rauchtabak", unit: "g", limit: 250 },
+] as const;
+
+const SPIRIT_LIMITS = [
+  { key: "spirits", label: "Spirituosen über 22 % vol", unit: "l", limit: 1 },
+  { key: "liqueur", label: "Alkohol bis 22 % vol", unit: "l", limit: 2 },
+] as const;
+
+const SEPARATE_LIMITS = [
+  { key: "wine", label: "Wein (nicht schäumend)", unit: "l", limit: 4 },
+  { key: "beer", label: "Bier", unit: "l", limit: 16 },
+] as const;
+
+type QuantityKey =
+  | (typeof TOBACCO_LIMITS)[number]["key"]
+  | (typeof SPIRIT_LIMITS)[number]["key"]
+  | (typeof SEPARATE_LIMITS)[number]["key"];
+
 type Currency = "EUR" | "JPY";
 
 // Eine übernommene Warengruppe (Wert in Yen, damit live umrechenbar).
@@ -70,6 +108,11 @@ export function CustomsCalculator() {
   const [persons, setPersons] = useState("1");
   const [dutyIdx, setDutyIdx] = useState(0);
   const [breakdown, setBreakdown] = useState<BreakdownItem[] | null>(null);
+  // Mengen für Tabak/Alkohol; leer = 0. Eigener Zähler für Reisende ab 17,
+  // weil Kinder für diese Freimengen **nicht** zählen — mit `persons` gerechnet
+  // wäre die Grenze für eine Familie schlicht zu hoch.
+  const [adults, setAdults] = useState("1");
+  const [quantities, setQuantities] = useState<Partial<Record<QuantityKey, string>>>({});
   const [prefillNote, setPrefillNote] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,6 +128,38 @@ export function CustomsCalculator() {
     if (!Number.isFinite(n) || n <= 0) return 0;
     return currency === "JPY" ? n * rate : n;
   }, [valueInput, currency, rate]);
+
+  /**
+   * Mengen-Freimengen prüfen.
+   *
+   * ⚠️ Hier wird bewusst **kein Betrag** berechnet. Über der Mengengrenze fallen
+   * Tabak- bzw. Branntweinsteuer nach eigenen Sätzen an, und die Pauschalierung
+   * dieses Rechners deckt das nicht ab. Eine Zahl zu zeigen, die nur für den
+   * Warenwert stimmt, wäre schlimmer als gar keine — deshalb eine klare Warnung
+   * und der Verweis auf den Zoll.
+   */
+  const quantityCheck = useMemo(() => {
+    const heads = Math.max(0, Math.floor(Number(adults) || 0));
+    const num = (k: QuantityKey) => {
+      const n = Number((quantities[k] ?? "").replace(",", "."));
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    const share = (rows: readonly { key: QuantityKey; limit: number }[]) =>
+      rows.reduce((sum, r) => sum + num(r.key) / r.limit, 0);
+
+    const groups = [
+      { name: "Tabakwaren", pct: share(TOBACCO_LIMITS), rows: TOBACCO_LIMITS },
+      { name: "Spirituosen/Alkohol", pct: share(SPIRIT_LIMITS), rows: SPIRIT_LIMITS },
+      ...SEPARATE_LIMITS.map((r) => ({ name: r.label, pct: share([r]), rows: [r] as const })),
+    ];
+    // `heads` teilt: zwei Erwachsene dürfen das Doppelte. Bei 0 Erwachsenen gibt
+    // es keine Freimenge — jede Menge über null ist dann zu viel.
+    const exceeded = groups
+      .filter((g) => g.pct > 0 && (heads === 0 || g.pct > heads))
+      .map((g) => g.name);
+    const any = groups.some((g) => g.pct > 0);
+    return { heads, exceeded, any };
+  }, [adults, quantities]);
 
   const calc = useMemo(() => {
     const p = Math.max(1, Math.floor(Number(persons) || 1));
@@ -321,6 +396,66 @@ export function CustomsCalculator() {
         {prefillNote && (
           <p className="text-xs text-ink-muted">{prefillNote}</p>
         )}
+
+        {/* Mengen-Freimengen. Eingeklappt, weil die meisten Reisen ohne
+            auskommen — aber vorhanden, weil japanischer Whisky das typische
+            Mitbringsel ist und der Rechner sonst fälschlich Entwarnung gibt. */}
+        <details className="rounded-md border border-hairline px-3 py-2">
+          <summary className="cursor-pointer list-none text-xs font-semibold text-brand">
+            🥃 Alkohol &amp; Tabak (eigene Mengengrenzen)
+          </summary>
+          <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">
+            Gelten <strong>zusätzlich</strong> zur Wertgrenze von 430 € und nur für
+            Reisende ab 17. Innerhalb einer Gruppe anteilig kombinierbar — 100 Zigaretten
+            plus 25 Zigarren sind zusammen genau die Freimenge.
+          </p>
+          <div className="mt-2 w-28">
+            {/* `htmlFor`/`id` statt nur nebeneinanderstehender Elemente: sonst
+                gehört die Beschriftung dem Feld nicht, Screenreader lesen sie
+                nicht vor und ein Klick darauf fokussiert nichts. */}
+            <label htmlFor="zoll-erwachsene" className={labelClass}>
+              Reisende ab 17
+            </label>
+            <input
+              id="zoll-erwachsene"
+              value={adults}
+              onChange={(e) => setAdults(e.target.value)}
+              inputMode="numeric"
+              className={inputClass}
+            />
+          </div>
+          {[
+            { title: "Tabakwaren", rows: TOBACCO_LIMITS },
+            { title: "Spirituosen / Alkohol", rows: SPIRIT_LIMITS },
+            { title: "Zusätzlich erlaubt", rows: SEPARATE_LIMITS },
+          ].map((group) => (
+            <div key={group.title} className="mt-3">
+              <p className="mb-1 text-[11px] font-medium text-ink-muted">{group.title}</p>
+              <div className="space-y-1.5">
+                {group.rows.map((r) => (
+                  <div key={r.key} className="flex items-center gap-2">
+                    <input
+                      value={quantities[r.key] ?? ""}
+                      onChange={(e) =>
+                        setQuantities((prev) => ({ ...prev, [r.key]: e.target.value }))
+                      }
+                      inputMode="decimal"
+                      placeholder="0"
+                      aria-label={r.label}
+                      className={cn(inputClass, "w-20 shrink-0 px-2 py-1 text-xs")}
+                    />
+                    <span className="min-w-0 text-xs text-ink-muted">
+                      {r.label}{" "}
+                      <span className="text-ink-subtle">
+                        (frei: {r.limit} {r.unit})
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </details>
       </div>
 
       {/* Ergebnis */}
@@ -344,9 +479,25 @@ export function CustomsCalculator() {
           </div>
         </dl>
 
-        {calc.dutiable <= 0 ? (
+        {quantityCheck.exceeded.length > 0 && (
+          <div className="mb-3 rounded-md border border-danger/40 bg-danger/5 px-3 py-2">
+            <p className="text-sm font-semibold text-danger">
+              Mengen-Freimenge überschritten: {quantityCheck.exceeded.join(", ")}
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-muted">
+              Diese Waren sind <strong>anmeldepflichtig</strong>. Für die überschüssige Menge
+              gibt es keine Reisefreimenge, und der Pauschalsatz oben deckt sie nicht ab —
+              es fallen eigene Verbrauchsteuern an (Tabak- bzw. Branntweinsteuer) plus
+              Einfuhrumsatzsteuer. Die Höhe rechnet dieses Werkzeug bewusst nicht aus;
+              verbindlich ist der Zoll.
+            </p>
+          </div>
+        )}
+
+        {calc.dutiable <= 0 && quantityCheck.exceeded.length === 0 ? (
           <p className="mt-4 rounded-md bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
             Alles innerhalb der Freimenge — voraussichtlich <strong>keine Abgaben</strong>.
+            {quantityCheck.any && " Mengen für Tabak/Alkohol ebenfalls im Rahmen."}
           </p>
         ) : (
           <div className="mt-4 space-y-2">
@@ -422,8 +573,9 @@ export function CustomsCalculator() {
           Schätzung nach deutschem Reisezoll (Flugreisende): Freimenge 430 €/Person; der
           Pauschalsatz 17,5 % ist nur bis 700 € Warenwert/Person zulässig, darüber gilt zwingend
           die reguläre Verzollung (Zoll je Warenart + 19 % EUSt). Der Satz wird auf den Wert nach
-          Abzug der Freimenge angewandt. Alkohol & Tabak haben eigene Mengengrenzen (hier nicht
-          berechnet). Wechselkurs = tagesaktueller Marktkurs; der Zoll rechnet mit eigenen
+          Abzug der Freimenge angewandt. Alkohol & Tabak haben eigene Mengengrenzen — die prüft
+          der Rechner, die Abgaben darüber hinaus (Tabak-/Branntweinsteuer) berechnet er bewusst
+          nicht. Wechselkurs = tagesaktueller Marktkurs; der Zoll rechnet mit eigenen
           Monatskursen. Angaben ohne Gewähr — verbindlich ist der Zoll.
         </p>
       </div>

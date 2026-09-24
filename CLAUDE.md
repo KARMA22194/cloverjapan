@@ -696,6 +696,19 @@ Dashboard gespiegelt.
   übernehmen" gruppiert die Waren je Kategorie (Figuren 0 % / Kleidung 12 % / Sonstiges ≈4 %)
   und verzollt **pro Warenart**; die Freimenge wird zugunsten des Reisenden zuerst auf die
   höchstverzollten Waren angerechnet. Rein rechnerisch (keine DB).
+  ⚠️ **Alkohol und Tabak haben eigene MENGEN-Freimengen** (200 Zigaretten · 50 Zigarren ·
+  250 g Tabak · 1 l Spirituosen >22 % · 2 l bis 22 % · 4 l Wein · 16 l Bier), je Reisendem
+  **ab 17**, und **zusätzlich** zur 430-€-Wertgrenze. Innerhalb einer Gruppe anteilig
+  kombinierbar (100 Zigaretten + 25 Zigarren = genau 100 %). Vorher meldete der Rechner
+  „voraussichtlich keine Abgaben", solange der Warenwert unter 430 € blieb — auch bei drei
+  Flaschen japanischem Whisky, dem typischen Mitbringsel. Jetzt schlägt er stattdessen
+  Alarm.
+  ⚠️ **Der Betrag darüber wird bewusst NICHT berechnet**: dort greifen Tabak- bzw.
+  Branntweinsteuer nach eigenen Sätzen, die der 17,5-%-Pauschalsatz nicht abdeckt. Eine
+  Zahl zu zeigen, die nur für den Warenwert stimmt, wäre schlimmer als keine.
+  ⚠️ Eigener Zähler „Reisende ab 17" statt `persons` — Kinder haben für diese Freimengen
+  keine, mit `persons` gerechnet läge die Grenze für eine Familie zu hoch.
+  Test: `e2e/zoll-mengen.mjs`.
   ⚠️ **`GOODS_DUTY` entscheidet, was überhaupt zollrelevant ist** — wer dort fehlt, ist für
   den Zoll unsichtbar, wer zu Unrecht drinsteht, wird verzollt. Beides sieht man im Ergebnis
   nicht, weil nur die Summe dasteht. Drin: Figuren 0 % · **Elektronik 0 %** ·
