@@ -343,6 +343,24 @@ export function ExpenseCalculator({
     }
   }
 
+  /**
+   * Beleg-Foto **ohne** Scan übernehmen.
+   *
+   * Zwei Gründe, warum das ein eigener Knopf ist und nicht nur ein Rückfall:
+   * wer den Betrag ohnehin vor sich hat, spart ein Bild vom Monatskontingent —
+   * und wer `canAiScan` nicht hat, kann seinen Beleg trotzdem dokumentieren.
+   * Das Foto landet in `pendingReceipt` und wird beim Speichern angehängt,
+   * denselben Weg, den auch der Scan nimmt.
+   */
+  async function attachPhotoOnly(file: File) {
+    try {
+      setScanNote(null);
+      setPendingReceipt(await resizeReceipt(file));
+    } catch {
+      /* Fehlermeldung erscheint als Toast */
+    }
+  }
+
   async function attachReceipt(id: string, file: File) {
     try {
       const dataUrl = await resizeReceipt(file);
@@ -443,6 +461,22 @@ export function ExpenseCalculator({
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) scanReceipt(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            {canReceiptPhoto && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-hairline px-3 py-2 text-sm font-medium text-ink-muted transition hover:border-brand/50 hover:text-brand">
+                📷 Nur Foto
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) attachPhotoOnly(f);
                     e.target.value = "";
                   }}
                 />

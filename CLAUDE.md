@@ -546,6 +546,12 @@ Dashboard gespiegelt.
   nicht mit abgewiesenen Aufrufen fremdes Budget leert.
   ⚠️ Zweite, von der App unabhängige Bremse: ein **Budget-Alarm in der Google Cloud**.
   Der greift auch, wenn hier etwas schiefgeht. Test: `e2e/scan-quota.mjs`.
+  **„📷 Nur Foto"** neben dem Scan-Knopf hängt den Beleg an, **ohne** Vision
+  aufzurufen (`attachPhotoOnly` → `pendingReceipt`, derselbe Weg wie beim Scan).
+  Zwei Gründe: wer den Betrag ohnehin vor sich hat, spart ein Bild vom
+  Monatskontingent — und wer `canAiScan` nicht hat, kann seinen Beleg trotzdem
+  dokumentieren. Sichtbar mit `canReceiptPhoto`, also ohne Scan-Recht **an Stelle**
+  des Scan-Knopfes.
   ⚠️ Schlägt der Scan fehl (Kontingent, kein Key, unlesbar), behält das Formular das
   **Foto** und hängt es beim Speichern an. Es nach der Fehlermeldung ein zweites Mal
   zu verlangen wäre die eigentliche Zumutung.

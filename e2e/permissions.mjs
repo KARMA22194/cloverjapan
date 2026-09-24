@@ -97,6 +97,47 @@ try {
   await pagePlain.waitForResponse((x) => x.url().includes("/api/v1/fx/rate"), { timeout: 60000 });
   const scanVisible = await pagePlain.getByText("Beleg scannen").count();
   ok("Scan-Knopf ist ausgeblendet", scanVisible === 0, `gefunden=${scanVisible}`);
+  ok("Nur-Foto-Knopf steht an seiner Stelle", (await pagePlain.getByText("Nur Foto").count()) === 1);
+
+  // Der Weg ohne Scan-Recht: Foto anhängen, Betrag tippen, speichern. Dabei darf
+  // **kein** Aufruf an /scan gehen — sonst wäre das Kontingent doch berührt.
+  let scanCalls = 0;
+  pagePlain.on("request", (q) => {
+    if (q.url().includes("/api/v1/expenses/scan")) scanCalls += 1;
+  });
+  const [photoChooser] = await Promise.all([
+    pagePlain.waitForEvent("filechooser"),
+    pagePlain.locator('label:has(input[type=file])').first().click(),
+  ]);
+  await photoChooser.setFiles({
+    name: "beleg.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(PNG.split(",")[1], "base64"),
+  });
+  await pagePlain.waitForFunction(
+    () => document.body.innerText.includes("Foto wird angehängt"),
+    null,
+    { timeout: 20000 },
+  );
+  ok("Foto übernommen ohne Scan", scanCalls === 0, `scan-Aufrufe=${scanCalls}`);
+
+  await pagePlain.fill("#ausgabe-betrag", "777");
+  await pagePlain.fill("#ausgabe-bezeichnung", "Ohne Scan");
+  await pagePlain.getByRole("button", { name: "Zur Rechnung" }).click();
+  await pagePlain.waitForFunction(
+    () => document.body.innerText.includes("Ohne Scan"),
+    null,
+    { timeout: 20000 },
+  );
+  const saved = await db.expense.findFirst({
+    where: { label: "Ohne Scan", trip: { members: { some: { userId: plain.id } } } },
+    select: { yen: true, hasReceipt: true },
+  });
+  ok(
+    "Ausgabe mit Beleg gespeichert",
+    saved?.yen === 777 && saved?.hasReceipt === true,
+    JSON.stringify(saved),
+  );
 
   // ── 4. Admin entzieht das Foto-Recht ───────────────────────────────────
   const pageAdmin = await browser.newPage();
@@ -133,6 +174,10 @@ try {
   });
   const camera = await pagePlain.locator('li label[title="Beleg anhängen"]').count();
   ok("📷 in der Liste ist weg", camera === 0, `gefunden=${camera}`);
+  ok(
+    "Nur-Foto-Knopf ist ebenfalls weg",
+    (await pagePlain.getByText("Nur Foto").count()) === 0,
+  );
 
   // ── 5. Scan-Recht vergeben → Sperre fällt ──────────────────────────────
   r = await call(pageAdmin, `/api/v1/users/${plain.id}`, "PATCH", { canAiScan: true });
