@@ -49,7 +49,6 @@ Ort: Vercel → Projekt `cloverjapan` → **Settings → Environment Variables**
 | `DIRECT_URL` | Neon **Direct**-String (ohne `-pooler`) — Migrationen |
 | `AUTH_SECRET` | zufälliger Schlüssel für die Sessions |
 | `AUTH_TRUST_HOST` | `true` |
-| `APP_TIMEZONE` | `Europe/Berlin` |
 | `WEBAUTHN_RP_NAME` | `Clover Japan` |
 | `WEBAUTHN_RP_ID` | `cloverjapan.vercel.app` |
 | `WEBAUTHN_ORIGIN` | `https://cloverjapan.vercel.app` |

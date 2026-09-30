@@ -54,7 +54,6 @@ Vercel deployt am einfachsten aus einem GitHub-Repository.
 | `DIRECT_URL` | Neon **Direct**-String |
 | `AUTH_SECRET` | zufällig: Terminal `openssl rand -base64 32` |
 | `AUTH_TRUST_HOST` | `true` |
-| `APP_TIMEZONE` | `Europe/Berlin` |
 | `WEBAUTHN_RP_NAME` | `Clover Japan` |
 | `WEBAUTHN_RP_ID` | *(nach 1. Deploy, siehe D)* — vorerst leer/`localhost` |
 | `WEBAUTHN_ORIGIN` | *(nach 1. Deploy)* |

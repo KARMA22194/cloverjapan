@@ -3,7 +3,26 @@
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates git \
+  && rm -rf /var/lib/apt/lists/*
+
+# Playwright (Chromium + System-Bibliotheken) gehört ins **Image**, nicht in den
+# laufenden Container.
+#
+# ⚠️ Vorher wurde beides von Hand nachinstalliert — und war nach jedem
+# `docker compose down` **und** nach jeder Neuerstellung des Containers wieder
+# weg, denn es liegt im Container-Dateisystem und nicht in einem Volume. Ein
+# Volume allein hilft nicht: die Browser ließen sich so zwar retten, die
+# apt-Pakete nicht. Compose erstellt den Container schon dann neu, wenn sich die
+# `.env` ändert — das ist in einer Sitzung dreimal passiert, und der zweite
+# Fehlschlag (`libglib-2.0.so.0: cannot open shared object file`) sieht wie ein
+# kaputtes Image aus und ist keines.
+#
+# ⚠️ Die Version ist **fest** und muss zu `@playwright/test` in der package.json
+# passen. Nach einem Update dort also hier mitziehen und
+# `docker compose build app` laufen lassen — sonst startet ein Browser, der nicht
+# zur Bibliothek passt.
+RUN npx -y playwright@1.63.0 install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

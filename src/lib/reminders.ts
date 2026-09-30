@@ -53,7 +53,10 @@ export async function scheduleReminders(
   dateISO: string,
 ): Promise<() => void> {
   const noop = () => {};
-  // App-Zeitzone, nicht UTC — sonst gelten nach Mitternacht alle Aufgaben als „nicht heute".
+  // ⚠️ Gerätezeit, nicht UTC und nicht Europe/Berlin. Die Erinnerungszeit unten
+  // wird über `setHours` ohnehin in Gerätezeit berechnet — käme „heute" aus einer
+  // anderen Zeitzone, verwürfe dieser Vergleich in Japan jeden Morgen bis 7:00
+  // sämtliche Erinnerungen des laufenden Tages.
   const todayISO = todayParam();
   if (dateISO !== todayISO) return noop; // nur für heute sinnvoll
   if (!(await hasReminderPermission())) return noop;

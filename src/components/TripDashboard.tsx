@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { daysUntil, todayParam } from "@/lib/time";
+
 import { api } from "@/lib/api/client";
 import { yenFmt } from "@/lib/format";
 import { Card, CardLabel, CardLink } from "@/components/ui/Card";
@@ -27,20 +29,7 @@ interface Expense {
 }
 
 
-/** Heutiges Datum als YYYY-MM-DD (lokal). */
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
-/** Ganze Tage von heute bis dateStr (YYYY-MM-DD); negativ = Vergangenheit. */
-function daysUntil(dateStr: string): number {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const target = Date.UTC(y, m - 1, d);
-  const now = new Date();
-  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((target - today) / 86400000);
-}
 
 function fmtDay(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -79,7 +68,7 @@ export function TripDashboard() {
 
   if (!loaded) return null;
 
-  const today = todayStr();
+  const today = todayParam();
 
   // Alle datierten Ereignisse → frühestes für den Countdown (Reisebeginn).
   const eventDates = [

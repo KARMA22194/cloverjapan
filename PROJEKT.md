@@ -139,7 +139,6 @@ docker compose exec app npx playwright test              # E2E (mobil)
 |---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Postgres (Neon: Pooled/Direct; Direct für `migrate deploy`) |
 | `AUTH_SECRET`, `AUTH_TRUST_HOST` | NextAuth (Prod: `openssl rand -base64 32`) |
-| `APP_TIMEZONE` | App-Zeitzone (Europe/Berlin) |
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS-Domain) |
 | `SMTP_HOST/PORT/SECURE/USER/PASS/FROM`, `APP_URL` | E-Mails (Einladung/Verifikation/Reset, Koffer-Fund) |
 | `AERODATABOX_API_KEY` | optional: Flug-Auto-Abruf **und** Live-Status |

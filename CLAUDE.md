@@ -1059,7 +1059,33 @@ eigene sticky Seitenleiste baut, rechnet die Leistenhöhe ein (`top-[4.75rem]`).
   Inline-Script im Root-Layout setzt `.dark` vor dem ersten Paint (kein FOUC).
   Neue farbige UI immer mit `dark:`-Variante.
 
-Feste App-Zeitzone (MVP): `Europe/Berlin` (`APP_TIMEZONE`).
+**„Heute" kommt aus der Zeitzone des Geräts** — `todayParam()` in `src/lib/time.ts`
+ist die **einzige** Quelle dafür (`daysUntil` liegt daneben, weil es dieselbe
+Vorstellung braucht).
+
+⚠️ Hier lag ein Fehler, der sich **nur auf der Reise** zeigt. Es gab zwei
+Vorstellungen von „heute": drei wortgleiche Kopien `todayStr()` (Dashboard,
+Flug-Tagesstatus, Flugplaner) nahmen die **Gerätezeit**, `todayParam()` nahm die
+feste App-Zeitzone **Europe/Berlin**. In Japan (UTC+9) liegen dazwischen sieben
+Stunden: morgens um 6:00 in Tokio zeigte das Dashboard den 19., der Tagesplaner
+den 18. — und `scheduleReminders` verwarf **alle** Erinnerungen des laufenden
+Tages, weil `dateISO !== todayISO`. Die Erinnerungszeit selbst wurde derweil über
+`setHours` in Gerätezeit gerechnet: eine Hälfte japanisch, die andere deutsch.
+⚠️ Im Code stand bereits ein Kommentar über genau diesen Fehler — er war schon
+einmal von UTC auf Berlin „korrigiert" worden. Eine **feste** Zeitzone ist für eine
+Reise-App grundsätzlich falsch: der ganze Zweck ist, dass man sich bewegt.
+⚠️ `todayParam()` gehört **nicht** ins Server-Rendering — dort gibt es kein Gerät,
+und das HTML widerspräche dem, was der Client gleich darauf rechnet. Alle Aufrufer
+sind Client-Komponenten hinter `if (!loaded) return null` bzw. in einem Effekt.
+⚠️ **`APP_TIMEZONE` ist damit ersatzlos entfallen.** Nach dem Umbau wurde die
+Variable nirgends mehr gelesen; serverseitig berechnet die App keinen Kalendertag
+(alle `new Date()` dort sind Zeitstempel für Ablauf/Limits, keine Tage). Eine
+Umgebungsvariable, die nichts steuert, aber nach Konfiguration aussieht, ist
+schlimmer als keine — dasselbe Argument wie bei der Rolle `MANAGER`.
+Die Heimatzeitzone der Japan-Uhr (`JapanClock.tsx`) steht bewusst fest im Code:
+das ist eine Anzeige, keine Terminlogik. Test: `e2e/today-tz.ts` (prüft Tokio,
+Berlin, UTC und New York an einem Augenblick, an dem sich die Kalendertage
+unterscheiden — und dass der Prüffall überhaupt trennt).
 
 ## Umgebungs-Variablen & Deployment (Vercel/Neon)
 
@@ -1071,7 +1097,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 |---|---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Neon Pooled- / Direct-URL (Direct nur für `migrate deploy`) | **ja** (sonst Deploy-Fehler → nichts Neues live) |
 | `AUTH_SECRET`, `AUTH_TRUST_HOST` | NextAuth | ja |
-| `APP_URL`, `APP_TIMEZONE` | Basis-URL / Zeitzone | ja |
+| `APP_URL` | Basis-URL | ja |
 | `WEBAUTHN_RP_ID/ORIGIN/RP_NAME` | Passkeys (Prod = HTTPS) | für Passkeys |
 | `SMTP_*` | E-Mail (Einladung/Verify/Reset, **Koffer-Fund**) | für Mailversand |
 | `AERODATABOX_API_KEY` | Flüge Auto-Abruf **und** Live-Status | für Flug-Features |

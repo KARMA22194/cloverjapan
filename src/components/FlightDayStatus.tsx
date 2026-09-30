@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { todayParam } from "@/lib/time";
+
 import { api } from "@/lib/api/client";
 import { FlightLiveStatus } from "@/components/FlightLiveStatus";
 
@@ -15,10 +17,7 @@ interface Flight {
   seats: string;
 }
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+
 
 /**
  * Zeigt den Live-Flugstatus prominent auf dem Dashboard – aber nur, wenn heute
@@ -36,7 +35,7 @@ export function FlightDayStatus() {
   }, []);
 
   if (!flights) return null;
-  const today = todayStr();
+  const today = todayParam();
   const relevant = flights.filter((f) => {
     if (!f.flightNumber || !f.departure) return false;
     const dep = f.departure.slice(0, 10);

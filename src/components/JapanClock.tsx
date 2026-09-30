@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 
 const JP_TZ = "Asia/Tokyo";
-const HOME_TZ = "Europe/Berlin"; // APP_TIMEZONE
+// Heimatzeitzone für den Vergleich „in Japan ist es …, zu Hause …".
+// ⚠️ Bewusst fest: das ist eine **Anzeige**, keine Terminlogik. „Heute" leitet die
+// App aus der Gerätezeit ab (`todayParam`) — diese Konstante hat damit nichts zu tun.
+const HOME_TZ = "Europe/Berlin";
 
 const timeFmt = (tz: string, withSeconds = false) =>
   new Intl.DateTimeFormat("de-DE", {

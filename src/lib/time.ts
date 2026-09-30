@@ -1,8 +1,19 @@
-import { formatInTimeZone } from "date-fns-tz";
-
-// Feste App-Zeitzone (MVP-Annahme). Einträge sind tagesbasiert und werden intern
-// als UTC-Mitternacht gespeichert (@db.Date), daher rechnen wir Datumsarithmetik in UTC.
-export const APP_TIMEZONE = process.env.APP_TIMEZONE ?? "Europe/Berlin";
+// Einträge sind tagesbasiert und werden intern als UTC-Mitternacht gespeichert
+// (@db.Date), daher rechnet die Datumsarithmetik unten in UTC.
+//
+// ⚠️ Hier stand eine **feste App-Zeitzone** (`APP_TIMEZONE`, Europe/Berlin), aus der
+// „heute" abgeleitet wurde. Für eine **Reise**-App ist das die falsche Annahme: der
+// ganze Zweck ist, dass man sich bewegt. In Japan (UTC+9) liegt Berlin sieben
+// Stunden zurück — zwischen Mitternacht und 7:00 Ortszeit lieferte `todayParam()`
+// den **Vortag**. Der Tagesplaner öffnete dann auf gestern, und `scheduleReminders`
+// verwarf alle Erinnerungen des laufenden Tages, weil `dateISO !== todayISO`.
+// Die Uhrzeit der Erinnerung wurde derweil über `setHours` in **Gerätezeit**
+// berechnet: eine Hälfte der Logik rechnete japanisch, die andere deutsch.
+//
+// ⚠️ Im Code stand bereits ein Kommentar über genau diesen Fehler — jemand hatte ihn
+// schon einmal von UTC auf Berlin korrigiert. Berlin ist nur ebenso falsch, sobald
+// das Flugzeug abgehoben ist. Die einzig richtige Bezugsgröße ist die Zeitzone des
+// **Geräts**: sie ist das, was der Reisende auf die Uhr schaut.
 
 export const MONTHS_DE = [
   "Januar", "Februar", "März", "April", "Mai", "Juni",
@@ -11,9 +22,40 @@ export const MONTHS_DE = [
 
 export const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
-/** Heutiges Datum in der App-Zeitzone als `yyyy-MM-dd`. */
-export function todayParam(): string {
-  return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
+/**
+ * Heutiges Datum als `yyyy-MM-dd` — in der Zeitzone des **Geräts**.
+ *
+ * ⚠️ **Die einzige Quelle für „heute" in dieser App.** Es gab drei wortgleiche
+ * Kopien namens `todayStr()` (Dashboard, Flug-Tagesstatus, Flugplaner), die die
+ * Gerätezeit benutzten, und diese Funktion, die Berlin benutzte. In Deutschland
+ * fällt das nie auf, in Japan sieben Stunden lang jeden Morgen: das Dashboard
+ * zeigte den 19., der Tagesplaner den 18.
+ *
+ * ⚠️ **Nicht im Server-Rendering aufrufen.** Auf dem Server gibt es kein Gerät;
+ * dort käme die Zeitzone des Rechenzentrums heraus (auf Vercel UTC), und das
+ * server-gerenderte HTML widerspräche dem, was der Client gleich darauf rechnet.
+ * Alle heutigen Aufrufer sind Client-Komponenten und rufen es **nach** dem ersten
+ * Laden auf (hinter `if (!loaded) return null` bzw. in einem Effekt).
+ *
+ * Der optionale Parameter existiert nur für die Prüfung (`e2e/today-tz.ts`).
+ */
+export function todayParam(now: Date = new Date()): string {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Ganze Tage von heute bis `dateStr` (`yyyy-MM-dd`); negativ = Vergangenheit.
+ * Lag als private Funktion im Dashboard — gehört neben `todayParam`, weil es
+ * dieselbe Vorstellung von „heute" braucht.
+ */
+export function daysUntil(dateStr: string, now: Date = new Date()): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = Date.UTC(y, m - 1, d);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86400000);
 }
 
 /**

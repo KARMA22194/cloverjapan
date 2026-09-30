@@ -7,12 +7,9 @@ import { eurFmt, yenFmt } from "@/lib/format";
 import { FlightLiveStatus } from "@/components/FlightLiveStatus";
 import { buttonClasses } from "@/components/ui/Button";
 import { fieldClasses } from "@/components/ui/Field";
+import { todayParam } from "@/lib/time";
 
-/** Heutiges Datum als YYYY-MM-DD (lokal). */
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+
 
 interface Flight {
   id: string;
@@ -120,7 +117,7 @@ export function FlightPlanner() {
 
   // Flüge, die heute abfliegen, einmalig automatisch aufklappen (Live-Status).
   useEffect(() => {
-    const today = todayStr();
+    const today = todayParam();
     const toOpen = flights.filter(
       (f) => f.flightNumber && f.departure?.slice(0, 10) === today && !seededLive.current.has(f.id),
     );

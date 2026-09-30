@@ -25,11 +25,13 @@ interface Task {
 }
 
 /**
- * Heutiger Tag in der **App-Zeitzone**.
+ * Heutiger Tag in der Zeitzone des **Geräts** (siehe `todayParam`).
  *
- * `toISOString()` liefert UTC: zwischen Mitternacht und 02:00 (Sommerzeit) zeigte
- * der Planer dadurch noch den Vortag, „Heute" schaltete auf nichts um, und
- * `scheduleReminders` verwarf alle Erinnerungen (dateISO !== todayISO).
+ * ⚠️ Hier stand zweimal die falsche Bezugsgröße: erst UTC (dann zeigte der Planer
+ * zwischen Mitternacht und 02:00 deutscher Zeit den Vortag), danach die feste
+ * App-Zeitzone Europe/Berlin — was denselben Fehler auf der Reise erzeugt, nur
+ * sieben Stunden lang statt zwei. Maßgeblich ist die Uhr, auf die der Reisende
+ * schaut.
  */
 function todayISO(): string {
   return todayParam();
