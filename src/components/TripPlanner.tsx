@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -30,6 +30,13 @@ import { buttonClasses } from "@/components/ui/Button";
 import { fieldClasses } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { TabBar } from "@/components/ui/TabBar";
+import {
+  MAX_PRELOAD_TILES,
+  OVERVIEW_ZOOMS,
+  planPreload,
+  preloadTiles,
+  preloadZooms,
+} from "@/lib/offline/mapTiles";
 
 interface Stop {
   id: string;
@@ -473,6 +480,52 @@ export function TripPlanner() {
   const [showRain, setShowRain] = useState(false);
   const [rainError, setRainError] = useState<string | null>(null);
 
+  // Kartenmaterial vorab holen (Offline-Nutzung in Japan).
+  const [preload, setPreload] = useState<{
+    total: number;
+    done: number;
+    running: boolean;
+    finished: boolean;
+    error: string | null;
+  } | null>(null);
+  const preloadAbort = useRef<AbortController | null>(null);
+
+  /**
+   * Kacheln des aktuellen Ausschnitts holen, damit die Karte ohne Netz etwas zeigt.
+   *
+   * ⚠️ Es wird bewusst nur der **sichtbare** Ausschnitt geladen, nicht die ganze
+   * Route: der Nutzer sieht damit vorher genau, was er holt, und kann es über
+   * Zoom und Verschieben steuern. Ein Knopf „ganz Japan" wäre ein Griff in
+   * fremde Bandbreite — allein ab Stufe 10 sind das über 50.000 Kacheln.
+   */
+  const startPreload = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const b = map.getBounds();
+    const tiles = planPreload(
+      { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() },
+      // Übersichtsstufen immer dazu, sonst führt offline kein Weg von der
+      // Japan-Ansicht zum vorgeladenen Ausschnitt (`planPreload` entdoppelt).
+      [...OVERVIEW_ZOOMS, ...preloadZooms(map.getZoom())],
+    );
+    if (tiles.length > MAX_PRELOAD_TILES) {
+      setPreload({
+        total: tiles.length,
+        done: 0,
+        running: false,
+        finished: false,
+        error: `Der Ausschnitt ist zu groß (${tiles.length.toLocaleString("de-DE")} Kacheln, erlaubt sind ${MAX_PRELOAD_TILES.toLocaleString("de-DE")}). Zoome näher heran und lade die Reise in mehreren Schritten.`,
+      });
+      return;
+    }
+    const ctrl = new AbortController();
+    preloadAbort.current = ctrl;
+    setPreload({ total: tiles.length, done: 0, running: true, finished: false, error: null });
+    await preloadTiles(tiles, (done) => setPreload((p) => (p ? { ...p, done } : p)), ctrl.signal);
+    setPreload((p) => (p ? { ...p, running: false, finished: !ctrl.signal.aborted } : p));
+    preloadAbort.current = null;
+  }, []);
+
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
     api
@@ -572,6 +625,12 @@ export function TripPlanner() {
           subdomains: "abcd",
           attribution: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
           maxZoom: 20,
+          // ⚠️ `crossOrigin` lässt Leaflet die Kacheln per CORS anfordern statt
+          // opak. Sonst legte der Service-Worker zweierlei Einträge an: die
+          // vorgeladenen als CORS-Antwort, die beim Blättern geholten als opake
+          // — und opake Einträge fressen das Speicherkontingent mit einem
+          // Aufschlag auf. CARTO erlaubt `*`, die Anfrage bleibt also gültig.
+          crossOrigin: "",
         },
       ).addTo(map);
       markersRef.current = L.layerGroup().addTo(map);
@@ -2069,6 +2128,72 @@ export function TripPlanner() {
           )}
           {rainError && (
             <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{rainError}</p>
+          )}
+        </div>
+
+        {/* Kartenmaterial für die Offline-Nutzung vorab holen */}
+        <div className="rounded-card border border-hairline bg-surface shadow-card p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-ink-muted">📥 Karte offline</span>
+            {preload?.running ? (
+              <button
+                type="button"
+                onClick={() => preloadAbort.current?.abort()}
+                className={buttonClasses("secondary", "sm")}
+              >
+                Abbrechen
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={startPreload}
+                disabled={!ready}
+                className={buttonClasses("secondary", "sm")}
+              >
+                Diesen Ausschnitt laden
+              </button>
+            )}
+          </div>
+
+          <p className="mt-1.5 text-xs text-ink-muted">
+            Holt den <strong>sichtbaren</strong> Kartenausschnitt in drei Zoomstufen auf
+            das Gerät — im WLAN vorbereiten, in Japan ohne Netz benutzen. Für mehrere
+            Städte nacheinander ausführen.
+          </p>
+
+          {preload?.running && (
+            <div className="mt-2">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                <div
+                  className="h-full bg-brand transition-[width]"
+                  style={{ width: `${Math.round((preload.done / Math.max(1, preload.total)) * 100)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-ink-subtle">
+                {preload.done} von {preload.total} Kacheln
+              </p>
+            </div>
+          )}
+
+          {preload?.finished && (
+            <p className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+              {preload.total} Kacheln geladen. Dieser Ausschnitt ist jetzt auch ohne
+              Verbindung sichtbar.
+            </p>
+          )}
+
+          {preload?.error && (
+            <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{preload.error}</p>
+          )}
+
+          {/* ⚠️ Der Service-Worker läuft NUR in Produktion (siehe PwaRegister).
+              Ohne ihn wandern die Kacheln zwar durchs Netz, werden aber nirgends
+              abgelegt — der Knopf täte dann so, als hätte er etwas bewirkt. */}
+          {typeof navigator !== "undefined" && !navigator.serviceWorker?.controller && (
+            <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+              Hinweis: Es ist kein Service-Worker aktiv (Entwicklungsmodus oder Seite
+              noch nicht neu geladen) — die Kacheln würden nicht gespeichert.
+            </p>
           )}
         </div>
 

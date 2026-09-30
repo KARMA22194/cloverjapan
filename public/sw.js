@@ -17,7 +17,11 @@
 const STATIC_CACHE = "tt-static-v4";
 const DATA_CACHE = "tt-data-v1";
 const TILE_CACHE = "tt-tiles-v1";
-const MAX_TILES = 600; // grobe Obergrenze (mehrere Zoomstufen einer Region)
+// Obergrenze des Kachel-Caches. Muss deutlich über einem Vorladevorgang liegen
+// (MAX_PRELOAD_TILES = 1500 in src/lib/offline/mapTiles.ts), sonst wirft trimCache
+// genau das wieder weg, was gerade fürs Offline-Sein geholt wurde — und das merkt
+// man erst ohne Empfang. ~3000 Kacheln sind grob 45 MB.
+const MAX_TILES = 3000;
 const OWNER_KEY = "/__owner";
 
 function isStaticAsset(url) {
@@ -58,7 +62,12 @@ async function trimCache(name, max) {
 // „no-cors" → opaque (status 0); die cachen wir bewusst mit.
 async function tileFirst(request) {
   const cache = await caches.open(TILE_CACHE);
-  const cached = await cache.match(request);
+  // ⚠️ `ignoreVary`: vorgeladene Kacheln kommen per `fetch(..., {mode:"no-cors"})`,
+  // im Betrieb fragt Leaflet sie als <img> an. Beide schicken unterschiedliche
+  // Accept-Header; antwortet der CDN mit einem passenden `Vary`, fände die
+  // Standard-Zuordnung den Eintrag nicht — der Cache wäre voll und trotzdem
+  // nutzlos. Sichtbar wäre das ausschließlich offline.
+  const cached = await cache.match(request, { ignoreVary: true });
   if (cached) return cached;
   try {
     const res = await fetch(request);
@@ -98,11 +107,24 @@ async function setOwner(userId) {
   const cache = await caches.open(DATA_CACHE);
   const prev = await cache.match(OWNER_KEY);
   const prevId = prev ? await prev.text() : null;
-  if (prevId !== userId) {
-    await caches.delete(DATA_CACHE);
-    const fresh = await caches.open(DATA_CACHE);
-    await fresh.put(OWNER_KEY, new Response(userId || ""));
-  }
+
+  if (prevId === userId) return;
+
+  // ⚠️ Nur leeren, wenn wirklich ein ANDERER Besitzer eingetragen war. Vorher
+  // wurde auch beim allerersten Mal gelöscht (prevId === null) — und weil die
+  // Meldung erst kommt, wenn `PwaRegister` `/api/v1/me` beantwortet bekommen
+  // hat, warf das den gerade gecachten Seitenaufruf wieder weg. Beobachtet: nach
+  // dem ersten Laden stand im DATA_CACHE nur noch der Marker, die Seite selbst
+  // war weg, und offline erschien die „Diese Seite wurde noch nicht geladen"-
+  // Ersatzseite, obwohl man genau dort eben noch war. Beim zweiten Aufruf
+  // heilte es sich selbst — deshalb war es so schwer zu fassen.
+  // Der Cross-User-Schutz bleibt unberührt: ohne vorherigen Marker gibt es auch
+  // nichts, was einem anderen Konto gehören könnte (beim Logout wird der ganze
+  // Cache samt Marker gelöscht).
+  if (prevId !== null) await caches.delete(DATA_CACHE);
+
+  const fresh = await caches.open(DATA_CACHE);
+  await fresh.put(OWNER_KEY, new Response(userId || ""));
 }
 
 self.addEventListener("message", (event) => {

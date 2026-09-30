@@ -321,6 +321,59 @@ Warnung/ein Datenverlust ansteht (z. B. Unique-Constraint, DROP). Dann die
   (Hotel-WLAN mit Anmeldeseite, Funkzelle am Rand). Deshalb neben dem `online`-Ereignis
   ein 30-s-Takt in `OfflineBanner`. Tests: `e2e/offline-outbox.mjs` (Browser, echter
   Offline-Schalter) und `e2e/offline-queueable.ts` (Allowlist, ohne Netz).
+- **Karte offline verfügbar machen** (`src/lib/offline/mapTiles.ts` + Karte-Tab im
+  Reiseplaner): holt den **sichtbaren** Ausschnitt in drei Zoomstufen plus vier
+  Übersichtsstufen in den `TILE_CACHE`. Der Worker hielt Kacheln zwar schon offline
+  vor — aber nur die, durch die man vorher zufällig gescrollt war. Im Zug ohne
+  Empfang ist das zu wenig.
+  ⚠️ **Nur der sichtbare Ausschnitt, nicht die ganze Route.** Der Nutzer sieht damit
+  vorher, was er holt. `MAX_PRELOAD_TILES = 1500` ist eine **Anstands**grenze, keine
+  technische: die Kacheln kommen von CARTOs kostenlosem Dienst, und massenhaft
+  Kartenmaterial abzuziehen ist das Verhalten, das solche Anbieter sperren lässt
+  (ganz Japan wären ab Stufe 10 über 50.000 Kacheln). Vier gleichzeitige Anfragen,
+  nicht alle auf einmal.
+  ⚠️ **Zwei Zoomstufen über der aktuellen, nicht drei.** Je Stufe vervierfacht sich
+  die Kachelzahl; mit drei kam ein Stadtbezirk auf 1.736 und riss die Grenze, mit
+  zwei auf rund 360. Über der letzten geladenen Stufe zeigt Leaflet offline die
+  hochskalierte Elternkachel — unscharf, aber nicht leer.
+  ⚠️ **Übersichtsstufen (5–8) sind immer dabei.** Ohne sie ist das Vorgeladene
+  offline praktisch unerreichbar: nach einem Neuladen startet die Karte wieder auf
+  der Japan-Übersicht, und jede Zwischenstufe wäre grau. Kostet ein gutes Dutzend
+  Kacheln. Erst im Produktionslauf aufgefallen — die Kacheln waren da, man kam nur
+  nicht hin.
+  ⚠️ **Die URL muss exakt der entsprechen, die Leaflet anfragt.** Leaflet wählt die
+  Subdomain deterministisch über `Math.abs(x + y) % 4` aus „abcd"; eine zufällig
+  gewählte hätte einen Cache erzeugt, der zu 75 % ins Leere zeigt — sichtbar
+  ausschließlich offline. Test: `e2e/map-tiles.ts`.
+  ⚠️ **`mode: "cors"`, nicht `no-cors`** — und `crossOrigin: ""` am `tileLayer`,
+  damit beide Wege dieselbe Anfrageart benutzen. Opake Antworten werden vom Browser
+  mit einem großzügigen Aufschlag aufs Speicherkontingent gerechnet: **von 138
+  vorgeladenen Kacheln kamen nur 63 an**, der Rest scheiterte still an der Quote
+  (`tileFirst` verschluckt den Fehler). CARTO sendet `Access-Control-Allow-Origin: *`
+  und **kein** `Vary`, also geht es sauber. Nach der Umstellung: 168 Einträge.
+  ⚠️ `MAX_TILES` im Worker (3.000) muss deutlich über `MAX_PRELOAD_TILES` liegen,
+  sonst wirft `trimCache` genau das wieder weg, was gerade geholt wurde.
+- ⚠️ **`setOwner` leerte den Daten-Cache auch beim allerersten Mal.** Die
+  Besitzer-Meldung kommt erst, wenn `PwaRegister` die Antwort auf `/api/v1/me` hat —
+  und warf damit den bis dahin gecachten Seitenaufruf wieder weg. Folge: **der
+  dokumentierte Offline-Lesezugriff funktionierte beim ersten Laden gar nicht**, im
+  `DATA_CACHE` stand nur der Marker, und offline erschien die „Diese Seite wurde noch
+  nicht geladen"-Ersatzseite, obwohl man eben noch dort war. Beim zweiten Aufruf
+  heilte es sich selbst — deshalb war es so schwer zu fassen. Jetzt wird nur geleert,
+  wenn wirklich ein **anderer** Besitzer eingetragen war; der Cross-User-Schutz bleibt
+  unberührt, weil der Logout ohnehin den ganzen Cache samt Marker löscht.
+- ⚠️ **Offline-Verhalten lässt sich NUR gegen einen Produktionsserver prüfen** — der
+  Service-Worker wird nur dort registriert. Im Dev-Server sieht man die halbe Sache:
+  die Kacheln gehen durchs Netz und landen nirgends. Genau in dieser Lücke steckten
+  beide Fehler oben, monatelang. Dafür gibt es **`e2e/offline-prod.mjs`**:
+  ```bash
+  docker compose exec -T app npm run build
+  docker compose exec -d app sh -c 'PORT=3001 npm start > /tmp/prod.log 2>&1'
+  docker compose exec -T app node e2e/offline-prod.mjs
+  docker compose restart app     # Dev-Build wiederherstellen (s. Dev-Server-Falle 1)
+  ```
+  `e2e/map-offline.mjs` prüft im Dev-Server nur die Verdrahtung (Knopf → geplante
+  Kacheln → Netz) und dass die Oberfläche dort **warnt**, dass nichts gespeichert wird.
 - **Playwright** (im Container): einmalig
   `docker compose exec app npx playwright install --with-deps chromium`, dann
   `docker compose exec app npx playwright test` bzw. eigene `node e2e/<script>.mjs`.
