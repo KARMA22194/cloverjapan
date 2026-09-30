@@ -1,6 +1,12 @@
 services:
   db:
-    image: postgres:16-alpine
+    # ⚠️ Muss zur Neon-Version in Produktion passen (dort 18, per
+    # `neon projects list` geprüft). Zwei Hauptversionen Unterschied zwischen
+    # Entwicklung und Produktion fallen erst im Deploy auf — genau das, was der
+    # Absatz zum Prisma-Adapter in der CLAUDE.md vermeiden will.
+    # Beim Wechsel der Hauptversion: `docker volume rm timetracker_db-data`
+    # (Datenverzeichnisse sind nicht weiterverwendbar), dann migrieren + seeden.
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -9,7 +15,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # ⚠️ Ab Postgres 18 liegt PGDATA nicht mehr unter `…/data`, sondern in
+      # einem versionsbenannten Unterordner (`…/18/docker`). Der Mount muss
+      # deshalb eine Ebene höher greifen — sonst startet der Container in einer
+      # Neustartschleife und meldet „unused mount/volume".
+      - db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d timetracker"]
       interval: 3s

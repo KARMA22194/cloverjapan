@@ -62,7 +62,18 @@ try {
     { timeout: 30000 },
   );
 
-  const tripId = (await db.tripMember.findUnique({ where: { userId: user.id } }))?.tripId;
+  // ⚠️ Die Mitgliedschaft entsteht **lazy** beim ersten Trip-Zugriff
+  // (`getActiveTripId`) — direkt nach dem Seitenaufruf kann sie noch fehlen.
+  // Einmal zu lesen war ein Rennen: der Test meldete sporadisch „undefined",
+  // und die späteren Abfragen liefen dann mit `tripId: undefined`, was Prisma
+  // als „Filter weglassen" liest. Sie trafen nur deshalb noch das Richtige,
+  // weil die Bezeichnungen je Lauf eindeutig sind — verlassen darf man sich
+  // darauf nicht.
+  let tripId;
+  for (let i = 0; i < 40 && !tripId; i++) {
+    tripId = (await db.tripMember.findUnique({ where: { userId: user.id } }))?.tripId;
+    if (!tripId) await page.waitForTimeout(250);
+  }
   ok("Reise existiert", Boolean(tripId), String(tripId));
 
   // ── 1. Offline eine Ausgabe erfassen ──────────────────────────────────

@@ -52,7 +52,24 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   directory: /app/lint"). Eine ESLint-Konfiguration hatte das Projekt ohnehin nie, das
   Skript prüfte also nichts. Ersetzt durch **`npm run typecheck`** (`tsc --noEmit`) —
   offen bleibt, ob ESLint überhaupt eingerichtet werden soll.
-- **Prisma 7** + **PostgreSQL 16**
+- **Prisma 7** + **PostgreSQL 18** (lokal `postgres:18-alpine`, Neon 18 — geprüft
+  per `neon projects list`, nicht geraten).
+  ⚠️ Lokal lief bis zuletzt **16** gegen **18** in Produktion. Zwei Hauptversionen
+  Unterschied, unbemerkt, monatelang — genau die Sorte Abweichung, die der Absatz
+  zum `adapter-pg` vermeiden will, nur eine Ebene tiefer. Folgenlos geblieben ist
+  das nur, weil das Schema nichts Versionsspezifisches benutzt; handgeschriebene
+  Migrationen (und die schreiben wir hier regelmäßig) wurden gegen 16 geprüft und
+  gegen 18 ausgeführt. **Wer Neon anhebt, hebt `docker-compose.yml` mit.**
+  ⚠️ **Ab Postgres 18 liegt PGDATA woanders.** Das offizielle Image legt die Daten
+  in einen versionsbenannten Unterordner (`/var/lib/postgresql/18/docker`) statt
+  nach `/var/lib/postgresql/data`. Der Mount muss deshalb **eine Ebene höher**
+  greifen (`db-data:/var/lib/postgresql`). Sonst startet der Container in einer
+  Neustartschleife, und `docker compose exec` meldet nur „is restarting" — die
+  eigentliche Erklärung steht im `logs`-Ausgang.
+  ⚠️ Beim Wechsel der Hauptversion ist das Datenverzeichnis **nicht**
+  weiterverwendbar: `docker compose down`, `docker volume rm timetracker_db-data`,
+  dann `migrate deploy` + `db seed`. (**Nicht** `down -v` — das reißt auch das
+  `node_modules`-Volume mit, und dann steht ein kompletter `npm install` an.)
   ⚠️ **Prisma 7 verlangt einen Treiber-Adapter.** `new PrismaClient()` ohne Argumente
   wirft sofort — die eingebaute Rust-Engine gibt es nicht mehr. `src/lib/db.ts` benutzt
   **`@prisma/adapter-pg`** (nicht `adapter-neon`: der spricht WebSockets und liefe nicht
@@ -65,6 +82,14 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   nur noch `provider`; die URL für `migrate`/`db`-Befehle steht in **`prisma.config.ts`**
   (dort `DIRECT_URL`), die Laufzeit liest `DATABASE_URL` selbst. Wer `directUrl` ins
   Schema zurückschreibt, bekommt einen Validierungsfehler.
+  ⚠️ **Der Seed-Befehl steht in `prisma.config.ts` unter `migrations.seed`**, nicht
+  mehr im `prisma.seed`-Feld der `package.json`. Prisma 7 liest den alten Ort nicht
+  mehr — er wurde stillschweigend ignoriert, `prisma db seed` meldete „No seed
+  command configured". Aufgefallen ist das erst beim Neuaufsetzen für Postgres 18,
+  also Monate nach der Umstellung: solange niemand eine leere Datenbank befüllen
+  muss, fällt ein toter Seed nicht auf. Der wirkungslose Eintrag in der
+  `package.json` ist entfernt — zwei Orte für dieselbe Angabe, von denen einer
+  nichts tut, sind schlimmer als einer.
   ⚠️ Auch **Seed und alle E2E-Skripte** brauchen den Adapter — die Skripte holen sich
   den Client deshalb aus **`e2e/_db.mjs`** statt ihn je Datei selbst zu bauen.
 - **Auth.js (NextAuth v5)** — Credentials-Provider + **bcryptjs**, JWT-Sessions (self-hosted);
@@ -168,6 +193,12 @@ Richtungen geprüft wurden. Ein im Netz kursierender „$2a-Testvektor" taugt da
 ⚠️ Nach einem Update von `@playwright/test` **`npx playwright install chromium`** im
 Container nachziehen — sonst scheitern alle E2E-Skripte mit „Looks like Playwright was
 just installed or updated".
+⚠️ **Dasselbe nach jedem `docker compose down`** — und dann mit **`--with-deps`**.
+Browser **und** System-Bibliotheken liegen im Container-Dateisystem, nicht in einem
+Volume: `down` entfernt den Container und damit beides. Ohne `--with-deps` kommt man
+nur einen Schritt weiter und scheitert danach an `libglib-2.0.so.0: cannot open shared
+object file` — eine Meldung, die nach einem kaputten Image aussieht und keine ist.
+(`restart` ist harmlos, nur `down` trifft zu.)
 
 ## Umgebung — wichtige Besonderheiten
 
@@ -1054,6 +1085,43 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 **Konbini/Overpass, Regenradar/RainViewer, Geocoding/Routing, Eki-Stamps, Wetter** sind
 **keyfrei** — laufen ohne Env. Fehlt ein optionaler Key, gibt es einen sauberen Fallback
 (422 „nicht konfiguriert" bzw. Schätzung), **kein** Crash.
+
+## Sicherung der Produktionsdaten
+
+`scripts/backup-neon.sh` + `scripts/de.cloverjapan.backup.plist` (launchd, täglich 03:30).
+
+**Warum:** Neons Rückspul-Fenster steht auf **6 Stunden**
+(`history_retention_seconds: 21600` — nachgesehen, nicht geschätzt). Alles, was länger
+als einen halben Tag unbemerkt bleibt, ist ohne eigene Sicherung weg; gegen den Verlust
+des Projekts selbst hilft es ohnehin nicht. Der Datenbestand ist klein (34 MB von
+512 MB), aber nicht rekonstruierbar: eingefrorene Wechselkurse, Belege, Abrechnung,
+Stempel, Reiseablauf.
+
+- Das Skript holt Projekt, Standard-Branch, Datenbank **und** die Verbindungs-URL über
+  die Neon-API (`NEON_API_KEY` aus der `.env`). Nichts davon ist fest verdrahtet — wer
+  das Projekt umzieht, bekommt sonst wochenlang eine Sicherung der falschen Datenbank.
+- `pg_dump` läuft im **Postgres-18-Image**: auf dem Mac ist es nicht installiert, und
+  seine Version muss mindestens so neu sein wie der Server.
+- `--format=custom` (einzelne Tabellen zurückholbar) und `--no-owner --no-acl` — die
+  Neon-Rollennamen gibt es anderswo nicht, ohne das bricht ein Rückspielen in die
+  lokale Docker-Datenbank an jedem GRANT ab. Und genau dorthin geht eine Sicherung im
+  Ernstfall zuerst.
+- Geschrieben wird erst nach `.partial` und nur bei plausibler Größe umbenannt: eine
+  abgebrochene Sicherung darf nicht als gültige dastehen und beim Aufräumen eine echte
+  verdrängen (14 Generationen).
+- ⚠️ Die Verbindungs-URL geht als **Umgebungsvariable** in den Container, nicht als
+  Argument — Argumente stehen in der Prozessliste.
+
+⚠️ **Im Firmennetz (Cato Networks) läuft die Sicherung NICHT.** Ausgehend ist Port
+**5432 blockiert**: die TCP-Verbindung kommt zustande, das Postgres-Handshake
+(`SSLRequest`) wird verworfen, die Gegenstelle legt auf. Gemessen gegen den direkten
+**und** den gepoolten Endpunkt; HTTPS/443 ist nicht betroffen, die Neon-API und die
+App funktionieren also normal. `pg_dump` meldet dabei nur „server closed the connection
+unexpectedly" — das klingt nach einem kaputten Server und ist eine Firewall. Deshalb
+prüft das Skript den Port **vorab** und sagt es beim Namen.
+→ Die Sicherung braucht ein Netz ohne diese Sperre (Heim-WLAN, Hotspot). Der
+launchd-Job ist deshalb **noch nicht installiert** — ein täglich scheiternder Job
+erzeugt nur Rauschen, in dem später echte Fehler untergehen.
 
 ## Demo-Daten & Zugänge
 

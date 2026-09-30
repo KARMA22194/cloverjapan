@@ -17,6 +17,14 @@ import { defineConfig, env } from "prisma/config";
  */
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  migrations: { path: "prisma/migrations" },
+  migrations: {
+    path: "prisma/migrations",
+    // ⚠️ Prisma 7 liest den Seed-Befehl **hier**, nicht mehr aus dem
+    // `prisma.seed`-Feld der package.json. Der alte Eintrag wurde stillschweigend
+    // ignoriert: `prisma db seed` meldete „No seed command configured", und weil
+    // seit der Umstellung niemand neu aufsetzen musste, fiel das erst beim
+    // Wechsel auf Postgres 18 auf.
+    seed: "tsx prisma/seed.ts",
+  },
   datasource: { url: env("DIRECT_URL") },
 });

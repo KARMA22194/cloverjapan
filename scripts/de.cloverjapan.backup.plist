@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Täglicher Aufruf von scripts/backup-neon.sh über launchd.
+
+  INSTALLIEREN (erst, wenn das Skript von Hand durchläuft — im Firmennetz ist
+  Port 5432 blockiert, siehe CLAUDE.md):
+      cp scripts/de.cloverjapan.backup.plist ~/Library/LaunchAgents/
+      launchctl load  ~/Library/LaunchAgents/de.cloverjapan.backup.plist
+  ENTFERNEN:
+      launchctl unload ~/Library/LaunchAgents/de.cloverjapan.backup.plist
+
+  ⚠️ launchd startet nichts, während der Mac schläft. Ein verpasster Termin wird
+  beim nächsten Aufwachen einmal nachgeholt — mehr nicht. Wer den Rechner tagelang
+  zuklappt, hat in der Zeit keine Sicherung.
+  ⚠️ Der Pfad unten ist absolut und muss angepasst werden, wenn das Projekt umzieht.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>de.cloverjapan.backup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/steve/Desktop/Claude/Hackathon/Timetracker/scripts/backup-neon.sh</string>
+  </array>
+
+  <!-- Täglich 03:30. Docker Desktop muss laufen; sonst bricht das Skript mit
+       einer klaren Meldung ab, statt eine leere Datei zu hinterlassen. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>3</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/steve/Library/Logs/cloverjapan-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/steve/Library/Logs/cloverjapan-backup.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
