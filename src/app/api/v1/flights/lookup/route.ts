@@ -95,6 +95,13 @@ export function GET(req: NextRequest) {
       toName: flight.arrival?.airport?.name ?? "",
       departure: localToNaiveIso(flight.departure?.scheduledTime?.local),
       arrival: localToNaiveIso(flight.arrival?.scheduledTime?.local),
+      // ⚠️ Die echten Zeitpunkte zusätzlich durchreichen. Sie wurden hier schon
+      // berechnet (für `durationMin`) und danach weggeworfen — ohne sie kann der
+      // Cron-Lauf nicht wissen, wann ein Flug wirklich startet: `departure` oben
+      // trägt die Ortszeit ohne Zeitzone, und beim Rückflug aus Tokio liegen
+      // beide neun Stunden auseinander.
+      departureUtc: depUtc !== null ? new Date(depUtc).toISOString() : null,
+      arrivalUtc: arrUtc !== null ? new Date(arrUtc).toISOString() : null,
       durationMin,
     });
   });

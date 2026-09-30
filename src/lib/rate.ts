@@ -102,3 +102,24 @@ export function clientIp(req: Request): string {
   if (real) return real.trim();
   return "unknown";
 }
+
+/**
+ * Schlüssel für ein Kontingent **pro Kalendermonat** (UTC).
+ *
+ * ⚠️ Kalendermonat, kein rollierendes 30-Tage-Fenster: externe Dienste rechnen
+ * pro Kalendermonat ab. Liefe das Fenster Mitte des Monats ab, ließe es im
+ * selben Abrechnungsmonat fast das Doppelte durch. Mit dem Monat im Schlüssel
+ * beginnt am Monatsersten von selbst ein frischer Zähler.
+ *
+ * Benutzt von **Cloud Vision** (Beleg-Scan) und **AeroDataBox** (Flug-Status) —
+ * den beiden Stellen, an denen ein Fehler in dieser App echtes Geld kostet.
+ */
+export function monthlyQuotaKey(prefix: string, now: Date): string {
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `${prefix}:${now.getUTCFullYear()}-${month}`;
+}
+
+/** Millisekunden bis zum Monatswechsel — so verfällt die Zähler-Zeile von selbst. */
+export function msUntilNextMonth(now: Date): number {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime();
+}

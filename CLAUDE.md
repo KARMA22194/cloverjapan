@@ -797,6 +797,45 @@ Dashboard gespiegelt.
   automatisch offen); `FlightDayStatus.tsx` zeigt „Heute unterwegs" auf dem Dashboard nur
   zwischen Ab- und Ankunftstag.
 - ⚠️ Gate/Check-in/Kofferband werden von AeroDataBox erst **wenige Stunden vor Abflug** belegt.
+- **Push bei Statusänderung** (`/api/v1/cron/flight-status` + `services/flightStatus.ts`
+  und `services/flightSchedule.ts`): meldet Gate, Verspätung, Terminal, Check-in und
+  Kofferband, sobald sie sich ändern. Der Live-Status in der Oberfläche aktualisiert
+  sich nur, **solange jemand die Seite offen hat** — also genau dann nicht, wenn man
+  unterwegs ist.
+  ⚠️ **Zweite Stelle nach Cloud Vision, an der ein Fehler echtes Geld kostet.**
+  AeroDataBox läuft über RapidAPI mit Monatskontingent. Deshalb dasselbe Muster wie
+  beim Beleg-Scan: ein **globaler** Zähler pro Kalendermonat (`flight-quota:YYYY-MM`,
+  `FLIGHT_MONTHLY_LIMIT`, Default 400), geprüft unmittelbar vor dem Netzaufruf — und
+  **ein** Abrufweg für Oberfläche und Cron. Zwei Pfade hätten bedeutet, dass die
+  Bremse nur für einen gilt.
+  ⚠️ **Den Takt bestimmt nicht der Cron, sondern `isCheckDue`.** Alle 15 min rund um
+  die Uhr wären 2.880 Abfragen im Monat je Flug. Stattdessen: außerhalb des
+  Reisefensters gar nicht, mehr als 4 h vor Abflug stündlich, ab 4 h vorher bis 4 h
+  nach Ankunft viertelstündlich. Nachgerechnet in `e2e/flight-due.ts`: **100 Abfragen
+  je Langstreckenflug, 200 für hin und zurück** — die Simulation ist Teil des Tests,
+  damit eine Änderung an der Logik die Kosten sichtbar macht statt sie zu verstecken.
+  ⚠️ **`Flight.departureUtc`/`arrivalUtc` sind NICHT `departure`/`arrival`.** Letztere
+  tragen die Ortszeit ohne Zeitzone (für die Anzeige am Flughafen). Für jede Rechnung
+  mit „jetzt" ist das unbrauchbar: beim Rückflug aus Tokio liegen beide **neun
+  Stunden** auseinander, ein Fenster „4 h vor Abflug" begänne Stunden nach dem Start.
+  AeroDataBox liefert die echten Zeitpunkte beim Abruf mit — sie wurden bisher nur
+  weggeworfen. Fehlen sie (manuell erfasster Flug), bleibt es beim **stündlichen**
+  Takt über ein großzügiges Fenster: lieber gröber melden als teuer danebenliegen.
+  ⚠️ **Ohne Web-Push wird gar nicht erst abgefragt** — sonst verbrauchte der Lauf
+  Kontingent, ohne dass irgendjemand etwas davon hätte.
+  ⚠️ Gemeldet wird nur, was `describeChange` für meldenswert hält, und der **Text ist
+  der Wert**: „Gate B24 · Abflug jetzt 13:40" beantwortet die Frage, „Flugstatus
+  geändert" zwingt zum Nachsehen. Der erste Abruf meldet nie (sonst käme eine
+  Benachrichtigung darüber, dass die App zum ersten Mal nachgesehen hat), und ein
+  **weggefallenes** Feld ebenso wenig — der Dienst liefert Felder zeitweise nicht.
+  ⚠️ **Der Endpunkt steht bewusst NICHT in `vercel.json`.** Vercel erlaubt auf dem
+  Hobby-Tarif nur **einen Cron-Lauf pro Tag**; ein Flugstatus, der einmal nachts
+  geprüft wird, ist wertlos und verbraucht nur Kontingent. Er wird stattdessen von
+  außen aufgerufen (alle 15 min, `Authorization: Bearer $CRON_SECRET`) — bei den
+  üblichen Anbietern kostenlos. Der Endpunkt darf beliebig oft klopfen, `isCheckDue`
+  entscheidet. Tests: `e2e/flight-due.ts` (Logik + Kostensimulation, ohne Netz) und
+  `e2e/flight-cron.mjs` (Zugangsschutz und Kandidatenauswahl — ruft AeroDataBox
+  **nie** auf; ein Test, der die geschützte Ressource verbraucht, wäre absurd).
 
 ### Geld-Bereich (`/geld`, Tabs)
 
@@ -1157,6 +1196,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `GOOGLE_VISION_API_KEY` | **Beleg-Scan** (Cloud Vision OCR; gratis bis 1.000 Bilder/Monat, darüber kostenpflichtig). Eigener Key, **nicht** der Maps-Key | für Beleg-Scan |
 | `VISION_MONTHLY_LIMIT` | Scans pro **Kalendermonat** über alle Nutzer (Default 950) | optional |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | **Web-Push**. Ohne sie wird **still** nichts verschickt (s. o.) | für Push |
+| `FLIGHT_MONTHLY_LIMIT` | AeroDataBox-Aufrufe pro **Kalendermonat**, über alle Wege (Default 400) | optional |
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |

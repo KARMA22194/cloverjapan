@@ -397,6 +397,19 @@ model Flight {
   toName        String    @default("")
   departure     DateTime? // Abflug (lokale Wall-Clock, als UTC-naiv gespeichert)
   arrival       DateTime? // Ankunft (dito)
+  // ⚠️ Echte UTC-Zeitpunkte — NICHT dasselbe wie oben. `departure` trägt die
+  // Ortszeit ohne Zeitzone (für die Anzeige), hier steht der tatsächliche
+  // Augenblick. Für die Anzeige wäre das falsch (der Nutzer will die Uhrzeit am
+  // Flughafen sehen), für jede Rechnung mit „jetzt" ist die Ortszeit unbrauchbar:
+  // beim Rückflug aus Tokio lägen beide neun Stunden auseinander. AeroDataBox
+  // liefert sie beim Abruf ohnehin mit — sie wurden bisher nur weggeworfen.
+  // Bei manuell erfassten Flügen bleiben sie leer.
+  departureUtc  DateTime?
+  arrivalUtc    DateTime?
+  // Fingerabdruck des zuletzt gemeldeten Live-Status (Gate, Terminal, Band,
+  // Verspätung) — nur um Änderungen zu erkennen, nicht zur Anzeige.
+  liveSignature String?
+  liveCheckedAt DateTime?
   durationMin   Int? // echte Flugdauer (aus UTC-Zeiten beim Abruf; manuell null)
   bookingRef    String    @default("")
   seats         String    @default("") // Sitzplätze, z. B. "32A, 32B"

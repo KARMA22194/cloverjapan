@@ -4,7 +4,12 @@ import { ExpenseCategory } from "@prisma/client";
 
 import { ApiError, badRequest, handle, ok, readJson } from "@/lib/api/http";
 import { requirePermission, requireTripUser } from "@/lib/api/session";
-import { consumeRateLimit, enforceRateLimit } from "@/lib/rate";
+import {
+  consumeRateLimit,
+  enforceRateLimit,
+  monthlyQuotaKey,
+  msUntilNextMonth,
+} from "@/lib/rate";
 import { extractTotal, guessMeta, rowsFromWords, type AmountSource, type OcrWord } from "@/lib/receipt";
 import { categoryForLabel } from "@/lib/services/expensesService";
 
@@ -30,22 +35,6 @@ export const maxDuration = 30;
  */
 const VISION_MONTHLY_LIMIT = Number(process.env.VISION_MONTHLY_LIMIT ?? 950);
 
-/**
- * Schlüssel **pro Kalendermonat** (UTC), weil Google genau so abrechnet.
- *
- * Ein rollierendes 30-Tage-Fenster wäre hier falsch: läuft es Mitte des Monats
- * ab, ließe es im selben Kalendermonat fast das Doppelte durch. Mit dem Monat im
- * Schlüssel beginnt am Monatsersten automatisch ein frischer Zähler.
- */
-function visionQuotaKey(now: Date): string {
-  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-  return `vision-quota:${now.getUTCFullYear()}-${month}`;
-}
-
-/** Millisekunden bis zum Monatswechsel — so verfällt die Zeile von selbst. */
-function msUntilNextMonth(now: Date): number {
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime();
-}
 
 // Erlaubte Kategorien aus dem Prisma-Enum ableiten — eine Quelle statt einer
 // zweiten Liste, die beim Erweitern vergessen werden kann.
@@ -253,7 +242,7 @@ export function POST(req: NextRequest) {
     // schmälern.
     const now = new Date();
     const withinQuota = await consumeRateLimit(
-      visionQuotaKey(now),
+      monthlyQuotaKey("vision-quota", now),
       VISION_MONTHLY_LIMIT,
       msUntilNextMonth(now),
     );

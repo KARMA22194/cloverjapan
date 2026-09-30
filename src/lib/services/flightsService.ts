@@ -10,8 +10,11 @@ export interface FlightInput {
   fromName?: string;
   toCode?: string;
   toName?: string;
-  departure?: string | null; // ISO (UTC-naive Wall-Clock)
+  departure?: string | null; // ISO (UTC-naive Wall-Clock) — Ortszeit für die Anzeige
   arrival?: string | null;
+  // Echte Zeitpunkte, nur beim Auto-Abruf bekannt. `undefined` = nicht anfassen.
+  departureUtc?: string | null;
+  arrivalUtc?: string | null;
   durationMin?: number | null;
   bookingRef?: string;
   seats?: string;
@@ -81,6 +84,12 @@ function fields(input: FlightInput) {
     toName: input.toName?.trim() ?? "",
     departure: toDate(input.departure),
     arrival: toDate(input.arrival),
+    // ⚠️ Nur überschreiben, wenn der Aufrufer sie mitbringt. Beim manuellen
+    // Bearbeiten eines automatisch abgerufenen Flugs schickt die Oberfläche sie
+    // nicht mit — ein hartes `?? null` löschte dann die einzige verlässliche
+    // Zeitangabe, und der Flug-Status-Cron fiele auf das grobe Fenster zurück.
+    ...(input.departureUtc !== undefined ? { departureUtc: toDate(input.departureUtc) } : {}),
+    ...(input.arrivalUtc !== undefined ? { arrivalUtc: toDate(input.arrivalUtc) } : {}),
     durationMin: input.durationMin ?? null,
     bookingRef: input.bookingRef?.trim() ?? "",
     seats: input.seats?.trim() ?? "",

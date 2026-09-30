@@ -18,6 +18,10 @@ export const flightBody = z.object({
   toName: z.string().max(100).optional().default(""),
   departure: isoOrNull,
   arrival: isoOrNull,
+  // Echte Zeitpunkte (nur beim Auto-Abruf bekannt) — Grundlage für das
+  // Zeitfenster des Flug-Status-Crons.
+  departureUtc: isoOrNull,
+  arrivalUtc: isoOrNull,
   durationMin: z.number().int().positive().max(6000).nullish(),
   bookingRef: z.string().max(40).optional().default(""),
   seats: z.string().max(60).optional().default(""),

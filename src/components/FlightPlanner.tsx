@@ -96,6 +96,18 @@ export function FlightPlanner() {
   const [currency, setCurrency] = useState<Currency>("EUR");
   // Echte Flugdauer (nur aus dem Auto-Abruf; bei manueller Eingabe null).
   const [durationMin, setDurationMin] = useState<number | null>(null);
+  /**
+   * Echte UTC-Zeitpunkte aus dem Auto-Abruf.
+   *
+   * ⚠️ Gehören nicht ins Formular: der Nutzer soll die Uhrzeit **am Flughafen**
+   * sehen und bearbeiten. Gebraucht werden sie trotzdem — der Flug-Status-Cron
+   * kann aus einer Ortszeit ohne Zeitzone nicht ableiten, wann der Flug wirklich
+   * startet (beim Rückflug aus Tokio neun Stunden Unterschied). Bei manueller
+   * Eingabe bleiben sie leer; dann arbeitet der Cron mit einem groben Fenster.
+   */
+  const [utcTimes, setUtcTimes] = useState<{ departureUtc: string | null; arrivalUtc: string | null }>(
+    { departureUtc: null, arrivalUtc: null },
+  );
   const [lookupPending, setLookupPending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +166,7 @@ export function FlightPlanner() {
     setPrice("");
     setCurrency("EUR");
     setDurationMin(null);
+    setUtcTimes({ departureUtc: null, arrivalUtc: null });
     setLookupDate("");
     setEditingId(null);
     setError(null);
@@ -174,6 +187,7 @@ export function FlightPlanner() {
       seats: f.seats ?? "",
     });
     setDurationMin(f.durationMin);
+    setUtcTimes({ departureUtc: null, arrivalUtc: null });
     // Bereits gespeicherter Preis ist in Yen → zum Bearbeiten in ¥ anzeigen.
     setPrice(f.priceYen ? String(f.priceYen) : "");
     setCurrency("JPY");
@@ -202,6 +216,8 @@ export function FlightPlanner() {
         toName: string;
         departure: string | null;
         arrival: string | null;
+        departureUtc: string | null;
+        arrivalUtc: string | null;
         durationMin: number | null;
       }>(`/api/v1/flights/lookup?number=${encodeURIComponent(number)}&date=${d}`);
       setForm((f) => ({
@@ -215,6 +231,7 @@ export function FlightPlanner() {
         arrival: isoToLocal(r.arrival) || f.arrival,
       }));
       setDurationMin(r.durationMin ?? null);
+      setUtcTimes({ departureUtc: r.departureUtc, arrivalUtc: r.arrivalUtc });
       setInfo("Flugdaten übernommen — Preis ergänzen und speichern.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Abruf fehlgeschlagen.");
@@ -243,6 +260,10 @@ export function FlightPlanner() {
       departure: localToIso(form.departure),
       arrival: localToIso(form.arrival),
       durationMin,
+      // Nur mitschicken, wenn ein Abruf sie geliefert hat — sonst würde ein
+      // Bearbeiten von Hand die einzige verlässliche Zeitangabe löschen.
+      ...(utcTimes.departureUtc ? { departureUtc: utcTimes.departureUtc } : {}),
+      ...(utcTimes.arrivalUtc ? { arrivalUtc: utcTimes.arrivalUtc } : {}),
       priceYen,
     };
     setSaving(true);
