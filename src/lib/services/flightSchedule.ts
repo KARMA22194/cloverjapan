@@ -1,6 +1,6 @@
 /**
- * Reine Logik rund um den Flug-Status: Änderungserkennung, Meldungstext und die
- * Frage, wann überhaupt abgefragt werden darf.
+ * Reine Logik rund um den Flug-Status: welche Zeit gilt, Änderungserkennung,
+ * Meldungstext und die Frage, wann überhaupt abgefragt werden darf.
  *
  * ⚠️ Bewusst **ohne** Netz, Datenbank und `@/`-Alias getrennt von
  * `flightStatus.ts`. Diese Funktionen entscheiden über Kosten und über den Text,
@@ -8,7 +8,140 @@
  * prüfen können, ohne einen kostenpflichtigen Dienst anzurufen
  * (`e2e/flight-due.ts`, ausgeführt mit `node --experimental-strip-types`).
  */
+/**
+ * ⚠️ Der Import ist **type-only** und muss es bleiben. `flightStatus.ts` zieht
+ * über `@/lib/rate` den Prisma-Client nach sich; diese Datei wird aber auch von
+ * `FlightLiveStatus.tsx` im Browser benutzt. Ein echter Import würde die halbe
+ * Serverwelt ins Client-Bundle holen — und das fiele erst an der Bundle-Größe
+ * auf, nicht an einem Fehler.
+ */
 import type { LiveStatus } from "./flightStatus";
+
+const MIN = 60_000;
+const H = 60 * MIN;
+
+/** Nur die Uhrzeit („2026-08-19 13:05+02:00" → „13:05"). */
+function hhmm(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const m = /(\d{2}:\d{2})/.exec(v);
+  return m ? m[1] : null;
+}
+
+/* ────────────────────────── Welche Zeit gilt? ───────────────────────────── */
+
+/**
+ * Die drei Zeitquellen eines Endpunkts — **sauber getrennt**.
+ *
+ * ⚠️ AeroDataBox liefert bis zu vier Zeiten je Endpunkt, und sie wiegen sehr
+ * unterschiedlich schwer:
+ *  - `scheduledTime` — der Flugplan.
+ *  - `revisedTime` — eine vom Flughafen oder der Airline **gemeldete** neue
+ *    Zeit. Eine Tatsache aus dem operativen System.
+ *  - `runwayTime` — tatsächliches Abheben/Aufsetzen. Gibt es erst hinterher und
+ *    ist dann die verbindlichste Angabe überhaupt; gehört deshalb zu `revised`.
+ *  - `predictedTime` — AeroDataBox' **eigene Vorhersage**. Gemeldet hat die
+ *    niemand; sie wackelt minutenweise und steht oft schon da, während der
+ *    Status noch „Expected" lautet.
+ *
+ * ⚠️ Genau diese Trennung fehlte: `predictedTime` landete im selben Feld wie
+ * `revisedTime`. Sichtbar wurde das als Bildschirm, der sich selbst widersprach
+ * — grün „Planmäßig" und daneben rot durchgestrichen eine Verspätung um sechs
+ * Minuten, die niemand gemeldet hatte. Teurer war der unsichtbare Teil:
+ * {@link statusFields} nahm dieselbe Zahl, also löste **jedes Wackeln der
+ * Vorhersage eine Push-Nachricht aus** — genau das, wovor der Kommentar an
+ * `StatusFields` warnt.
+ */
+export interface EndpointTimes {
+  scheduled: string | null;
+  /** Gemeldet oder tatsächlich geflogen — verbindlich. */
+  revised: string | null;
+  /** Vorhersage des Datendienstes — unverbindlich. */
+  predicted: string | null;
+}
+
+interface AdbTime {
+  local?: string;
+}
+
+/** Der Ausschnitt der AeroDataBox-Antwort, der Zeiten trägt. */
+export interface AdbEndpointTimes {
+  scheduledTime?: AdbTime;
+  revisedTime?: AdbTime;
+  predictedTime?: AdbTime;
+  runwayTime?: AdbTime;
+}
+
+export function endpointTimes(e: AdbEndpointTimes): EndpointTimes {
+  return {
+    scheduled: e.scheduledTime?.local ?? null,
+    revised: e.revisedTime?.local ?? e.runwayTime?.local ?? null,
+    predicted: e.predictedTime?.local ?? null,
+  };
+}
+
+/**
+ * Ab welcher Abweichung eine **Vorhersage** überhaupt erwähnt wird (Minuten).
+ *
+ * ⚠️ Keine Schönheitsgrenze. Darunter ist die Vorhersage Rauschen: sie bewegt
+ * sich bei jedem Abruf um ein paar Minuten, und ableiten lässt sich daraus
+ * nichts. Sechs Minuten „Verspätung" bei einem Flug, der noch nicht einmal am
+ * Gate steht, sind keine Information — sie sehen nur aus wie eine.
+ */
+export const PREDICTION_MIN_MINUTES = 15;
+
+/** Woher die angezeigte Zeit stammt — bestimmt, wie verbindlich sie aussieht. */
+export type TimeKind = "scheduled" | "revised" | "predicted";
+
+export interface ShownTime {
+  /** Geplante Zeit als `hh:mm`. */
+  scheduled: string | null;
+  /** Die Zeit, die gilt bzw. erwartet wird, als `hh:mm`. */
+  shown: string | null;
+  kind: TimeKind;
+}
+
+/** Minuten zwischen zwei AeroDataBox-Ortszeiten („2026-08-19 13:05+02:00"). */
+function minutesBetween(a: string | null, b: string | null): number | null {
+  if (!a || !b) return null;
+  const ms = Date.parse(b.replace(" ", "T")) - Date.parse(a.replace(" ", "T"));
+  return Number.isFinite(ms) ? Math.round(ms / MIN) : null;
+}
+
+/**
+ * Welche Zeit zeigt die Oberfläche — und wie verbindlich ist sie?
+ *
+ * Rangfolge:
+ *  1. **Gemeldetes** schlägt alles. Weicht es vom Plan ab, ist das eine echte
+ *     Änderung und wird hervorgehoben.
+ *  2. Sonst eine **Vorhersage** — aber erst ab {@link PREDICTION_MIN_MINUTES}
+ *     und ausdrücklich als Vorhersage gekennzeichnet.
+ *  3. Sonst der Plan.
+ *
+ * ⚠️ Liegt eine gemeldete Zeit vor, wird die Vorhersage gar nicht erst
+ * betrachtet. Sie gegen eine Meldung antreten zu lassen hieße, eine Schätzung
+ * über eine Auskunft zu stellen.
+ */
+export function displayTime(t: EndpointTimes): ShownTime {
+  const scheduled = hhmm(t.scheduled);
+
+  if (t.revised) {
+    const revised = hhmm(t.revised);
+    if (revised && revised !== scheduled) return { scheduled, shown: revised, kind: "revised" };
+    return { scheduled, shown: scheduled ?? revised, kind: "scheduled" };
+  }
+
+  // Ohne geplante Zeit ist die Vorhersage besser als gar nichts.
+  if (!t.scheduled && t.predicted) {
+    return { scheduled: null, shown: hhmm(t.predicted), kind: "predicted" };
+  }
+
+  const diff = minutesBetween(t.scheduled, t.predicted);
+  if (diff !== null && Math.abs(diff) >= PREDICTION_MIN_MINUTES) {
+    return { scheduled, shown: hhmm(t.predicted), kind: "predicted" };
+  }
+
+  return { scheduled, shown: scheduled, kind: "scheduled" };
+}
 
 /* ─────────────────────────── Änderungserkennung ─────────────────────────── */
 
@@ -36,13 +169,13 @@ export interface StatusFields {
   arrBelt: string | null;
 }
 
-/** Nur die Uhrzeit („2026-08-19 13:05+02:00" → „13:05"). */
-function hhmm(v: string | null | undefined): string | null {
-  if (!v) return null;
-  const m = /(\d{2}:\d{2})/.exec(v);
-  return m ? m[1] : null;
-}
-
+/**
+ * ⚠️ Gemeldet oder geplant — **nie** `predicted`. Die Vorhersage bewegt sich bei
+ * fast jedem Abruf; in der dichten Phase wird alle 15 min nachgesehen, ein Push
+ * je Minutenänderung wären Dutzende „Ankunft jetzt 10:52" auf einem Flug. Wer
+ * eine Vorhersage meldet, meldet nichts — er schickt nur Lärm, in dem die eine
+ * Meldung untergeht, auf die es ankommt.
+ */
 export function statusFields(s: LiveStatus): StatusFields {
   return {
     status: s.status,
@@ -116,9 +249,6 @@ export interface CheckCandidate {
   arrivalUtc: Date | null;
   liveCheckedAt: Date | null;
 }
-
-const MIN = 60_000;
-const H = 60 * MIN;
 
 /**
  * Soll dieser Flug jetzt abgefragt werden?

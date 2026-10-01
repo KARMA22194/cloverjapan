@@ -797,6 +797,36 @@ Dashboard gespiegelt.
   automatisch offen); `FlightDayStatus.tsx` zeigt „Heute unterwegs" auf dem Dashboard nur
   zwischen Ab- und Ankunftstag.
 - ⚠️ Gate/Check-in/Kofferband werden von AeroDataBox erst **wenige Stunden vor Abflug** belegt.
+- ⚠️ **AeroDataBox liefert vier Zeiten je Endpunkt, und sie wiegen verschieden
+  schwer.** `scheduledTime` = Flugplan · `revisedTime` = vom Flughafen/der Airline
+  **gemeldet** · `runwayTime` = tatsächlich abgehoben/aufgesetzt · `predictedTime`
+  = **Vorhersage des Dienstes**, von niemandem gemeldet. Die Zuordnung steht an
+  **einer** Stelle: `endpointTimes()` in `services/flightSchedule.ts`.
+  ⚠️ Vorher landete `predictedTime` im selben Feld wie `revisedTime`. Sichtbar
+  wurde das als Bildschirm, der sich selbst widersprach: grün „Planmäßig" und
+  daneben rot durchgestrichen eine Verspätung um **sechs Minuten**, die niemand
+  gemeldet hatte. Teurer war der unsichtbare Teil — `statusFields` nahm dieselbe
+  Zahl, also löste **jedes Wackeln der Vorhersage einen Push aus**. In der dichten
+  Phase wird alle 15 min nachgesehen; das wären Dutzende „Ankunft jetzt 10:52" je
+  Flug gewesen, und genau davor warnt der Kommentar an `StatusFields` wörtlich.
+  Die Absicht stand also da, die Umsetzung hatte sie eine Ebene tiefer verfehlt.
+  ⚠️ **Push meldet nur Gemeldetes** (`revised ?? scheduled`), nie eine Vorhersage.
+  Wer eine Vorhersage meldet, meldet nichts — er schickt Lärm, in dem die eine
+  Meldung untergeht, auf die es ankommt.
+  ⚠️ **Die Anzeige unterscheidet beides sichtbar** (`displayTime()`): gemeldet →
+  Plan durchgestrichen + neue Zeit in `danger`; Vorhersage → Plan bleibt stehen,
+  daneben „ca. 11:30" in Bernstein plus eine Zeile, die sagt, was „ca." heißt.
+  Und erst ab `PREDICTION_MIN_MINUTES` (15) überhaupt — darunter ist die
+  Vorhersage Rauschen, das bei jedem Abruf ein paar Minuten wandert.
+  ⚠️ **`flightSchedule.ts` wird jetzt auch im Browser benutzt** (von
+  `FlightLiveStatus.tsx`). Der Import von `flightStatus.ts` dort muss deshalb
+  **`import type`** bleiben — ein echter Import zöge über `@/lib/rate` den
+  Prisma-Client ins Client-Bundle, und das fiele nur an dessen Größe auf, nicht
+  an einem Fehler. Umgekehrt ist die Kante erlaubt: `flightStatus.ts` importiert
+  `endpointTimes` ganz normal.
+  Tests: `e2e/flight-times.ts` (Zuordnung, Schwelle, Push-Signatur — ohne Netz)
+  und `e2e/flight-live-ui.mjs` (gerenderte Seite; fängt den Live-Endpunkt ab und
+  ruft AeroDataBox **nie** auf).
 - **Push bei Statusänderung** (`/api/v1/cron/flight-status` + `services/flightStatus.ts`
   und `services/flightSchedule.ts`): meldet Gate, Verspätung, Terminal, Check-in und
   Kofferband, sobald sie sich ändern. Der Live-Status in der Oberfläche aktualisiert

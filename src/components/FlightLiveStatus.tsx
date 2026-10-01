@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { displayTime, PREDICTION_MIN_MINUTES } from "@/lib/services/flightSchedule";
 
 interface Endpoint {
   airportIata: string;
   scheduled: string | null;
   revised: string | null;
+  predicted: string | null;
   terminal: string | null;
   checkInDesk: string | null;
   gate: string | null;
@@ -39,8 +41,6 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   Unknown: { label: "Status unbekannt", cls: "bg-ink-subtle/20 text-ink-muted" },
 };
 
-const hhmm = (local: string | null) => (local && local.length >= 16 ? local.slice(11, 16) : null);
-
 /** Ein Info-Feld (z. B. „Gate B23") – nur anzeigen, wenn belegt. */
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -52,24 +52,39 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-/** Geplante Zeit + (falls abweichend) revidierte Zeit hervorgehoben. */
-function TimeLine({ scheduled, revised }: { scheduled: string | null; revised: string | null }) {
-  const s = hhmm(scheduled);
-  const r = hhmm(revised);
-  if (!s && !r) return null;
-  const delayed = s && r && r !== s;
-  return (
-    <span className="tabular-nums">
-      {delayed ? (
-        <>
-          <span className="text-ink-subtle line-through">{s}</span>{" "}
-          <span className="font-semibold text-danger">{r}</span>
-        </>
-      ) : (
-        <span className="text-ink-muted">{r || s}</span>
-      )}
-    </span>
-  );
+/**
+ * Die Zeit eines Endpunkts — in der Darstellung, die ihrer Verbindlichkeit
+ * entspricht.
+ *
+ * ⚠️ Der Unterschied ist der ganze Punkt. Eine **gemeldete** Änderung wird rot
+ * hervorgehoben und der Plan durchgestrichen: das ist passiert. Eine
+ * **Vorhersage** bekommt ein „ca." und einen zurückhaltenden Ton, und der Plan
+ * bleibt stehen — denn gültig ist weiterhin er. Vorher sahen beide gleich aus,
+ * und damit stand neben dem grünen „Planmäßig" eine rote Verspätung.
+ */
+function TimeLine({ ep }: { ep: Endpoint }) {
+  const t = displayTime(ep);
+  if (!t.shown) return null;
+
+  if (t.kind === "revised") {
+    return (
+      <span className="tabular-nums">
+        <span className="text-ink-subtle line-through">{t.scheduled}</span>{" "}
+        <span className="font-semibold text-danger">{t.shown}</span>
+      </span>
+    );
+  }
+
+  if (t.kind === "predicted") {
+    return (
+      <span className="tabular-nums">
+        <span className="text-ink-muted">{t.scheduled}</span>{" "}
+        <span className="font-medium text-amber-700 dark:text-amber-400">ca. {t.shown}</span>
+      </span>
+    );
+  }
+
+  return <span className="tabular-nums text-ink-muted">{t.shown}</span>;
 }
 
 export function FlightLiveStatus({ number, date }: { number: string; date: string }) {
@@ -135,15 +150,18 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
   const arr = data.arrival;
   const noneAssigned =
     !dep.terminal && !dep.checkInDesk && !dep.gate && !arr.terminal && !arr.gate && !arr.baggageBelt;
+  // „ca." braucht eine Erklärung — ein Hovertitel hilft auf dem Handy niemandem.
+  const showsPrediction =
+    displayTime(dep).kind === "predicted" || displayTime(arr).kind === "predicted";
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span>
         <span className="text-xs text-ink-muted">
-          <TimeLine scheduled={dep.scheduled} revised={dep.revised} />
+          <TimeLine ep={dep} />
           {" → "}
-          <TimeLine scheduled={arr.scheduled} revised={arr.revised} />
+          <TimeLine ep={arr} />
         </span>
       </div>
 
@@ -169,6 +187,13 @@ export function FlightLiveStatus({ number, date }: { number: string; date: strin
           </div>
         </div>
       </div>
+
+      {showsPrediction && (
+        <p className="text-[11px] text-ink-subtle">
+          „ca." ist eine Vorhersage des Datendienstes (ab {PREDICTION_MIN_MINUTES} min Abweichung),
+          keine Meldung der Airline. Verbindlich bleibt die geplante Zeit.
+        </p>
+      )}
 
       {noneAssigned && (
         <p className="text-[11px] text-ink-subtle">

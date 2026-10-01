@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/http";
 import { consumeRateLimit, monthlyQuotaKey, msUntilNextMonth } from "@/lib/rate";
+import { endpointTimes, type AdbEndpointTimes } from "./flightSchedule";
 
 /**
  * Live-Flugstatus von AeroDataBox — **ein** Abrufweg für Oberfläche und Cron.
@@ -29,7 +30,10 @@ export const FLIGHT_MONTHLY_LIMIT = Number(process.env.FLIGHT_MONTHLY_LIMIT ?? 4
 export interface FlightEndpointStatus {
   airportIata: string;
   scheduled: string | null;
+  /** Gemeldete bzw. tatsächliche Zeit — verbindlich (s. `endpointTimes`). */
   revised: string | null;
+  /** Vorhersage des Dienstes — unverbindlich, bewusst getrennt von `revised`. */
+  predicted: string | null;
   terminal: string | null;
   checkInDesk?: string | null;
   gate: string | null;
@@ -47,12 +51,9 @@ export interface LiveStatus {
   arrivalUtc: string | null;
 }
 
-interface AdbEndpoint {
+interface AdbEndpoint extends AdbEndpointTimes {
   airport?: { iata?: string; name?: string };
   scheduledTime?: { local?: string; utc?: string };
-  revisedTime?: { local?: string; utc?: string };
-  predictedTime?: { local?: string; utc?: string };
-  runwayTime?: { local?: string; utc?: string };
   terminal?: string;
   checkInDesk?: string;
   gate?: string;
@@ -63,8 +64,6 @@ interface AdbFlight {
   departure?: AdbEndpoint;
   arrival?: AdbEndpoint;
 }
-
-const localTime = (t?: { local?: string }) => t?.local ?? null;
 
 /** „2026-08-19 13:05+02:00" → ISO-UTC. Ungültiges/fehlendes → null. */
 function utcIso(s: string | undefined | null): string | null {
@@ -129,16 +128,14 @@ export async function fetchLiveStatus(number: string, date: string): Promise<Liv
     status: flight.status ?? "Unknown",
     departure: {
       airportIata: d.airport?.iata ?? "",
-      scheduled: localTime(d.scheduledTime),
-      revised: localTime(d.revisedTime) ?? localTime(d.runwayTime),
+      ...endpointTimes(d),
       terminal: d.terminal ?? null,
       checkInDesk: d.checkInDesk ?? null,
       gate: d.gate ?? null,
     },
     arrival: {
       airportIata: a.airport?.iata ?? "",
-      scheduled: localTime(a.scheduledTime),
-      revised: localTime(a.revisedTime) ?? localTime(a.predictedTime) ?? localTime(a.runwayTime),
+      ...endpointTimes(a),
       terminal: a.terminal ?? null,
       gate: a.gate ?? null,
       baggageBelt: a.baggageBelt ?? null,
