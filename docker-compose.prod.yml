@@ -7,14 +7,22 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    # ⚠️ Muss zur Version in `docker-compose.yml` (Entwicklung) passen — dort 18.
+    # Zwei Hauptversionen Unterschied fallen erst beim Deploy auf; hier stand
+    # 16, während Entwicklung und Neon längst auf 18 liefen.
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-clover}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt}
       POSTGRES_DB: ${POSTGRES_DB:-clover}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # ⚠️ Ab Postgres 18 liegt PGDATA in einem versionsbenannten Unterordner
+      # (`…/18/docker`) statt unter `…/data`. Der Mount greift deshalb eine
+      # Ebene höher. Mit dem alten Pfad startet der Container in einer
+      # Neustartschleife und meldet nur „is restarting" — die Erklärung steht
+      # ausschließlich in `docker compose logs db`.
+      - db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clover} -d ${POSTGRES_DB:-clover}"]
       interval: 5s
@@ -48,6 +56,29 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  # Löst die beiden Cron-Endpunkte aus (Flugstatus + nächtliches Aufräumen).
+  #
+  # ⚠️ Auf Vercel übernimmt das `vercel.json`, aber nur für `cleanup`: der
+  # Hobby-Tarif erlaubt genau **einen** Cron-Lauf pro Tag. Deshalb wird der
+  # Flugstatus dort von außen angestoßen (cron-job.org). Hier entfällt dieser
+  # Umweg — der Takt ist frei wählbar.
+  #
+  # ⚠️ Bekommt NUR `CRON_SECRET`, nicht die ganze `.env.prod`: der Container
+  # braucht nichts weiter, und was er nicht kennt, kann er nicht verlieren.
+  cron:
+    image: curlimages/curl:latest
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET fehlt — ohne Secret sind die Cron-Endpunkte gesperrt}
+      CRON_INTERVAL_SECONDS: ${CRON_INTERVAL_SECONDS:-900}
+      CRON_CLEANUP_HOUR: ${CRON_CLEANUP_HOUR:-4}
+    volumes:
+      - ./docker/cron.sh:/cron.sh:ro
+    entrypoint: ["sh", "/cron.sh"]
+    depends_on:
+      app:
+        condition: service_started
 
   # Cloudflare Tunnel — verbindet den Public-Hostname mit http://app:3000.
   # TUNNEL_TOKEN aus dem Cloudflare Zero-Trust-Dashboard (Tunnel anlegen).
