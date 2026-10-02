@@ -82,6 +82,17 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   nur noch `provider`; die URL für `migrate`/`db`-Befehle steht in **`prisma.config.ts`**
   (dort `DIRECT_URL`), die Laufzeit liest `DATABASE_URL` selbst. Wer `directUrl` ins
   Schema zurückschreibt, bekommt einen Validierungsfehler.
+  ⚠️ **`db` in `src/lib/db.ts` ist ein Proxy — der Client entsteht erst beim
+  ersten Zugriff.** Vorher stand dort `export const db = … createClient()`, also
+  eine Verbindung, die schon beim **Import** des Moduls aufgebaut wurde. Next
+  importiert beim Build jedes Route-Modul („Collecting page data"), um dessen
+  Exporte zu lesen — damit lief `createClient()` zur Build-Zeit und der
+  Produktions-Docker-Build brach ab („Failed to collect configuration for
+  /api/v1/cron/cleanup · DATABASE_URL fehlt"). Ein Modulimport darf keine
+  Datenbankverbindung aufbauen; was passiert, soll davon abhängen, was
+  *aufgerufen* wird. Der Proxy hält dabei die Form `db.user.findMany()` an allen
+  Stellen unverändert und **bindet Methoden an den echten Client** — ohne das
+  bekäme `db.$transaction(…)` den Proxy als `this`.
   ⚠️ **In `prisma.config.ts` steht `process.env.DIRECT_URL`, nicht Prismas
   `env("DIRECT_URL")`.** `env()` löst die Variable beim **Laden** der Datei auf
   und wirft, wenn sie fehlt — geladen wird sie aber bei **jedem** Prisma-Befehl,

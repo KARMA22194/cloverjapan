@@ -39,8 +39,47 @@ function createClient(): PrismaClient {
   });
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
+let cached: PrismaClient | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
+function client(): PrismaClient {
+  cached ??= globalForPrisma.prisma ?? createClient();
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = cached;
+  return cached;
 }
+
+/**
+ * Der Client — aber **erst beim ersten Zugriff** erzeugt.
+ *
+ * ⚠️ Vorher stand hier `export const db = … createClient()`, also eine
+ * Verbindung, die schon beim **Import** des Moduls entstand. Next.js importiert
+ * beim Build jedes Route-Modul („Collecting page data"), um dessen Exporte zu
+ * lesen — und damit lief `createClient()` zur **Build**-Zeit. Dort gibt es keine
+ * Laufzeit-Umgebung, also brach der Produktions-Docker-Build ab:
+ *
+ *     Failed to collect configuration for /api/v1/cron/cleanup
+ *     [cause]: Error: DATABASE_URL fehlt.
+ *
+ * Auf Vercel fiel das nie auf, weil `DATABASE_URL` dort auch beim Build gesetzt
+ * ist. Ein Modulimport darf aber grundsätzlich keine Datenbankverbindung
+ * aufbauen: Was passiert, soll davon abhängen, was aufgerufen wird, nicht davon,
+ * was zufällig importiert wurde.
+ *
+ * ⚠️ Der Proxy ist Absicht und kein Selbstzweck — er hält die Aufrufform
+ * `db.user.findMany()` an **allen** Stellen unverändert. Ein `getDb()` hätte
+ * dieselbe Wirkung gehabt, aber jede einzelne Fundstelle angefasst und damit
+ * eine echte Änderung hinter hundert kosmetischen versteckt.
+ *
+ * ⚠️ Methoden werden an den echten Client **gebunden**. Ohne das bekäme etwa
+ * `db.$transaction(…)` den Proxy als `this` — und Prismas Interna arbeiten mit
+ * privaten Feldern, die es dort nicht gibt.
+ */
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const c = client();
+    const value = Reflect.get(c, prop, c);
+    return typeof value === "function" ? value.bind(c) : value;
+  },
+  has(_target, prop) {
+    return Reflect.has(client(), prop);
+  },
+});
