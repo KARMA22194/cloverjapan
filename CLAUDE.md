@@ -82,6 +82,14 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   nur noch `provider`; die URL für `migrate`/`db`-Befehle steht in **`prisma.config.ts`**
   (dort `DIRECT_URL`), die Laufzeit liest `DATABASE_URL` selbst. Wer `directUrl` ins
   Schema zurückschreibt, bekommt einen Validierungsfehler.
+  ⚠️ **Wer `prisma migrate`/`db` in einem eigenen Image ausführt, muss
+  `prisma.config.ts` mitkopieren** — nicht nur `prisma/`. Der `migrator`-Stage
+  im `Dockerfile` tat das nicht, und weil die URL seit Prisma 7 nur noch in der
+  Config steht, meldete `migrate deploy` lediglich „The datasource.url property
+  is required in your Prisma config file". Das beschreibt die Config und
+  schickt auf die Suche nach einer fehlenden Umgebungsvariablen, obwohl die
+  Datei selbst fehlte. **Erkennungszeichen: die Zeile „Loaded Prisma config
+  from prisma.config.ts." bleibt im Log aus.**
   ⚠️ **`db` in `src/lib/db.ts` ist ein Proxy — der Client entsteht erst beim
   ersten Zugriff.** Vorher stand dort `export const db = … createClient()`, also
   eine Verbindung, die schon beim **Import** des Moduls aufgebaut wurde. Next

@@ -23,9 +23,28 @@ RUN npx prisma generate && npm run build
 
 # ---- Migrator: wendet Migrationen an (eigener One-Shot-Container) ----
 # Nutzt die vollen deps inkl. Prisma-CLI; braucht nur Schema + Migrationen.
+#
+# ⚠️ Die Vorbedingung wird hier geprüft, nicht Prisma überlassen. Fehlt
+# `DIRECT_URL`, meldet Prisma nur „The datasource.url property is required in
+# your Prisma config file" — das beschreibt die Config, nicht die Ursache, und
+# schickt auf die Suche nach einem Fehler in `prisma.config.ts`, wo keiner ist.
 FROM deps AS migrator
 COPY prisma ./prisma
-CMD ["npx", "prisma", "migrate", "deploy"]
+# ⚠️ `prisma.config.ts` MUSS mit. Seit Prisma 7 steht die Verbindungs-URL nicht
+# mehr im Schema, sondern dort — ohne die Datei meldet `migrate deploy` nur
+# „The datasource.url property is required in your Prisma config file" und
+# schickt damit auf die Suche nach einer fehlenden Umgebungsvariablen, obwohl
+# schlicht die Datei fehlt. Erkennbar ist das daran, dass die sonst übliche
+# Zeile „Loaded Prisma config from prisma.config.ts." im Log ausbleibt.
+COPY prisma.config.ts ./
+CMD ["sh", "-c", "\
+  if [ -z \"$DIRECT_URL\" ]; then \
+    echo 'FEHLER: DIRECT_URL ist nicht gesetzt.' >&2; \
+    echo 'Sie gehoert in die .env.prod und zeigt auf dieselbe Datenbank wie' >&2; \
+    echo 'DATABASE_URL, z. B. postgresql://clover:PASSWORT@db:5432/clover?schema=public' >&2; \
+    exit 1; \
+  fi; \
+  exec npx prisma migrate deploy"]
 
 # ---- Runtime: schlankes Standalone-Bundle ----
 FROM base AS runner
