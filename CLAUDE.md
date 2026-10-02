@@ -165,8 +165,34 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   Typfehler hat es aufgedeckt; ohne TypeScript wären es stille 400er gewesen.
   ⚠️ `z.nativeEnum(X)` → **`z.enum(X)`** (nimmt TS-Enums jetzt direkt),
   `z.string().email()` → **`z.email()`**. Beide alten Formen sind veraltet.
-- **Karten (Reiseplaner):** `leaflet` + OSM/CARTO-Tiles; Geocoding **Nominatim**,
-  Routing **OSRM** (server-seitig, keyfrei)
+- **Karten (Reiseplaner):** `leaflet` + CARTO-Tiles (Rückfall OSM); Geocoding
+  **Nominatim**, Routing **OSRM** (server-seitig, keyfrei)
+  ⚠️ **CARTO verlangt seit August 2026 einen API-Key** (`CARTO_API_KEY`,
+  kostenlos, 5 Mio. Abrufe/Monat, **ohne Konto und ohne Zahlungsmittel** —
+  es kann also keine Rechnung entstehen). Ohne Key antwortet der Dienst
+  weiterhin mit **HTTP 200**, liefert aber ein Platzhalterbild mit dem Aufdruck
+  „API KEY REQUIRED" (~2 KB statt 20–60 KB). Es gibt **keinen Fehlercode**, auf
+  den man prüfen könnte: Die Karte sieht einfach leer aus, und der
+  Service-Worker legt die Attrappen bereitwillig in den Offline-Cache.
+  ⚠️ **Die Kartenquelle steht an EINER Stelle: `src/lib/map/basemap.ts`.**
+  Vorher standen Vorlage und Subdomain-Liste doppelt im Code (`TripPlanner` und
+  `offline/mapTiles`) — ein Unterschied zwischen beiden wäre erst **offline**
+  aufgefallen, also wenn niemand mehr etwas daran ändern kann.
+  ⚠️ **Der Key kommt zur Laufzeit aus der Server-Komponente** (`reiseplaner/
+  page.tsx` → Prop), **nicht** über `NEXT_PUBLIC_*`. Letzteres bäckt ihn beim
+  Build ein, und der Produktions-Docker-Build läuft ohne Laufzeit-Umgebung —
+  derselbe Fallstrick, der dort schon `DIRECT_URL` und `DATABASE_URL` erwischt
+  hat.
+  ⚠️ **Ohne Key fällt die Karte auf OpenStreetMap zurück, aber das Vorladen
+  bleibt gesperrt** (`preloadAllowed: false`). Die Tile Usage Policy der OSM
+  Foundation untersagt Massen-Abrufe; die Kacheln sind spendenfinanziert. Der
+  Service-Worker cacht OSM-Kacheln dennoch beim normalen Blättern — sonst wäre
+  die Karte ohne Key offline vollständig leer.
+  ⚠️ **`preloadTiles` erkennt Platzhalter** (`PLACEHOLDER_MAX_BYTES` = 4096):
+  Sind **ausnahmslos alle** geholten Kacheln winzig, bricht der Vorgang mit
+  `PlaceholderTilesError` ab, statt Erfolg zu melden. Nur „alle", weil eine
+  reine Meereskachel ebenfalls klein ist. Test: `e2e/map-tiles.ts` (mit
+  gefälschten `fetch`-Antworten, ohne Netz).
 - **Konbini-Radar:** **Overpass API / OpenStreetMap** (`shop=convenience`, keyfrei,
   Spiegel-Fallback)
 - **Regenradar:** **RainViewer** (keyfrei, Kachel-Overlay)
@@ -1258,6 +1284,7 @@ deployt Vercel neu; **Env-Änderungen greifen erst nach einem Redeploy** und mü
 | `DISCORD_WEBHOOK_URL` | Discord-Push bei Koffer-Fund | optional |
 | `CRON_SECRET` | schützt den täglichen Aufräum-Job `/api/v1/cron/cleanup` (Vercel-Cron); ohne Secret ist der Endpunkt gesperrt und alte RateLimit-/Token-/Challenge-Zeilen bleiben liegen | empfohlen |
 | `GOOGLE_MAPS_API_KEY` | echte Zugverbindung statt Schätzung (**kostet**) + exakte Konbini-Filiale in Maps (Places-API IDs-only = **kostenlos**) | optional |
+| `CARTO_API_KEY` | **Basiskarte.** Ohne ihn zeigt CARTO nur „API KEY REQUIRED"-Platzhalter (mit HTTP 200!), die App fällt auf OSM zurück und das Offline-Vorladen ist gesperrt. Kostenlos, ohne Konto/Zahlungsmittel | für die Karte |
 
 **Konbini/Overpass, Regenradar/RainViewer, Geocoding/Routing, Eki-Stamps, Wetter** sind
 **keyfrei** — laufen ohne Env. Fehlt ein optionaler Key, gibt es einen sauberen Fallback

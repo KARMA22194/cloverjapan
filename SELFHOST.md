@@ -158,6 +158,14 @@ Cron-Endpunkte. Ohne das Secret sind sie gesperrt — dann wachsen die
 RateLimit-/Token-/Challenge-Zeilen unbegrenzt weiter, und es gibt keine
 Push-Meldung bei Gate- oder Verspätungsänderung.
 
+⚠️ **`CARTO_API_KEY` solltest du setzen**, auch wenn er formal optional ist:
+CARTO verlangt seit August 2026 einen Schlüssel und liefert ohne ihn nur
+Platzhalterkacheln mit dem Aufdruck „API KEY REQUIRED" — und zwar mit HTTP 200,
+also ohne erkennbaren Fehler. Die App fällt dann auf OpenStreetMap zurück; die
+Karte funktioniert, aber das Offline-Vorladen ist gesperrt (die OSM-
+Nutzungsbedingungen untersagen Massen-Abrufe). Der Schlüssel ist kostenlos und
+braucht weder Konto noch Zahlungsmittel: <https://carto.com/basemaps/apikey>
+
 Optionale Keys (SMTP, AeroDataBox, Google Vision, Google Maps, Discord) nur bei
 Bedarf — ohne sie greifen saubere Fallbacks, nichts stürzt ab. Alle stehen mit
 Erklärung in `.env.prod.example`.

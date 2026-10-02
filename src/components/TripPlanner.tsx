@@ -32,11 +32,13 @@ import { cn } from "@/lib/cn";
 import { TabBar } from "@/components/ui/TabBar";
 import {
   MAX_PRELOAD_TILES,
+  PlaceholderTilesError,
   OVERVIEW_ZOOMS,
   planPreload,
   preloadTiles,
   preloadZooms,
 } from "@/lib/offline/mapTiles";
+import { basemapConfig } from "@/lib/map/basemap";
 
 interface Stop {
   id: string;
@@ -409,7 +411,10 @@ function parsePlacesFile(name: string, text: string): FileImportResult {
   return { direct, queries, fallbacks };
 }
 
-export function TripPlanner() {
+export function TripPlanner({ cartoApiKey = null }: { cartoApiKey?: string | null }) {
+  // ⚠️ Eine Quelle für Leaflet UND fürs Vorladen. Zwei getrennte Vorlagen
+  // hatten hier gestanden; ein Unterschied wäre erst offline aufgefallen.
+  const basemap = useMemo(() => basemapConfig(cartoApiKey), [cartoApiKey]);
   const mapEl = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof Leaflet | null>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
@@ -521,10 +526,32 @@ export function TripPlanner() {
     const ctrl = new AbortController();
     preloadAbort.current = ctrl;
     setPreload({ total: tiles.length, done: 0, running: true, finished: false, error: null });
-    await preloadTiles(tiles, (done) => setPreload((p) => (p ? { ...p, done } : p)), ctrl.signal);
-    setPreload((p) => (p ? { ...p, running: false, finished: !ctrl.signal.aborted } : p));
+    try {
+      await preloadTiles(
+        basemap,
+        tiles,
+        (done) => setPreload((p) => (p ? { ...p, done } : p)),
+        ctrl.signal,
+      );
+      setPreload((p) => (p ? { ...p, running: false, finished: !ctrl.signal.aborted } : p));
+    } catch (e) {
+      // ⚠️ Der Platzhalter-Fall ist kein Netzfehler, sondern eine stille
+      // Falschlieferung: Ohne gültigen Schlüssel antwortet CARTO mit 200 und
+      // einem Bild, auf dem „API KEY REQUIRED" steht. Das als Erfolg zu melden
+      // hieße, den Offline-Cache mit Attrappen zu füllen.
+      setPreload((p) =>
+        p
+          ? {
+              ...p,
+              running: false,
+              finished: false,
+              error: e instanceof PlaceholderTilesError ? e.message : "Vorladen fehlgeschlagen.",
+            }
+          : p,
+      );
+    }
     preloadAbort.current = null;
-  }, []);
+  }, [basemap]);
 
   // Stopps aus der (geteilten) Reise laden.
   useEffect(() => {
@@ -616,15 +643,16 @@ export function TripPlanner() {
       if (cancelled || !mapEl.current || mapRef.current) return;
       LRef.current = L;
       const map = L.map(mapEl.current).setView(JAPAN_CENTER, 5);
-      // CARTO „Voyager": keyfrei, CDN-schnell, erlaubt Fremd-Domains und zeigt
-      // überwiegend lateinische Beschriftung (z. B. „Tokyo" statt „東京").
+      // Quelle und Beschriftung kommen aus `basemapConfig` — mit CARTO-Key die
+      // „Voyager"-Karte (überwiegend lateinische Beschriftung, „Tokyo" statt
+      // „東京"), ohne Key der OSM-Standard als Rückfall.
       // (Wikimedia-Tiles blockieren Fremd-Domains mit 403 → leere Karte.)
       tileRef.current = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        basemap.template,
         {
-          subdomains: "abcd",
-          attribution: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
-          maxZoom: 20,
+          subdomains: basemap.subdomains,
+          attribution: basemap.attribution,
+          maxZoom: basemap.maxZoom,
           // ⚠️ `crossOrigin` lässt Leaflet die Kacheln per CORS anfordern statt
           // opak. Sonst legte der Service-Worker zweierlei Einträge an: die
           // vorgeladenen als CORS-Antwort, die beim Blättern geholten als opake
@@ -2147,7 +2175,7 @@ export function TripPlanner() {
               <button
                 type="button"
                 onClick={startPreload}
-                disabled={!ready}
+                disabled={!ready || !basemap.preloadAllowed}
                 className={buttonClasses("secondary", "sm")}
               >
                 Diesen Ausschnitt laden
@@ -2160,6 +2188,14 @@ export function TripPlanner() {
             das Gerät — im WLAN vorbereiten, in Japan ohne Netz benutzen. Für mehrere
             Städte nacheinander ausführen.
           </p>
+
+          {!basemap.preloadAllowed && (
+            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+              Ohne CARTO-Schlüssel läuft die Karte über OpenStreetMap. Deren
+              Nutzungsbedingungen untersagen das Holen auf Vorrat, deshalb ist das
+              Vorladen hier abgeschaltet — die Karte selbst funktioniert normal.
+            </p>
+          )}
 
           {preload?.running && (
             <div className="mt-2">

@@ -9,9 +9,26 @@
 //   5. im Entwicklungsmodus warnt die Oberfläche, dass nichts gespeichert wird
 //      (der Service-Worker läuft nur in Produktion) — ohne diesen Hinweis sähe
 //      der Knopf aus, als hätte er gewirkt.
+//
+// ⚠️ Braucht einen **gültigen** `CARTO_API_KEY`. Ohne Schlüssel fällt die Karte
+// auf OpenStreetMap zurück, und dort ist das Vorladen bewusst gesperrt (die
+// Tile Usage Policy der OSM Foundation untersagt Massen-Abrufe) — der Knopf ist
+// dann deaktiviert und es gibt nichts zu messen. Mit einem **ungültigen**
+// Schlüssel antwortet CARTO mit Platzhaltern, und die Erkennung bricht
+// planmäßig ab. Beides ist richtiges Verhalten, aber nicht das, was dieser Test
+// prüft; er sagt es dann und endet ohne Fehlschlag.
 import { chromium } from "playwright";
 import bcrypt from "bcryptjs";
 import { testDb } from "./_db.mjs";
+
+if (!process.env.CARTO_API_KEY) {
+  console.log(
+    "ÜBERSPRUNGEN  CARTO_API_KEY ist nicht gesetzt — ohne Schlüssel läuft die Karte\n" +
+      "              über OpenStreetMap, wo das Vorladen gesperrt ist. Der Test prüft\n" +
+      "              den CARTO-Pfad und hat hier nichts zu messen.",
+  );
+  process.exit(0);
+}
 
 const db = testDb();
 const BASE = "http://localhost:3000";
@@ -106,7 +123,10 @@ try {
   );
 
   const sample = [...tileUrls].slice(0, 50);
-  const pattern = /^https:\/\/[abcd]\.basemaps\.cartocdn\.com\/rastertiles\/voyager\/(\d+)\/(\d+)\/(\d+)\.png$/;
+  // ⚠️ Der Query-Teil `?key=…` gehört dazu, seit CARTO einen Schlüssel verlangt.
+  // Ohne ihn im Muster schlüge der Test fehl, obwohl die URL richtig ist.
+  const pattern =
+    /^https:\/\/[abcd]\.basemaps\.cartocdn\.com\/rastertiles\/voyager\/(\d+)\/(\d+)\/(\d+)\.png(\?key=[^&]*)?$/;
   ok("URL-Form stimmt", sample.every((u) => pattern.test(u)), sample[0] ?? "keine");
 
   // Subdomain muss |x+y| % 4 folgen — sonst liegt die Kachel unter einer anderen

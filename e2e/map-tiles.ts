@@ -16,8 +16,11 @@ import {
   preloadZooms,
   tilesForBounds,
   tileUrl,
+  preloadTiles,
+  PlaceholderTilesError,
   MAX_PRELOAD_TILES,
 } from "../src/lib/offline/mapTiles.ts";
+import { basemapConfig } from "../src/lib/map/basemap.ts";
 
 let failed = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -58,14 +61,41 @@ check("alle auf der angefragten Stufe", z14.every((t) => t.z === 14), true);
 
 // ⚠️ Der eigentliche Zweck des Tests: die URL muss exakt der entsprechen, die
 // Leaflet später anfragt. Leaflet wählt die Subdomain über |x+y| % 4 aus "abcd".
-check("URL-Form", tileUrl({ z: 12, x: 3638, y: 1612 }),
-  "https://c.basemaps.cartocdn.com/rastertiles/voyager/12/3638/1612.png");
+const carto = basemapConfig("TESTKEY");
+const osm = basemapConfig(null);
+
+check("URL-Form (CARTO)", tileUrl(carto, { z: 12, x: 3638, y: 1612 }),
+  "https://c.basemaps.cartocdn.com/rastertiles/voyager/12/3638/1612.png?key=TESTKEY");
 check("Subdomain folgt |x+y| % 4", [
-  tileUrl({ z: 1, x: 0, y: 0 }).slice(8, 9),
-  tileUrl({ z: 1, x: 1, y: 0 }).slice(8, 9),
-  tileUrl({ z: 1, x: 1, y: 1 }).slice(8, 9),
-  tileUrl({ z: 2, x: 2, y: 1 }).slice(8, 9),
+  tileUrl(carto, { z: 1, x: 0, y: 0 }).slice(8, 9),
+  tileUrl(carto, { z: 1, x: 1, y: 0 }).slice(8, 9),
+  tileUrl(carto, { z: 1, x: 1, y: 1 }).slice(8, 9),
+  tileUrl(carto, { z: 2, x: 2, y: 1 }).slice(8, 9),
 ], ["a", "b", "c", "d"]);
+
+// ⚠️ `{r}` muss verschwinden. Leaflet ersetzt es nur bei `detectRetina` durch
+// „@2x" — das ist hier aus, sonst fragte jedes iPhone andere URLs an als
+// vorgeladen wurden, und die Offline-Karte wäre dort wirkungslos.
+check("kein {r} in der URL", tileUrl(carto, { z: 5, x: 1, y: 1 }).includes("{r}"), false);
+check("kein @2x in der URL", tileUrl(carto, { z: 5, x: 1, y: 1 }).includes("@2x"), false);
+
+// ⚠️ Der Schlüssel wird kodiert — ein Sonderzeichen darf die Query nicht zerlegen.
+check("Schlüssel wird URL-kodiert",
+  tileUrl(basemapConfig("a&b c"), { z: 1, x: 0, y: 0 }).endsWith("?key=a%26b%20c"), true);
+
+// ── Rückfall ohne Schlüssel ────────────────────────────────────────────────
+// CARTO verlangt seit August 2026 einen Key und liefert ohne ihn ein
+// Platzhalterbild — mit HTTP 200, also ohne erkennbaren Fehler.
+check("ohne Schlüssel → OpenStreetMap", osm.id, "osm");
+check("OSM-URL ohne Subdomain", tileUrl(osm, { z: 12, x: 3638, y: 1612 }),
+  "https://tile.openstreetmap.org/12/3638/1612.png");
+check("OSM nennt CARTO nicht in der Quellenangabe", osm.attribution.includes("CARTO"), false);
+
+// ⚠️ Das ist die wichtigste Zeile hier: Die Tile Usage Policy der OSM
+// Foundation untersagt Massen-Abrufe. Wer den Rückfall einbaut, darf das
+// Vorladen nicht mitnehmen — sonst saugt die App einen spendenfinanzierten
+// Dienst ab, und zwar ohne dass es jemandem auffiele.
+check("Vorladen nur mit CARTO-Schlüssel", [carto.preloadAllowed, osm.preloadAllowed], [true, false]);
 
 // ── Zoomstufen ─────────────────────────────────────────────────────────────
 check("drei Stufen ab der aktuellen", preloadZooms(12), [12, 13, 14]);
@@ -86,5 +116,44 @@ check(`Stadtbezirk unter der Grenze (${cityPlan.length})`, cityPlan.length <= MA
 const japanPlan = planPreload({ north: 45.6, south: 30.9, east: 146, west: 128.5 }, preloadZooms(10));
 check(`ganz Japan über der Grenze (${japanPlan.length})`, japanPlan.length > MAX_PRELOAD_TILES, true);
 
-console.log(`\n${failed === 0 ? "Alle Fälle bestanden." : `${failed} fehlgeschlagen.`}`);
+
+// ── Platzhalter-Erkennung ──────────────────────────────────────────────────
+// ⚠️ Der Grund für diesen Abschnitt: CARTO verlangt seit August 2026 einen
+// Schlüssel und antwortet ohne ihn mit **HTTP 200** und einem Bild, auf dem
+// „API KEY REQUIRED" steht (rund 2 KB statt 20–60 KB). Es gibt also keinen
+// Fehlercode. Ohne diese Prüfung meldete das Vorladen Erfolg und füllte den
+// Offline-Cache mit Attrappen — bemerkt hätte das jemand erst ohne Empfang,
+// also genau dann, wenn nichts mehr zu machen ist.
+
+const realFetch = globalThis.fetch;
+/** `fetch` durch Antworten fester Größe ersetzen. */
+function stubFetch(bytes: number) {
+  globalThis.fetch = (async () =>
+    new Response(new Blob([new Uint8Array(bytes)]), { status: 200 })) as typeof fetch;
+}
+
+const manyTiles = tilesForBounds({ north: 35.72, south: 35.62, east: 139.80, west: 139.68 }, 13);
+
+async function preloadThrows(bytes: number): Promise<string> {
+  stubFetch(bytes);
+  try {
+    await preloadTiles(carto, manyTiles, () => {}, new AbortController().signal);
+    return "kein Fehler";
+  } catch (e) {
+    return e instanceof PlaceholderTilesError ? "PlaceholderTilesError" : "anderer Fehler";
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+check("lauter 2-KB-Antworten → Abbruch", await preloadThrows(2048), "PlaceholderTilesError");
+check("echte Kacheln (40 KB) → kein Abbruch", await preloadThrows(40_000), "kein Fehler");
+// ⚠️ Die Grenze selbst gehört geprüft: eine Kachel knapp über der Schwelle ist
+// kein Platzhalter, und ein zu großzügiger Wert würde echte, kleine Kacheln
+// (reines Meer) für Attrappen halten.
+check("knapp über der Schwelle → kein Abbruch", await preloadThrows(4097), "kein Fehler");
+check("genau auf der Schwelle → Abbruch", await preloadThrows(4096), "PlaceholderTilesError");
+check("genug Kacheln für ein Urteil", manyTiles.length >= 8, true);
+
+console.log(failed === 0 ? "\nAlle Fälle bestanden." : `\n${failed} Fehlschlag/Fehlschläge.`);
 process.exit(failed === 0 ? 0 : 1);

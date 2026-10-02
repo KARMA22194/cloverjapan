@@ -18,7 +18,12 @@ export default async function ReiseplanerPage() {
       <p className="mb-4 text-sm text-ink-muted">
         Orte eingeben, auf der Karte markieren lassen und die beste Route berechnen.
       </p>
-      <TripPlanner />
+      {/* ⚠️ Der Schlüssel kommt zur LAUFZEIT aus der Server-Komponente, nicht
+          über `NEXT_PUBLIC_*`. Letzteres würde ihn beim Build einbacken — und
+          der Produktions-Docker-Build läuft ohne die Laufzeit-Umgebung, der
+          Wert wäre dort leer. Dieselbe Falle hatte das Self-Hosting schon
+          zweimal blockiert (s. CLAUDE.md zu `prisma.config.ts` und `db.ts`). */}
+      <TripPlanner cartoApiKey={process.env.CARTO_API_KEY ?? null} />
     </div>
   );
 }

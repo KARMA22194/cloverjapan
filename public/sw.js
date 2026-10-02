@@ -43,10 +43,19 @@ function isDataRequest(request, url) {
   return url.pathname.startsWith("/api/");
 }
 
-// Basemap-Kacheln (extern, CARTO) → offline verfügbar halten. RainViewer-Radar
+// Basemap-Kacheln (extern) → offline verfügbar halten. RainViewer-Radar
 // bewusst NICHT (Echtzeit; alte Radar-Kacheln wären irreführend).
+//
+// ⚠️ Beide Quellen, nicht nur CARTO: seit dieses den Rückfall auf
+// OpenStreetMap bekommen hat (CARTO verlangt einen API-Key), landeten
+// OSM-Kacheln sonst in **keinem** Cache — die Karte wäre ohne Schlüssel
+// offline vollständig leer gewesen, ohne dass es irgendwo einen Fehler gäbe.
+// Das Vorladen bleibt bei OSM trotzdem gesperrt (`preloadAllowed`); hier geht
+// es nur darum, bereits angesehene Kacheln zu behalten.
 function isTile(url) {
-  return url.hostname.endsWith(".basemaps.cartocdn.com");
+  return (
+    url.hostname.endsWith(".basemaps.cartocdn.com") || url.hostname === "tile.openstreetmap.org"
+  );
 }
 
 async function trimCache(name, max) {

@@ -22,6 +22,27 @@ export interface TileCoord {
   y: number;
 }
 
+// ⚠️ **`import type`, und das muss so bleiben.** `e2e/map-tiles.ts` prüft dieses
+// Modul ohne Netz über `node --experimental-strip-types`. Ein echter Import
+// scheiterte dort an der fehlenden Dateiendung (Node-ESM verlangt sie,
+// TypeScript verbietet sie im Quellcode) — ein type-only Import wird dagegen
+// vom Compiler entfernt und existiert zur Laufzeit gar nicht. Deshalb liegt
+// hier die URL-Bildung und dort nur die Frage, *welche* Karte gilt.
+import type { BasemapConfig } from "../map/basemap";
+
+/**
+ * Obergrenze, unterhalb derer eine Antwort als Platzhalter gilt (Bytes).
+ *
+ * ⚠️ Bewusst niedrig. Eine echte Kachel wiegt 20–60 KB, CARTOs
+ * „API KEY REQUIRED"-Bild rund 2 KB. Eine reine Meereskachel kann allerdings
+ * ebenfalls klein sein — deshalb schlägt die Erkennung erst an, wenn
+ * **ausnahmslos alle** geholten Kacheln darunter liegen.
+ */
+export const PLACEHOLDER_MAX_BYTES = 4096;
+
+/** Ab wie vielen Kacheln die Platzhalter-Erkennung überhaupt urteilt. */
+export const PLACEHOLDER_MIN_SAMPLE = 8;
+
 export interface LatLngBounds {
   north: number;
   south: number;
@@ -29,9 +50,6 @@ export interface LatLngBounds {
   west: number;
 }
 
-/** Kachel-Vorlage und Subdomains der Basiskarte (identisch zu `TripPlanner`). */
-const TILE_TEMPLATE = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
-const SUBDOMAINS = "abcd";
 
 /**
  * Obergrenze je Vorladevorgang.
@@ -72,10 +90,27 @@ export function latToTileY(lat: number, z: number): number {
   );
 }
 
-/** Vollständige Kachel-URL — deckungsgleich mit dem, was Leaflet anfragt. */
-export function tileUrl({ z, x, y }: TileCoord): string {
-  const sub = SUBDOMAINS[Math.abs(x + y) % SUBDOMAINS.length];
-  return TILE_TEMPLATE.replace("{s}", sub)
+/**
+ * Vollständige Kachel-URL — deckungsgleich mit dem, was Leaflet anfragt.
+ *
+ * ⚠️ Die Vorlage steht in `../map/basemap`, nicht mehr hier. Vorher lagen
+ * Vorlage und Subdomain-Liste doppelt im Code (einmal dort, einmal in
+ * `TripPlanner`); ein Unterschied zwischen beiden wäre erst offline aufgefallen.
+ *
+ * ⚠️ `{r}` wird zu einem leeren String. Leaflet ersetzt den Platzhalter nur bei
+ * eingeschaltetem `detectRetina` durch „@2x" — das ist hier bewusst aus, sonst
+ * fragte jedes Retina-Gerät (also jedes iPhone) andere URLs an als vorgeladen
+ * wurden, und die Offline-Karte wäre dort wirkungslos.
+ *
+ * ⚠️ Die Subdomain wählt Leaflet deterministisch über `Math.abs(x + y) % n`.
+ * Eine zufällig gewählte erzeugte einen Cache, der zu drei Vierteln ins Leere
+ * zeigt — wieder nur offline sichtbar.
+ */
+export function tileUrl(cfg: BasemapConfig, { z, x, y }: TileCoord): string {
+  const sub = cfg.subdomains ? cfg.subdomains[Math.abs(x + y) % cfg.subdomains.length] : "";
+  return cfg.template
+    .replace("{s}", sub)
+    .replace("{r}", "")
     .replace("{z}", String(z))
     .replace("{x}", String(x))
     .replace("{y}", String(y));
@@ -143,7 +178,18 @@ export function preloadZooms(current: number, maxZoom = 16): number[] {
  * ⚠️ Einzelne Fehlschläge werden verschluckt: eine fehlende Kachel ist offline
  * eine graue Fläche, kein Grund, den ganzen Vorgang abzubrechen.
  */
+export class PlaceholderTilesError extends Error {
+  constructor() {
+    super(
+      "Der Kartendienst liefert nur Platzhalter statt Kacheln. " +
+        "Vermutlich fehlt der CARTO-Schlüssel oder er ist ungültig.",
+    );
+    this.name = "PlaceholderTilesError";
+  }
+}
+
 export async function preloadTiles(
+  cfg: BasemapConfig,
   tiles: TileCoord[],
   onProgress: (done: number) => void,
   signal: AbortSignal,
@@ -151,6 +197,16 @@ export async function preloadTiles(
   const CONCURRENCY = 4;
   let next = 0;
   let done = 0;
+  // ⚠️ Platzhalter-Erkennung. CARTO antwortet ohne gültigen Schlüssel mit
+  // HTTP 200 und einem Bild, auf dem „API KEY REQUIRED" steht — es gibt also
+  // keinen Fehlercode, auf den man prüfen könnte. Ohne diese Zählung liefe der
+  // Vorgang durch, meldete Erfolg und füllte den Offline-Cache mit Attrappen;
+  // bemerkt hätte es jemand erst ohne Empfang. Geurteilt wird erst ab
+  // PLACEHOLDER_MIN_SAMPLE und nur, wenn **ausnahmslos** alle Antworten winzig
+  // sind: eine reine Meereskachel ist ebenfalls klein, ein ganzer Ausschnitt
+  // davon aber nicht.
+  let measured = 0;
+  let tiny = 0;
 
   async function worker(): Promise<void> {
     while (next < tiles.length && !signal.aborted) {
@@ -165,11 +221,21 @@ export async function preloadTiles(
         // CARTO sendet `Access-Control-Allow-Origin: *`, also geht es sauber:
         // die Antwort ist normal lesbar, zählt nur mit ihrer echten Größe, und
         // der Service-Worker kann `res.ok` überhaupt erst prüfen.
-        await fetch(tileUrl(tile), { mode: "cors", signal });
+        const res = await fetch(tileUrl(cfg, tile), { mode: "cors", signal });
+        if (res.ok) {
+          // Den Rumpf wirklich lesen — sonst kennt der Browser die Größe nicht,
+          // und der Service-Worker bekäme einen angefangenen Stream.
+          const blob = await res.blob();
+          measured++;
+          if (blob.size <= PLACEHOLDER_MAX_BYTES) tiny++;
+        }
       } catch {
         /* einzelne Kachel: egal */
       }
       onProgress(++done);
+      if (measured >= PLACEHOLDER_MIN_SAMPLE && tiny === measured) {
+        throw new PlaceholderTilesError();
+      }
     }
   }
 
