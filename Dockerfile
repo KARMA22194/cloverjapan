@@ -37,6 +37,11 @@ COPY prisma ./prisma
 # schlicht die Datei fehlt. Erkennbar ist das daran, dass die sonst übliche
 # Zeile „Loaded Prisma config from prisma.config.ts." im Log ausbleibt.
 COPY prisma.config.ts ./
+# ⚠️ Auch die Pflegeskripte. `create-admin.mjs` ist auf einer Produktions-
+# instanz ohne SMTP der einzige Weg zum ersten Konto: `/register` kann die
+# Bestätigungsmail nicht versenden und antwortet mit 503, und ohne bestätigte
+# Adresse ist der Login gesperrt.
+COPY scripts ./scripts
 CMD ["sh", "-c", "\
   if [ -z \"$DIRECT_URL\" ]; then \
     echo 'FEHLER: DIRECT_URL ist nicht gesetzt.' >&2; \

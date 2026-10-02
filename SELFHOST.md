@@ -228,18 +228,42 @@ Steht dort `401`, passt `CRON_SECRET` nicht; `nicht erreichbar` heißt, dass
 
 ## 5. Erste Anmeldung / Nutzer anlegen
 
-Es gibt **keinen** automatischen Demo-Seed in Produktion. Zwei Wege:
+Es gibt **keinen** Demo-Seed in Produktion — die Datenbank ist leer, und es gibt
+kein Standardpasswort. Der Seed ist absichtlich gesperrt: Er legt Konten mit
+öffentlich dokumentiertem Trivial-Passwort an.
 
-- **Selbst registrieren:** `https://clover.deine-domain.de/register`. Ohne
-  konfiguriertes SMTP erscheint der Verify-Link direkt in der Server-Antwort
-  (Dev-Fallback) — alternativ SMTP setzen, dann kommt die Mail.
-- **Admin direkt setzen** (nach der Registrierung), damit du die Nutzerverwaltung
-  unter `/admin` siehst:
-  ```bash
-  docker compose -f docker-compose.prod.yml exec db \
-    psql -U clover -d clover \
-    -c "UPDATE \"User\" SET role='ADMIN', \"emailVerified\"=now() WHERE email='du@deine-domain.de';"
-  ```
+**Lege das erste Konto über das Skript an:**
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  run --rm --entrypoint node \
+  -e ADMIN_EMAIL="du@example.com" \
+  -e ADMIN_PASSWORD="dein-passwort" \
+  -e ADMIN_NAME="Dein Name" \
+  migrate scripts/create-admin.mjs
+```
+
+Das Konto ist sofort **bestätigt** und hat die Rolle `ADMIN` (Nutzerverwaltung
+unter `/admin`). Danach meldest du dich auf deiner `APP_URL` ganz normal mit
+E-Mail und Passwort an. Weitere Mitreisende lädst du aus der App heraus ein
+(`/mitglieder`) — dafür braucht es dann allerdings SMTP.
+
+⚠️ **Das Passwort steht in der Shell-History.** Entweder hinterher mit
+`history -d` entfernen, oder das Passwort nach der ersten Anmeldung im Profil
+ändern.
+
+### Warum nicht einfach `/register`?
+
+Weil es ohne SMTP nicht funktioniert. Die Registrierung legt das Konto zwar an,
+kann die Bestätigungsmail aber nicht versenden und antwortet mit **503**. Den
+Verify-Link in die Antwort zu schreiben wäre keine Lösung: Er ist ein
+Berechtigungsnachweis — wer ihn hat, gilt als Inhaber der Adresse, und man
+könnte damit ein „bestätigtes" Konto auf eine fremde E-Mail ausstellen. Deshalb
+gibt es ihn nur in der Entwicklung. Ohne bestätigte Adresse ist der Login
+gesperrt, das Konto bleibt also unbrauchbar liegen.
+
+Sobald `SMTP_*` gesetzt ist, funktioniert `/register` wie gewohnt — dann braucht
+es das Skript nur noch für das allererste Konto.
 
 ## 6. Updates einspielen
 

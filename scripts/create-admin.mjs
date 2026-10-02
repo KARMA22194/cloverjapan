@@ -1,13 +1,26 @@
 // Legt EIN Admin-Konto an (oder aktualisiert dessen Passwort/Namen).
 // Für die erste Anmeldung auf einer frischen Datenbank — ohne Demo-Seed.
 //
-// Aufruf (im Container), Werte über Env übergeben:
-//   docker compose run --rm \
-//     -e DATABASE_URL="<Neon-Pooled>" -e DIRECT_URL="<Neon-Direct>" \
+// ⚠️ **Auf einer Produktionsinstanz ohne SMTP ist das der EINZIGE Weg hinein.**
+// `/register` legt das Konto zwar an, kann die Bestätigungsmail aber nicht
+// versenden und antwortet dann mit 503 — der Verify-Link darf in Produktion
+// nicht in der Antwort stehen (er ist ein Berechtigungsnachweis). Ohne
+// bestätigte E-Mail ist der Login gesperrt.
+//
+// Self-Hosting (SELFHOST.md), im Projektverzeichnis auf dem Server:
+//   docker compose -f docker-compose.prod.yml --env-file .env.prod \
+//     run --rm --entrypoint node \
 //     -e ADMIN_EMAIL="du@example.com" \
 //     -e ADMIN_PASSWORD="dein-passwort" \
 //     -e ADMIN_NAME="Dein Name" \
+//     migrate scripts/create-admin.mjs
+//
+// Vercel/Neon, aus dem Dev-Container:
+//   docker compose run --rm \
+//     -e DATABASE_URL="<Neon-Pooled>" -e DIRECT_URL="<Neon-Direct>" \
+//     -e ADMIN_EMAIL="…" -e ADMIN_PASSWORD="…" -e ADMIN_NAME="…" \
 //     app node scripts/create-admin.mjs
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -23,7 +36,14 @@ function fail(msg) {
 if (!email || !email.includes("@")) fail("ADMIN_EMAIL fehlt oder ist ungültig.");
 if (password.length < 8) fail("ADMIN_PASSWORD muss mindestens 8 Zeichen haben.");
 
-const prisma = new PrismaClient();
+// ⚠️ Ab Prisma 7 ist ein Treiber-Adapter Pflicht — `new PrismaClient()` ohne
+// Argumente wirft sofort. Dieses Skript war seit der Umstellung unbenutzbar;
+// aufgefallen ist das erst, als es jemand wirklich brauchte (erste Anmeldung
+// auf einer frisch aufgesetzten Instanz). Dieselbe Falle wie beim Seed.
+if (!process.env.DATABASE_URL) fail("DATABASE_URL fehlt.");
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 1 }),
+});
 
 try {
   const passwordHash = await bcrypt.hash(password, 10);
@@ -33,7 +53,7 @@ try {
     create: { email, name, passwordHash, role: Role.ADMIN, active: true, emailVerified: new Date() },
   });
   console.log(`\n✅ Admin-Konto bereit: ${user.name} <${user.email}> (Rolle ADMIN).`);
-  console.log("   Login jetzt unter deiner Vercel-URL möglich.\n");
+  console.log("   Anmeldung jetzt unter APP_URL möglich.\n");
 } catch (err) {
   fail(`Anlegen fehlgeschlagen: ${err.message}`);
 } finally {
