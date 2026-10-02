@@ -1,8 +1,24 @@
 # Self-Hosting auf dem eigenen Homeserver (CasaOS)
 
 Anleitung, um **Clover Japan** auf einem CasaOS-Homeserver zu betreiben — mit
-lokaler Postgres-Datenbank und **Cloudflare Tunnel** für HTTPS (kein
-Port-Forwarding nötig).
+lokaler Postgres-Datenbank und einem **ausgehenden Tunnel** für HTTPS (kein
+Port-Forwarding nötig, funktioniert auch hinter CGNAT).
+
+Für den Tunnel gibt es zwei Wege; du wählst ihn beim Start über ein
+Compose-Profil:
+
+| | **Tailscale Funnel** (`--profile tailscale`) | **Cloudflare Tunnel** (`--profile cloudflare`) |
+|---|---|---|
+| Kosten | 0 € (Personal-Plan) | ~5–10 €/Jahr für die Domain |
+| Adresse | `clover.taileXXXX.ts.net` | `clover.deine-domain.de` |
+| Eigene Domain nötig | nein | **ja**, im Cloudflare-Konto |
+| Portabel | nein, hängt an Tailscale | ja, die Domain gehört dir |
+
+> ⚠️ **Die Adresse muss stabil sein — sie ist nicht bloß Kosmetik.** Sie steckt
+> in `WEBAUTHN_RP_ID`: ändert sie sich, sind alle Passkeys ungültig und alle
+> Push-Abos tot. Aus demselben Grund taugt Cloudflares *Quick Tunnel*
+> (`trycloudflare.com`) hier **nicht** — der vergibt bei jedem Neustart eine
+> neue Zufalls-URL.
 
 Der Stack besteht aus fünf Containern (`docker-compose.prod.yml`):
 
@@ -12,7 +28,8 @@ Der Stack besteht aus fünf Containern (`docker-compose.prod.yml`):
 | `migrate`    | One-Shot: wendet DB-Migrationen an, beendet sich danach         |
 | `app`        | Next.js-Produktions-Server (Standalone, Port 3000, intern)     |
 | `cron`       | ruft Flugstatus (15 min) und Aufräum-Job (täglich) auf          |
-| `cloudflared`| Cloudflare Tunnel → verbindet deine Domain mit `app:3000`       |
+| `tailscale`  | *(Profil `tailscale`)* Funnel → veröffentlicht `app:3000`        |
+| `cloudflared`| *(Profil `cloudflare`)* Tunnel → verbindet deine Domain mit `app:3000` |
 
 > **Die Postgres-Version muss zur Entwicklung passen** (`docker-compose.yml`,
 > dort ebenfalls 18). Hier stand lange 16, während Entwicklung und Neon schon
@@ -35,15 +52,48 @@ Der Stack besteht aus fünf Containern (`docker-compose.prod.yml`):
 
 ## 1. Voraussetzungen
 
-- Ein **Cloudflare-Konto** (kostenlos) und eine **Domain**, deren Nameserver auf
-  Cloudflare zeigen (eine Subdomain wie `clover.deine-domain.de` genügt).
+- Je nach Weg:
+  - **Tailscale:** ein kostenloses Tailscale-Konto. Sonst nichts.
+  - **Cloudflare:** ein Cloudflare-Konto **und** eine Domain, deren Nameserver
+    auf Cloudflare zeigen (eine Subdomain wie `clover.deine-domain.de` genügt).
 - Docker + Docker Compose (bei CasaOS vorhanden).
 - Das Repository auf dem Server, z. B.:
   ```bash
   git clone <REPO-URL> clover-japan && cd clover-japan
   ```
 
-## 2. Cloudflare Tunnel anlegen
+## 2a. Weg A — Tailscale Funnel
+
+**Drei Dinge in der Tailscale-Admin-Konsole**, alle einmalig:
+
+1. **HTTPS einschalten:** → **DNS** → Abschnitt *HTTPS Certificates* →
+   **Enable HTTPS**. Ohne das gibt es kein Zertifikat und der Funnel bleibt tot.
+
+2. **Funnel erlauben.** Das ist standardmäßig **aus** — ohne diesen Schritt
+   startet alles sauber, nur erreichbar ist nichts von außen. → **Access
+   Controls** → in der Policy ergänzen:
+
+   ```json
+   "nodeAttrs": [
+     { "target": ["autogroup:member"], "attr": ["funnel"] }
+   ]
+   ```
+
+3. **Auth-Key erzeugen:** → **Settings → Keys** → *Generate auth key*.
+   ⚠️ **„Ephemeral" NICHT ankreuzen.** Ein ephemerer Knoten verschwindet beim
+   Stoppen des Containers; beim nächsten Start entstünde ein neuer mit
+   angehängtem Zähler (`clover-1`) — also eine **andere Adresse**, und damit
+   sind alle Passkeys ungültig. Der Key wandert als `TS_AUTHKEY` in die
+   `.env.prod`.
+
+Deine Adresse lautet danach `https://<TS_HOSTNAME>.<dein-tailnet>.ts.net`, also
+z. B. `https://clover.taile1234.ts.net`. Den Tailnet-Namen zeigt die
+Admin-Konsole oben an; nach dem ersten Start steht die vollständige Adresse
+auch im Log des `tailscale`-Containers.
+
+---
+
+## 2b. Weg B — Cloudflare Tunnel
 
 1. Cloudflare-Dashboard → **Zero Trust** → **Networks → Tunnels** → **Create a tunnel**.
 2. Typ **Cloudflared** wählen, Namen vergeben (z. B. `clover`).
@@ -76,13 +126,17 @@ DIRECT_URL="postgresql://clover:…@db:5432/clover?schema=public"
 #   openssl rand -base64 32
 AUTH_SECRET="…"
 
-# deine öffentliche Adresse (überall gleich)
-APP_URL="https://clover.deine-domain.de"
-WEBAUTHN_RP_ID="clover.deine-domain.de"     # nur Hostname, ohne https://
-WEBAUTHN_ORIGIN="https://clover.deine-domain.de"
+# deine öffentliche Adresse (überall gleich, und sie muss STABIL bleiben)
+#   Weg A:  https://clover.taile1234.ts.net
+#   Weg B:  https://clover.deine-domain.de
+APP_URL="https://clover.taile1234.ts.net"
+WEBAUTHN_RP_ID="clover.taile1234.ts.net"      # nur Hostname, ohne https://
+WEBAUTHN_ORIGIN="https://clover.taile1234.ts.net"
 
-# Cloudflare-Tunnel-Token aus Schritt 2
-TUNNEL_TOKEN="…"
+# Nur den Block des gewählten Weges ausfüllen, der andere bleibt leer:
+TS_AUTHKEY="…"          # Weg A — Auth-Key aus Schritt 2a, NICHT ephemeral
+TS_HOSTNAME="clover"    # Weg A — ergibt clover.<tailnet>.ts.net
+TUNNEL_TOKEN=""         # Weg B — Token aus Schritt 2b
 
 # Web-Push-Schlüssel erzeugen:
 #   docker run --rm node:22-bookworm-slim npx --yes web-push generate-vapid-keys
@@ -102,17 +156,35 @@ Erklärung in `.env.prod.example`.
 
 ## 4. Starten
 
+**Das Profil muss mit angegeben werden** — ohne eines läuft der Stack nur im
+lokalen Netz, nach außen führt dann nichts.
+
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Weg A — Tailscale
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  --profile tailscale up -d --build
+
+# Weg B — Cloudflare
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  --profile cloudflare up -d --build
 ```
 
-Ablauf: `db` startet → `migrate` legt das Schema an → `app` startet →
-`cron` und `cloudflared` verbinden sich. Nach ~1–2 Minuten ist
-`https://clover.deine-domain.de` erreichbar.
+Ablauf: `db` startet → `migrate` legt das Schema an → `app` startet → `cron`
+und der Tunnel verbinden sich. Nach ~1–2 Minuten ist die Adresse erreichbar.
 
-Logs verfolgen:
+⚠️ **Dasselbe Profil bei jedem weiteren Befehl mitgeben** (`logs`, `down`,
+`up`). Ohne es sieht Compose den Tunnel-Container nicht und lässt ihn beim
+`down` stehen bzw. beim `up` aus.
+
+Logs verfolgen (Weg A; für Weg B `tailscale` durch `cloudflared` ersetzen):
 ```bash
-docker compose -f docker-compose.prod.yml logs -f app cron cloudflared
+docker compose -f docker-compose.prod.yml --profile tailscale logs -f app cron tailscale
+```
+
+Beim ersten Start meldet der `tailscale`-Container die vollständige Adresse —
+daran prüfst du, ob `APP_URL`/`WEBAUTHN_RP_ID` wirklich passen:
+```
+Success. ... is now available at https://clover.taile1234.ts.net/
 ```
 
 Der `cron`-Container protokolliert jeden Aufruf mit Antwortcode, z. B.:
@@ -186,8 +258,18 @@ direkt im Terminal ausführen.
 
 ### Fehlersuche
 
-- **502 / „not reachable" über die Domain:** prüfen, dass der Public-Hostname
-  im Tunnel auf `app:3000` (nicht `localhost`) zeigt und `cloudflared` läuft.
+- **Tailscale: Adresse nicht erreichbar, Container läuft aber.** Fast immer
+  einer der beiden Schalter aus Schritt 2a: *HTTPS Certificates* nicht
+  aktiviert, oder das `funnel`-Attribut fehlt in der Policy. Beides erzeugt
+  keinen Fehler beim Start — es passiert einfach nichts.
+- **Tailscale: die Adresse hat plötzlich eine Ziffer am Ende** (`clover-1`).
+  Dann war der Auth-Key ephemeral oder das Volume `tailscale-state` ist weg,
+  und der Knoten hat sich neu registriert. Den alten Knoten in der Admin-
+  Konsole löschen, Container neu starten — und beachten, dass zwischenzeitlich
+  registrierte Passkeys auf der neuen Adresse nicht mehr gelten.
+- **502 / „not reachable" über die Domain (Cloudflare):** prüfen, dass der
+  Public-Hostname im Tunnel auf `app:3000` (nicht `localhost`) zeigt und
+  `cloudflared` läuft.
 - **Passkeys/Push tun nichts:** `WEBAUTHN_RP_ID`/`_ORIGIN` und `APP_URL` müssen
   exakt zur aufgerufenen Domain passen; VAPID-Keys gesetzt.
 - **`migrate` schlägt fehl:** `DATABASE_URL`/`DIRECT_URL` und
