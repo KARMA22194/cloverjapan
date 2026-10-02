@@ -42,6 +42,11 @@ COPY prisma.config.ts ./
 # Bestätigungsmail nicht versenden und antwortet mit 503, und ohne bestätigte
 # Adresse ist der Login gesperrt.
 COPY scripts ./scripts
+# ⚠️ `prisma generate` ist hier Pflicht, obwohl `migrate deploy` ohne den
+# generierten Client auskommt. `scripts/create-admin.mjs` importiert ihn aber —
+# ohne Generierung ist `@prisma/client` nur ein CommonJS-Stub, und der Import
+# scheitert mit „Named export 'PrismaClient' not found".
+RUN npx prisma generate
 CMD ["sh", "-c", "\
   if [ -z \"$DIRECT_URL\" ]; then \
     echo 'FEHLER: DIRECT_URL ist nicht gesetzt.' >&2; \
