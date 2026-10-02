@@ -284,29 +284,83 @@ Neue Migrationen laufen dabei automatisch über den `migrate`-Container.
 
 ## 7. Backup der Datenbank
 
+Dafür gibt es **`scripts/backup-local.sh`**. Es erzeugt einen komprimierten
+Dump, prüft ihn und hält die letzten 14 Generationen vor.
+
 ```bash
-docker compose -f docker-compose.prod.yml exec -T db \
-  pg_dump -U clover -d clover --format=custom --no-owner --no-acl \
-  > clover-backup-$(date +%F).dump
+cd ~/clover-japan
+CLOVER_BACKUP_DIR=/mnt/usb/clover ./scripts/backup-local.sh
 ```
 
-⚠️ Die drei Schalter sind nicht schmückend:
-- **`--format=custom`** erlaubt es, einzelne Tabellen zurückzuholen statt nur
-  alles oder nichts.
-- **`--no-owner --no-acl`** lassen Rollennamen und GRANTs weg. Ohne sie bricht
-  das Zurückspielen in eine andere Datenbank an jedem GRANT ab — und genau
-  dorthin (in die lokale Entwicklungs-Datenbank) geht eine Sicherung im
-  Ernstfall zuerst.
-- **`exec -T`** verhindert, dass Docker ein TTY dazwischenschiebt und den Dump
-  mit CRLF unbrauchbar macht.
+### Auf eine externe Festplatte
 
-Zurückspielen:
+Zuerst herausfinden, wo die Platte eingehängt ist:
+
 ```bash
-docker compose -f docker-compose.prod.yml exec -T db \
-  pg_restore -U clover -d clover --clean --if-exists < clover-backup-JJJJ-MM-TT.dump
+lsblk -o NAME,SIZE,MOUNTPOINT,LABEL
 ```
 
----
+Dann **einmalig** im Zielverzeichnis eine Markierungsdatei anlegen — bei
+eingehängter Platte:
+
+```bash
+mkdir -p /mnt/usb/clover
+touch /mnt/usb/clover/.clover-backup-target
+```
+
+> ⚠️ **Diese Datei ist der wichtigste Teil der ganzen Einrichtung.** Ist die
+> Platte nicht eingehängt, existiert ihr Einhängepunkt trotzdem — als leeres
+> Verzeichnis auf der Systemplatte. Ohne die Prüfung schriebe die Sicherung
+> monatelang dorthin, meldete jedes Mal Erfolg, und im Ernstfall stünde man vor
+> einer leeren Platte. Die Markierung liegt **auf** der Platte: Ist sie weg, ist
+> die Platte weg, und das Skript bricht ab, statt ins Leere zu sichern.
+
+### Täglich laufen lassen
+
+```bash
+crontab -e
+```
+
+```cron
+30 3 * * * cd /root/clover-japan && CLOVER_BACKUP_DIR=/mnt/usb/clover ./scripts/backup-local.sh >> /var/log/clover-backup.log 2>&1
+```
+
+Danach gelegentlich `tail /var/log/clover-backup.log` ansehen — ein Backup, nach
+dem nie jemand schaut, ist eine Vermutung, keine Sicherung.
+
+### Was das Skript prüft
+
+- **Markierungsdatei** im Ziel (s. o.) und Schreibrechte.
+- Ob der `db`-Container überhaupt läuft.
+- Die Datei wird als `.partial` geschrieben und erst nach zwei Prüfungen
+  umbenannt: plausible Größe **und** `pg_restore --list` kann das
+  Inhaltsverzeichnis lesen. Eine abgebrochene Sicherung darf nicht als gültige
+  dastehen und beim Aufräumen eine echte verdrängen.
+- `--format=custom --no-owner --no-acl`: komprimiert, einzelne Tabellen
+  zurückholbar, und ohne Rollennamen/GRANTs — sonst bricht das Zurückspielen in
+  eine andere Datenbank ab, und genau dorthin geht eine Sicherung im Ernstfall
+  zuerst.
+
+### Zurückspielen
+
+```bash
+# Neue Datenbank daneben, dann prüfen — nicht blind über die laufende bügeln
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T db \
+  psql -U clover -c "CREATE DATABASE clover_restore;"
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T db \
+  pg_restore -U clover -d clover_restore --no-owner --no-acl < /mnt/usb/clover/cloverjapan_JJJJ-MM-TT_HHMM.dump
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T db \
+  psql -U clover -d clover_restore -c 'SELECT count(*) FROM "User";'
+```
+
+Sieht der Inhalt richtig aus, kann man die Anwendung über `DATABASE_URL`/
+`DIRECT_URL` auf `clover_restore` umstellen oder die alte Datenbank ersetzen.
+
+⚠️ **Eine Sicherung, die nie zurückgespielt wurde, ist nur eine Datei.** Probier
+den Weg einmal aus, solange nichts kaputt ist — dann weißt du im Ernstfall, dass
+er funktioniert, und musst es nicht unter Zeitdruck herausfinden.
 
 ### CasaOS-spezifisch
 
