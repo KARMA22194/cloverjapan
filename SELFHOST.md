@@ -69,15 +69,23 @@ Der Stack besteht aus fünf Containern (`docker-compose.prod.yml`):
 1. **HTTPS einschalten:** → **DNS** → Abschnitt *HTTPS Certificates* →
    **Enable HTTPS**. Ohne das gibt es kein Zertifikat und der Funnel bleibt tot.
 
-2. **Funnel erlauben.** Das ist standardmäßig **aus** — ohne diesen Schritt
-   startet alles sauber, nur erreichbar ist nichts von außen. → **Access
-   Controls** → in der Policy ergänzen:
+2. **Funnel erlauben** — meist schon erledigt. In der Standard-Policy neuer
+   Tailnets steht der Block bereits drin. → **Access controls** und nachsehen,
+   ob dort Folgendes steht (die Zeilen mit `//` davor sind nur Erklärtext):
 
    ```json
    "nodeAttrs": [
-     { "target": ["autogroup:member"], "attr": ["funnel"] }
+     { "target": ["autogroup:member"], "attr": ["funnel"] },
    ]
    ```
+
+   Nur falls er fehlt, ergänzen — und dann **in ein vorhandenes `nodeAttrs`
+   hinein**, nicht als zweiter Block gleichen Namens. Die Datei ist **HuJSON**:
+   Kommentare und ein Komma hinter dem letzten Eintrag sind erlaubt.
+
+   ⚠️ Fehlt das Attribut, startet trotzdem alles ohne Fehlermeldung — nur
+   erreichbar ist von außen nichts. Es gibt **keinen Funnel-Schalter** in der
+   Oberfläche; wer danach sucht, sucht vergeblich.
 
 3. **Auth-Key erzeugen:** → **Settings → Keys** → *Generate auth key*.
    ⚠️ **„Ephemeral" NICHT ankreuzen.** Ein ephemerer Knoten verschwindet beim
