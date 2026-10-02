@@ -180,9 +180,30 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod \
 Ablauf: `db` startet → `migrate` legt das Schema an → `app` startet → `cron`
 und der Tunnel verbinden sich. Nach ~1–2 Minuten ist die Adresse erreichbar.
 
-⚠️ **Dasselbe Profil bei jedem weiteren Befehl mitgeben** (`logs`, `down`,
-`up`). Ohne es sieht Compose den Tunnel-Container nicht und lässt ihn beim
-`down` stehen bzw. beim `up` aus.
+⚠️ **`-f`, `--env-file` und `--profile` gehören zu JEDEM Befehl**, nicht nur
+zu `up`. Compose wertet die Datei bei jedem Aufruf neu aus — ohne `--env-file`
+bricht schon ein `logs` mit
+
+```
+error while interpolating services.db.environment.POSTGRES_PASSWORD:
+required variable POSTGRES_PASSWORD is missing a value
+```
+
+ab (die Datei heißt `.env.prod`; automatisch gelesen würde nur `.env`). Und
+ohne `--profile` sieht Compose den Tunnel-Container nicht: `down` lässt ihn
+stehen, `up` startet ihn nicht.
+
+**Einfacher:** die drei Angaben einmal in die Shell setzen, dann genügt
+`docker compose <befehl>`:
+
+```bash
+export COMPOSE_FILE=docker-compose.prod.yml
+export COMPOSE_ENV_FILES=.env.prod
+export COMPOSE_PROFILES=tailscale        # bzw. cloudflare
+```
+
+Dauerhaft: die drei Zeilen ans Ende von `~/.bashrc`. Alle weiteren Befehle in
+dieser Anleitung lassen sich dann auf `docker compose …` verkürzen.
 
 Logs verfolgen (Weg A; für Weg B `tailscale` durch `cloudflared` ersetzen):
 ```bash
