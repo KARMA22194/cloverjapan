@@ -82,6 +82,15 @@ als Rollen ausgedrückt bräuchte jede Kombination eine eigene). (Die ursprüngl
   nur noch `provider`; die URL für `migrate`/`db`-Befehle steht in **`prisma.config.ts`**
   (dort `DIRECT_URL`), die Laufzeit liest `DATABASE_URL` selbst. Wer `directUrl` ins
   Schema zurückschreibt, bekommt einen Validierungsfehler.
+  ⚠️ **In `prisma.config.ts` steht `process.env.DIRECT_URL`, nicht Prismas
+  `env("DIRECT_URL")`.** `env()` löst die Variable beim **Laden** der Datei auf
+  und wirft, wenn sie fehlt — geladen wird sie aber bei **jedem** Prisma-Befehl,
+  auch bei `prisma generate`, das nur den Client aus dem Schema erzeugt und gar
+  keine Datenbank anfasst. Der Produktions-Docker-Build (`SELFHOST.md`) brach
+  daran ab: zur **Build**-Zeit gibt es keine Laufzeit-Umgebung. Auf Vercel und
+  im Dev-Container fiel es nie auf, weil die Variable dort ohnehin gesetzt ist —
+  ein Fehler, den erst der dritte Weg zeigt. Fehlt die URL, wo sie wirklich
+  gebraucht wird, meldet Prisma das weiterhin selbst („Connection url is empty").
   ⚠️ **Der Seed-Befehl steht in `prisma.config.ts` unter `migrations.seed`**, nicht
   mehr im `prisma.seed`-Feld der `package.json`. Prisma 7 liest den alten Ort nicht
   mehr — er wurde stillschweigend ignoriert, `prisma db seed` meldete „No seed

@@ -1,4 +1,4 @@
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 /**
  * Prisma-Konfiguration (ab Prisma 7 Pflicht für alles, was früher als
@@ -14,6 +14,18 @@ import { defineConfig, env } from "prisma/config";
  * sie die Projekt-Umgebung. Ein `dotenv`-Import ist nicht nötig, weil beide
  * Wege die Variablen schon in `process.env` haben (Compose `env_file` bzw.
  * Vercels Build-Umgebung).
+ *
+ * ⚠️ **Bewusst `process.env` statt Prismas `env()`.** `env()` löst die Variable
+ * beim **Laden** dieser Datei auf und wirft, wenn sie fehlt — und geladen wird
+ * sie bei **jedem** Prisma-Befehl, auch bei `prisma generate`, das nur den
+ * Client aus dem Schema erzeugt und keine Datenbank anfasst. Genau daran
+ * scheiterte der Produktions-Docker-Build (`SELFHOST.md`): zur **Build**-Zeit
+ * gibt es keine Laufzeit-Umgebung, `DIRECT_URL` ist dort weder vorhanden noch
+ * nötig. Auf Vercel und im Dev-Container fiel das nie auf, weil die Variable
+ * dort zufällig schon gesetzt ist — ein Fehler, den nur der dritte Weg zeigt.
+ *
+ * Fehlt die URL, wenn sie wirklich gebraucht wird (`migrate`, `db`), meldet das
+ * weiterhin Prisma selbst beim Verbindungsaufbau.
  */
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -26,5 +38,5 @@ export default defineConfig({
     // Wechsel auf Postgres 18 auf.
     seed: "tsx prisma/seed.ts",
   },
-  datasource: { url: env("DIRECT_URL") },
+  datasource: { url: process.env.DIRECT_URL ?? "" },
 });
